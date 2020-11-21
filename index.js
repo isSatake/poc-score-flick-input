@@ -1,2 +1,2 @@
 "use strict";
-alert("hello world from gh-pages");
+alert("hello world");
