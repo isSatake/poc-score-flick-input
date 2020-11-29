@@ -76,17 +76,56 @@ const drawLedgerLines = (ctx, topOfStaff, leftOfNoteHead, indexOfNote, scale) =>
         }
     }
 };
+const drawStem = (ctx, topOfStaff, leftOfNoteHead, indexOfNote, scale) => {
+    const heightOfB3 = topOfStaff + (HEIGHT_STAFF_BRAVURA * scale / 2);
+    const lineWidth = WIDTH_STEM * scale;
+    let left;
+    let top;
+    let bottom;
+    if (indexOfNote < 12) {
+        // B3より低い -> 上向き
+        left = leftOfNoteHead + WIDTH_NOTE_HEAD * scale - lineWidth + 1;
+        bottom = indexToY(topOfStaff, indexOfNote, scale) - 5;
+        if (indexOfNote < 5) {
+            // C3より低い -> topはB3
+            top = heightOfB3;
+        }
+        else {
+            top = indexToY(topOfStaff, indexOfNote + 7, scale);
+        }
+    }
+    else {
+        // 下向き
+        left = leftOfNoteHead + 2;
+        top = indexToY(topOfStaff, indexOfNote, scale);
+        if (indexOfNote > 17) {
+            // A4より高い -> bottomはB3
+            bottom = heightOfB3;
+        }
+        else {
+            bottom = indexToY(topOfStaff, indexOfNote - 7, scale);
+        }
+    }
+    ctx.strokeStyle = "#000";
+    ctx.lineWidth = lineWidth;
+    ctx.beginPath();
+    ctx.moveTo(left, top);
+    ctx.lineTo(left, bottom);
+    ctx.closePath();
+    ctx.stroke();
+};
 window.onload = () => {
     const canvasCtx = initCanvas().getContext("2d");
     if (canvasCtx == null)
         return;
-    const scale = 0.2;
+    const scale = 0.1;
     const marginHorizontal = 20;
     const topOfStaff = 500;
-    const indexOfNote = 5;
+    const indexOfNote = 14;
     const leftOfNoteHead = 250;
     drawStaff(canvasCtx, marginHorizontal, topOfStaff, window.innerWidth - marginHorizontal * 2, scale);
     drawGClef(canvasCtx, marginHorizontal + 30, topOfStaff, scale);
     drawNote(canvasCtx, topOfStaff, leftOfNoteHead, indexOfNote, scale);
     drawLedgerLines(canvasCtx, topOfStaff, leftOfNoteHead, indexOfNote, scale);
+    drawStem(canvasCtx, topOfStaff, leftOfNoteHead, indexOfNote, scale);
 };
