@@ -14,8 +14,6 @@ if (isWatch) {
   build({
     entryPoints: ["index.ts"],
     bundle: true,
-    minify: true,
-    sourcemap: true,
     watch: {
       onRebuild: (error, _) => {
         if (error) {
@@ -32,6 +30,8 @@ if (isWatch) {
   build({
     entryPoints: ["index.ts"],
     bundle: true,
+    minify: true,
+    sourcemap: true,
     outfile: "out.js"
   }).then(onSucceeded)
     .catch(onError)

@@ -1,1 +1,1 @@
-alert("hello world from gh-pages")
+alert("こんにちはこんにちは")
