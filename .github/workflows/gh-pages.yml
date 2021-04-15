@@ -19,7 +19,7 @@ jobs:
       - name: compile
         run: |
           npm i
-          npm run tsc
+          npm run prd
       - name: commit
         run: |
           git add .
