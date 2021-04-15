@@ -4,12 +4,13 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "tsc": "tsc"
+    "watch": "node tools/bundle.js -w",
+    "prd": "node tools/bundle.js"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
     "@tsconfig/recommended": "^1.0.1",
-    "typescript": "^4.1.2"
+    "esbuild": "^0.11.11"
   }
 }
