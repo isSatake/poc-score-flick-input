@@ -17,9 +17,19 @@ import {
 
 type Duration = 1 | 2 | 4 | 8 | 16 | 32
 
-interface Note {
-    pitch: number,
+interface Element {
     duration: Duration
+}
+
+type Note = Element & {
+    pitch: number
+}
+
+type Rest = Element
+
+const isNote = (x: any): x is Note => {
+    return "duration" in x && "pitch" in x // `Note`を渡したら勝手にtypeguard生成したいね
+    // typeやinterfaceを取って、そのフィールドをstringで列挙できればいいと思うのだが
 }
 
 const upFlagMap = new Map<Duration, FlagUp>([
@@ -219,7 +229,7 @@ window.onload = () => {
     const marginHorizontal = 20
     const topOfStaff = 500
     const leftOfNoteHead = 250
-    const notes: Note[] = [
+    const elements: (Note|Rest)[] = [
         {pitch: 17, duration: 1},
         {pitch: 21, duration: 2},
         {pitch: 5, duration: 4},
@@ -231,7 +241,10 @@ window.onload = () => {
     ]
     drawStaff(canvasCtx, marginHorizontal, topOfStaff, window.innerWidth - marginHorizontal * 2, scale)
     drawGClef(canvasCtx, marginHorizontal + 30, topOfStaff, scale)
-    for (let i in notes) {
-        drawNote(canvasCtx, topOfStaff, leftOfNoteHead * (parseInt(i) + 1), notes[i], scale)
+    for (let i in elements) {
+        const el = elements[i]
+        if (isNote(el)) {
+            drawNote(canvasCtx, topOfStaff, leftOfNoteHead * (parseInt(i) + 1), el, scale)
+        }
     }
 }
