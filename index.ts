@@ -1,13 +1,13 @@
 import {
     bFlag16Down,
     bFlag16Up, bFlag32Down, bFlag32Up, bFlag8Down,
-    bFlag8Up,
+    bFlag8Up, bRest1, bRest16, bRest2, bRest32, bRest4, bRest8,
     EXTENSION_LEDGER_LINE, FlagDown, FlagUp,
     HEIGHT_STAFF_BRAVURA,
     PATH2D_GCLEF,
     PATH2D_NOTE_HEAD,
     PATH2D_NOTE_HEAD_HALF,
-    PATH2D_NOTE_HEAD_WHOLE, UNIT,
+    PATH2D_NOTE_HEAD_WHOLE, RestPath, UNIT,
     WIDTH_NOTE_HEAD_BLACK,
     WIDTH_NOTE_HEAD_WHOLE,
     WIDTH_STAFF_LEDGER_LINE,
@@ -17,20 +17,18 @@ import {
 
 type Duration = 1 | 2 | 4 | 8 | 16 | 32
 
-interface Element {
+type Note = {
+    type: "note"
+    pitch: number
     duration: Duration
 }
 
-type Note = Element & {
-    pitch: number
+type Rest = {
+    type: "rest"
+    duration: Duration
 }
 
-type Rest = Element
-
-const isNote = (x: any): x is Note => {
-    return "duration" in x && "pitch" in x // `Note`を渡したら勝手にtypeguard生成したいね
-    // typeやinterfaceを取って、そのフィールドをstringで列挙できればいいと思うのだが
-}
+type Element = Note | Rest
 
 const upFlagMap = new Map<Duration, FlagUp>([
     [8, bFlag8Up],
@@ -42,6 +40,15 @@ const downFlagMap = new Map<Duration, FlagDown>([
     [8, bFlag8Down],
     [16, bFlag16Down],
     [32, bFlag32Down],
+])
+
+const restPathMap = new Map<Duration, RestPath>([
+    [1, bRest1],
+    [2, bRest2],
+    [4, bRest4],
+    [8, bRest8],
+    [16, bRest16],
+    [32, bRest32]
 ])
 
 const noteHeadByDuration = (duration: Duration): Path2D => {
@@ -69,14 +76,18 @@ const initCanvas = (): HTMLCanvasElement => {
     return canvas
 }
 
-const drawGClef = (ctx: CanvasRenderingContext2D, left: number, topOfStaff: number, scale: number) => {
-    const y = topOfStaff + (UNIT * scale) * 3
+const drawBravuraPath = (ctx: CanvasRenderingContext2D, left: number, top: number, scale: number, path: Path2D) => {
     ctx.save()
     ctx.rotate((Math.PI / 180) * 180) // もとのパスは回転している
-    ctx.translate(-left, -y) // 原点を五線上のGの高さに移動(回転しているため負の値)
+    ctx.translate(-left, -top) // 回転しているため負の値
     ctx.scale(-scale, scale) // もとのパスは五線の高さを1000としているのでスケールする
-    ctx.fill(PATH2D_GCLEF)
+    ctx.fill(path)
     ctx.restore()
+}
+
+const drawGClef = (ctx: CanvasRenderingContext2D, left: number, topOfStaff: number, scale: number) => {
+    const y = topOfStaff + (UNIT * scale) * 3 // 原点を五線上のGの高さに移動
+    drawBravuraPath(ctx, left, y, scale, PATH2D_GCLEF)
 }
 
 const drawStaff = (ctx: CanvasRenderingContext2D, left: number, top: number, width: number, scale: number) => {
@@ -106,13 +117,7 @@ const indexToY = (topOfStaff: number, index: number, scale: number): number => {
 const drawNoteHead = (ctx: CanvasRenderingContext2D, topOfStaff: number, left: number, note: Note, scale: number) => {
     const {pitch, duration} = note
     const top = indexToY(topOfStaff, pitch, scale)
-    ctx.save()
-    ctx.rotate((Math.PI / 180) * 180)
-    ctx.translate(-left, -top)
-    ctx.scale(-scale, scale)
-    ctx.fill(noteHeadByDuration(duration))
-    ctx.resetTransform()
-    ctx.restore()
+    drawBravuraPath(ctx, left, top, scale, noteHeadByDuration(duration))
 }
 
 const drawLedgerLine = (ctx: CanvasRenderingContext2D, top: number, leftOfNoteHead: number, note: Note, scale: number) => {
@@ -222,29 +227,47 @@ const drawNote = (ctx: CanvasRenderingContext2D, topOfStaff: number, leftOfNoteH
     drawStemAndFlags(ctx, topOfStaff, leftOfNoteHead, note, scale)
 }
 
+const drawRest = (ctx: CanvasRenderingContext2D, topOfStaff: number, leftOfRest: number, rest: Rest, scale: number) => {
+    const {path, top} = restPathMap.get(rest.duration)!
+    drawBravuraPath(ctx, leftOfRest, topOfStaff + (UNIT * top * scale), scale, path)
+}
+
 window.onload = () => {
     const canvasCtx = initCanvas().getContext("2d")
     if (canvasCtx == null) return
-    const scale = 0.1
+    const scale = 0.08
     const marginHorizontal = 20
-    const topOfStaff = 500
-    const leftOfNoteHead = 250
-    const elements: (Note|Rest)[] = [
-        {pitch: 17, duration: 1},
-        {pitch: 21, duration: 2},
-        {pitch: 5, duration: 4},
-        {pitch: 8, duration: 8},
-        {pitch: 10, duration: 16},
-        {pitch: 20, duration: 32},
-        {pitch: 0, duration: 32},
-        {pitch: 11, duration: 32}
+    const topOfStaff = 2000 * scale
+    const leftOfStaff = marginHorizontal
+    const leftOfClef = marginHorizontal + 500 * scale
+    const elementGap = 1000 * scale
+    const elements: Element[] = [
+        {type: "note", pitch: 17, duration: 1},
+        {type: "note", pitch: 21, duration: 2},
+        {type: "note", pitch: 5, duration: 4},
+        {type: "note", pitch: 8, duration: 8},
+        {type: "note", pitch: 10, duration: 16},
+        {type: "note", pitch: 20, duration: 32},
+        {type: "note", pitch: 0, duration: 32},
+        {type: "note", pitch: 11, duration: 32},
+        {type: "rest", duration: 1},
+        {type: "rest", duration: 2},
+        {type: "rest", duration: 4},
+        {type: "rest", duration: 8},
+        {type: "rest", duration: 16},
+        {type: "rest", duration: 32},
+        {type: "rest", duration: 32},
+        {type: "rest", duration: 32}
     ]
-    drawStaff(canvasCtx, marginHorizontal, topOfStaff, window.innerWidth - marginHorizontal * 2, scale)
-    drawGClef(canvasCtx, marginHorizontal + 30, topOfStaff, scale)
+    drawStaff(canvasCtx, leftOfStaff, topOfStaff, window.innerWidth - marginHorizontal * 2, scale)
+    drawGClef(canvasCtx, leftOfClef, topOfStaff, scale)
     for (let i in elements) {
         const el = elements[i]
-        if (isNote(el)) {
-            drawNote(canvasCtx, topOfStaff, leftOfNoteHead * (parseInt(i) + 1), el, scale)
+        const left = leftOfClef + elementGap * (parseInt(i) + 1)
+        if (el.type === "note") {
+            drawNote(canvasCtx, topOfStaff, left, el, scale)
+        } else {
+            drawRest(canvasCtx, topOfStaff, left, el, scale)
         }
     }
 }
