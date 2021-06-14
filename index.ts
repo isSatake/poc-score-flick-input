@@ -33,10 +33,16 @@ type Duration = 1 | 2 | 4 | 8 | 16 | 32;
 // C4 (middleC) = 0
 type Pitch = number;
 
+// 半音
+// -1: flat
+// 1: sharp
+type Alter = -1 | 1;
+
 type Note = {
   type: "note";
-  pitch: number;
+  pitch: Pitch;
   duration: Duration;
+  alter?: Alter;
 };
 
 type Rest = {
@@ -149,16 +155,17 @@ const pitchToY = (topOfStaff: number, pitch: Pitch, scale: number): number => {
   return c4y - pitch * halfOfNoteHeadHeight;
 };
 
-const drawNoteHead = (
-  ctx: CanvasRenderingContext2D,
-  topOfStaff: number,
-  left: number,
-  note: Note,
-  scale: number
-) => {
+const drawNoteHead = (params: DrawNoteParams) => {
+  const { ctx, leftOfNoteHead, topOfStaff, note, scale } = params;
   const { pitch, duration } = note;
   const top = pitchToY(topOfStaff, pitch, scale);
-  drawBravuraPath(ctx, left, top, scale, noteHeadByDuration(duration));
+  drawBravuraPath(
+    ctx,
+    leftOfNoteHead,
+    top,
+    scale,
+    noteHeadByDuration(duration)
+  );
 };
 
 const drawLedgerLine = (
@@ -184,13 +191,8 @@ const drawLedgerLine = (
   ctx.restore();
 };
 
-const drawLedgerLines = (
-  ctx: CanvasRenderingContext2D,
-  topOfStaff: number,
-  leftOfNoteHead: number,
-  note: Note,
-  scale: number
-) => {
+const drawLedgerLines = (params: DrawNoteParams) => {
+  const { ctx, note, scale, leftOfNoteHead, topOfStaff } = params;
   const { pitch } = note;
   if (pitch <= 0) {
     // 0=C4
@@ -217,13 +219,8 @@ const drawLedgerLines = (
   }
 };
 
-const drawStemAndFlags = (
-  ctx: CanvasRenderingContext2D,
-  topOfStaff: number,
-  leftOfNoteHead: number,
-  note: Note,
-  scale: number
-) => {
+const drawStemAndFlags = (params: DrawNoteParams) => {
+  const { ctx, topOfStaff, leftOfNoteHead, scale, note } = params;
   const { pitch, duration } = note;
   if (duration === 1) {
     return;
@@ -295,16 +292,20 @@ const drawStemAndFlags = (
   ctx.restore();
 };
 
-const drawNote = (
-  ctx: CanvasRenderingContext2D,
-  topOfStaff: number,
-  leftOfNoteHead: number,
-  note: Note,
-  scale: number
-) => {
-  drawNoteHead(ctx, topOfStaff, leftOfNoteHead, note, scale);
-  drawLedgerLines(ctx, topOfStaff, leftOfNoteHead, note, scale);
-  drawStemAndFlags(ctx, topOfStaff, leftOfNoteHead, note, scale);
+const drawAlter = (params: DrawNoteParams) => {};
+
+interface DrawNoteParams {
+  ctx: CanvasRenderingContext2D;
+  topOfStaff: number;
+  leftOfNoteHead: number;
+  note: Note;
+  scale: number;
+}
+
+const drawNote = (params: DrawNoteParams) => {
+  drawNoteHead(params);
+  drawLedgerLines(params);
+  drawStemAndFlags(params);
 };
 
 const drawRest = (
@@ -325,8 +326,8 @@ const drawRest = (
 };
 
 window.onload = () => {
-  const canvasCtx = initCanvas().getContext("2d");
-  if (canvasCtx == null) return;
+  const ctx = initCanvas().getContext("2d");
+  if (ctx == null) return;
   const scale = 0.08;
   const marginHorizontal = 20;
   const topOfStaff = 2000 * scale;
@@ -335,14 +336,14 @@ window.onload = () => {
   const elementGap = 1000 * scale;
   const elements: Element[] = [
     { type: "note", pitch: 0, duration: 1 },
-    { type: "note", pitch: 12, duration: 4 },
+    { type: "note", pitch: 7, duration: 4 },
     { type: "note", pitch: -1, duration: 8 },
     { type: "note", pitch: 13, duration: 4 },
     { type: "note", pitch: 0, duration: 4 },
     { type: "note", pitch: 1, duration: 4 },
     { type: "note", pitch: -2, duration: 4 },
-    { type: "note", pitch: 14, duration: 4 },
-    { type: "note", pitch: -6, duration: 4 },
+    { type: "note", pitch: 14, duration: 16 },
+    { type: "note", pitch: -6, duration: 32 },
     { type: "note", pitch: 20, duration: 4 },
     { type: "rest", duration: 1 },
     { type: "rest", duration: 2 },
@@ -354,20 +355,20 @@ window.onload = () => {
     { type: "rest", duration: 32 },
   ];
   drawStaff(
-    canvasCtx,
+    ctx,
     leftOfStaff,
     topOfStaff,
     window.innerWidth - marginHorizontal * 2,
     scale
   );
-  drawGClef(canvasCtx, leftOfClef, topOfStaff, scale);
+  drawGClef(ctx, leftOfClef, topOfStaff, scale);
   for (let i in elements) {
     const el = elements[i];
-    const left = leftOfClef + elementGap * (parseInt(i) + 1);
+    const leftOfNoteHead = leftOfClef + elementGap * (parseInt(i) + 1);
     if (el.type === "note") {
-      drawNote(canvasCtx, topOfStaff, left, el, scale);
+      drawNote({ ctx, topOfStaff, leftOfNoteHead, note: el, scale });
     } else {
-      drawRest(canvasCtx, topOfStaff, left, el, scale);
+      drawRest(ctx, topOfStaff, leftOfNoteHead, el, scale);
     }
   }
 };

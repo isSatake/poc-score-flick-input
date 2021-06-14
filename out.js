@@ -134,10 +134,11 @@
     const c4y = topOfStaff + UNIT * 4.5 * scale + halfOfNoteHeadHeight;
     return c4y - pitch * halfOfNoteHeadHeight;
   };
-  var drawNoteHead = (ctx, topOfStaff, left, note, scale) => {
+  var drawNoteHead = (params) => {
+    const {ctx, leftOfNoteHead, topOfStaff, note, scale} = params;
     const {pitch, duration} = note;
     const top = pitchToY(topOfStaff, pitch, scale);
-    drawBravuraPath(ctx, left, top, scale, noteHeadByDuration(duration));
+    drawBravuraPath(ctx, leftOfNoteHead, top, scale, noteHeadByDuration(duration));
   };
   var drawLedgerLine = (ctx, top, leftOfNoteHead, note, scale) => {
     const extension = noteHeadWidth(note.duration) * EXTENSION_LEDGER_LINE * scale;
@@ -153,7 +154,8 @@
     ctx.stroke();
     ctx.restore();
   };
-  var drawLedgerLines = (ctx, topOfStaff, leftOfNoteHead, note, scale) => {
+  var drawLedgerLines = (params) => {
+    const {ctx, note, scale, leftOfNoteHead, topOfStaff} = params;
     const {pitch} = note;
     if (pitch <= 0) {
       for (let i = 0; i >= pitch; i -= 2) {
@@ -165,7 +167,8 @@
       }
     }
   };
-  var drawStemAndFlags = (ctx, topOfStaff, leftOfNoteHead, note, scale) => {
+  var drawStemAndFlags = (params) => {
+    const {ctx, topOfStaff, leftOfNoteHead, scale, note} = params;
     const {pitch, duration} = note;
     if (duration === 1) {
       return;
@@ -222,18 +225,18 @@
     ctx.stroke();
     ctx.restore();
   };
-  var drawNote = (ctx, topOfStaff, leftOfNoteHead, note, scale) => {
-    drawNoteHead(ctx, topOfStaff, leftOfNoteHead, note, scale);
-    drawLedgerLines(ctx, topOfStaff, leftOfNoteHead, note, scale);
-    drawStemAndFlags(ctx, topOfStaff, leftOfNoteHead, note, scale);
+  var drawNote = (params) => {
+    drawNoteHead(params);
+    drawLedgerLines(params);
+    drawStemAndFlags(params);
   };
   var drawRest = (ctx, topOfStaff, leftOfRest, rest, scale) => {
     const {path, top} = restPathMap.get(rest.duration);
     drawBravuraPath(ctx, leftOfRest, topOfStaff + UNIT * top * scale, scale, path);
   };
   window.onload = () => {
-    const canvasCtx = initCanvas().getContext("2d");
-    if (canvasCtx == null)
+    const ctx = initCanvas().getContext("2d");
+    if (ctx == null)
       return;
     const scale = 0.08;
     const marginHorizontal = 20;
@@ -243,14 +246,14 @@
     const elementGap = 1e3 * scale;
     const elements = [
       {type: "note", pitch: 0, duration: 1},
-      {type: "note", pitch: 12, duration: 4},
+      {type: "note", pitch: 7, duration: 4},
       {type: "note", pitch: -1, duration: 8},
       {type: "note", pitch: 13, duration: 4},
       {type: "note", pitch: 0, duration: 4},
       {type: "note", pitch: 1, duration: 4},
       {type: "note", pitch: -2, duration: 4},
-      {type: "note", pitch: 14, duration: 4},
-      {type: "note", pitch: -6, duration: 4},
+      {type: "note", pitch: 14, duration: 16},
+      {type: "note", pitch: -6, duration: 32},
       {type: "note", pitch: 20, duration: 4},
       {type: "rest", duration: 1},
       {type: "rest", duration: 2},
@@ -261,15 +264,15 @@
       {type: "rest", duration: 32},
       {type: "rest", duration: 32}
     ];
-    drawStaff(canvasCtx, leftOfStaff, topOfStaff, window.innerWidth - marginHorizontal * 2, scale);
-    drawGClef(canvasCtx, leftOfClef, topOfStaff, scale);
+    drawStaff(ctx, leftOfStaff, topOfStaff, window.innerWidth - marginHorizontal * 2, scale);
+    drawGClef(ctx, leftOfClef, topOfStaff, scale);
     for (let i in elements) {
       const el = elements[i];
-      const left = leftOfClef + elementGap * (parseInt(i) + 1);
+      const leftOfNoteHead = leftOfClef + elementGap * (parseInt(i) + 1);
       if (el.type === "note") {
-        drawNote(canvasCtx, topOfStaff, left, el, scale);
+        drawNote({ctx, topOfStaff, leftOfNoteHead, note: el, scale});
       } else {
-        drawRest(canvasCtx, topOfStaff, left, el, scale);
+        drawRest(ctx, topOfStaff, leftOfNoteHead, el, scale);
       }
     }
   };
