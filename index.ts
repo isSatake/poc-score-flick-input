@@ -1,4 +1,7 @@
 import {
+  bAccidentalFlat,
+  bAccidentalNatural,
+  bAccidentalSharp,
   bFlag16Down,
   bFlag16Up,
   bFlag32Down,
@@ -15,6 +18,7 @@ import {
   FlagDown,
   FlagUp,
   HEIGHT_STAFF_BRAVURA,
+  Path,
   PATH2D_GCLEF,
   PATH2D_NOTE_HEAD,
   PATH2D_NOTE_HEAD_HALF,
@@ -33,16 +37,14 @@ type Duration = 1 | 2 | 4 | 8 | 16 | 32;
 // C4 (middleC) = 0
 type Pitch = number;
 
-// 半音
-// -1: flat
-// 1: sharp
-type Alter = -1 | 1;
+// 臨時記号の表記
+type Accidental = "sharp" | "natural" | "flat";
 
 type Note = {
   type: "note";
   pitch: Pitch;
   duration: Duration;
-  alter?: Alter;
+  accidental?: Accidental;
 };
 
 type Rest = {
@@ -71,6 +73,12 @@ const restPathMap = new Map<Duration, RestPath>([
   [8, bRest8],
   [16, bRest16],
   [32, bRest32],
+]);
+
+const accidentalPathMap = new Map<Accidental, Path>([
+  ["sharp", bAccidentalSharp],
+  ["natural", bAccidentalNatural],
+  ["flat", bAccidentalFlat],
 ]);
 
 const noteHeadByDuration = (duration: Duration): Path2D => {
@@ -292,7 +300,24 @@ const drawStemAndFlags = (params: DrawNoteParams) => {
   ctx.restore();
 };
 
-const drawAlter = (params: DrawNoteParams) => {};
+const drawAccidental = (params: DrawNoteParams) => {
+  const { ctx, leftOfNoteHead, topOfStaff, note, scale } = params;
+  const { pitch, accidental } = note;
+  if (!accidental) {
+    return;
+  }
+  const top = pitchToY(topOfStaff, pitch, scale);
+  const { path, bbox } = accidentalPathMap.get(accidental)!;
+  const width = bbox.ne.x * UNIT;
+  const gap = UNIT / 3;
+  drawBravuraPath(
+    ctx,
+    leftOfNoteHead - (width + gap) * scale,
+    top,
+    scale,
+    path
+  );
+};
 
 interface DrawNoteParams {
   ctx: CanvasRenderingContext2D;
@@ -306,6 +331,7 @@ const drawNote = (params: DrawNoteParams) => {
   drawNoteHead(params);
   drawLedgerLines(params);
   drawStemAndFlags(params);
+  drawAccidental(params);
 };
 
 const drawRest = (
@@ -336,13 +362,13 @@ window.onload = () => {
   const elementGap = 1000 * scale;
   const elements: Element[] = [
     { type: "note", pitch: 0, duration: 1 },
-    { type: "note", pitch: 7, duration: 4 },
-    { type: "note", pitch: -1, duration: 8 },
+    { type: "note", pitch: 7, duration: 4, accidental: "sharp" },
+    { type: "note", pitch: -1, duration: 8, accidental: "flat" },
     { type: "note", pitch: 13, duration: 4 },
     { type: "note", pitch: 0, duration: 4 },
-    { type: "note", pitch: 1, duration: 4 },
+    { type: "note", pitch: 1, duration: 4, accidental: "natural" },
     { type: "note", pitch: -2, duration: 4 },
-    { type: "note", pitch: 14, duration: 16 },
+    { type: "note", pitch: 14, duration: 16, accidental: "sharp" },
     { type: "note", pitch: -6, duration: 32 },
     { type: "note", pitch: 20, duration: 4 },
     { type: "rest", duration: 1 },
