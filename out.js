@@ -172,6 +172,7 @@
   var drawGClef = (ctx, left, topOfStaff, scale) => {
     const y = topOfStaff + UNIT * scale * 3;
     drawBravuraPath(ctx, left, y, scale, bClefG);
+    return calcSection(left, scale, bClefG);
   };
   var drawStaff = (ctx, left, top, width, scale) => {
     const heightHead = UNIT * scale;
@@ -198,17 +199,18 @@
     return {start, end: start + width};
   };
   var drawNoteHead = (params) => {
-    const {ctx, leftOfNoteHead, topOfStaff, note, scale} = params;
+    const {ctx, left, topOfStaff, note, scale} = params;
     const {pitch, duration} = note;
     const top = pitchToY(topOfStaff, pitch, scale);
     const path = noteHeadByDuration(duration);
-    drawBravuraPath(ctx, leftOfNoteHead, top, scale, path);
-    return calcSection(leftOfNoteHead, scale, path);
+    drawBravuraPath(ctx, left, top, scale, path);
+    return calcSection(left, scale, path);
   };
-  var drawLedgerLine = (ctx, top, leftOfNoteHead, note, scale) => {
-    const extension = noteHeadWidth(note.duration) * EXTENSION_LEDGER_LINE * scale;
-    const start = leftOfNoteHead - extension;
-    const end = start + noteHeadWidth(note.duration) * scale + extension * 2;
+  var ledgerLineExtension = (duration, scale) => {
+    return noteHeadWidth(duration) * EXTENSION_LEDGER_LINE * scale;
+  };
+  var drawLedgerLine = (ctx, top, start, note, scale) => {
+    const end = start + noteHeadWidth(note.duration) * scale + ledgerLineExtension(note.duration, scale) * 2;
     ctx.save();
     ctx.strokeStyle = "#000";
     ctx.lineWidth = bLedgerLineWidth * scale;
@@ -221,22 +223,22 @@
     return {start, end};
   };
   var drawLedgerLines = (params) => {
-    const {ctx, note, scale, leftOfNoteHead, topOfStaff} = params;
+    const {ctx, note, scale, left, topOfStaff} = params;
     const {pitch} = note;
     let section;
     if (pitch <= 0) {
       for (let i = 0; i >= pitch; i -= 2) {
-        section = drawLedgerLine(ctx, pitchToY(topOfStaff, i, scale), leftOfNoteHead, note, scale);
+        section = drawLedgerLine(ctx, pitchToY(topOfStaff, i, scale), left, note, scale);
       }
     } else if (pitch >= 12) {
       for (let i = 12; i < pitch + 1; i += 2) {
-        section = drawLedgerLine(ctx, pitchToY(topOfStaff, i, scale), leftOfNoteHead, note, scale);
+        section = drawLedgerLine(ctx, pitchToY(topOfStaff, i, scale), left, note, scale);
       }
     }
     return section;
   };
   var drawStemAndFlags = (params) => {
-    const {ctx, topOfStaff, leftOfNoteHead, scale, note} = params;
+    const {ctx, topOfStaff, left, scale, note} = params;
     const {pitch, duration} = note;
     if (duration === 1) {
       return;
@@ -248,7 +250,7 @@
     let bottom;
     let drawnSection;
     if (pitch < 6) {
-      stemCenter = leftOfNoteHead + WIDTH_NOTE_HEAD_BLACK * scale - lineWidth / 2;
+      stemCenter = left + WIDTH_NOTE_HEAD_BLACK * scale - lineWidth / 2;
       bottom = pitchToY(topOfStaff, pitch, scale) - 5;
       if (pitch < 0) {
         top = heightOfB3;
@@ -259,10 +261,10 @@
       const path = upFlagMap.get(duration);
       if (path) {
         drawBravuraPath(ctx, stemCenter - lineWidth / 2 + UNIT * path.stemUpNW.x * scale, top + UNIT * path.stemUpNW.y * scale, scale, path);
-        drawnSection = calcSection(leftOfNoteHead, scale, path);
+        drawnSection = calcSection(left, scale, path);
       }
     } else {
-      stemCenter = leftOfNoteHead + lineWidth / 2;
+      stemCenter = left + lineWidth / 2;
       top = pitchToY(topOfStaff, pitch, scale);
       if (pitch > 12) {
         bottom = heightOfB3;
@@ -273,7 +275,7 @@
       const path = downFlagMap.get(duration);
       if (path) {
         drawBravuraPath(ctx, stemCenter - lineWidth / 2 + UNIT * path.stemDownSW.x * scale, bottom + UNIT * path.stemDownSW.y * scale, scale, path);
-        drawnSection = calcSection(leftOfNoteHead, scale, path);
+        drawnSection = calcSection(left, scale, path);
       }
     }
     ctx.save();
@@ -288,67 +290,51 @@
     if (drawnSection) {
       return drawnSection;
     } else {
-      return {start: leftOfNoteHead, end: leftOfNoteHead + lineWidth};
+      return {start: left, end: left + lineWidth};
     }
   };
   var drawAccidental = (params) => {
-    const {ctx, leftOfNoteHead, topOfStaff, note, scale} = params;
+    const {ctx, left, topOfStaff, note, scale} = params;
     const {pitch, accidental} = note;
     if (!accidental) {
       return;
     }
     const top = pitchToY(topOfStaff, pitch, scale);
     const path = accidentalPathMap.get(accidental);
-    const width = path.bbox.ne.x * UNIT;
-    const gap = UNIT / 3;
-    const left = leftOfNoteHead - (width + gap) * scale;
     drawBravuraPath(ctx, left, top, scale, path);
     return calcSection(left, scale, path);
   };
   var drawNote = (params) => {
-    const arr = [
-      drawNoteHead(params),
-      drawLedgerLines(params),
-      drawStemAndFlags(params),
-      drawAccidental(params)
-    ];
-    let startX = void 0;
-    let endX = void 0;
-    arr.forEach((section, i) => {
-      if (!section) {
-        return;
-      }
-      const {start, end} = section;
-      if (startX === void 0 || endX === void 0) {
-        startX = start;
-        endX = end;
-      } else {
-        if (startX > start) {
-          startX = start;
-        }
-        if (end > endX) {
-          endX = end;
-        }
-      }
-    });
-    return endX - startX;
+    const arr = [];
+    arr.push(drawAccidental(params));
+    const leftOfLedgerLine = arr[0]?.end ?? params.left;
+    arr.push(drawLedgerLines({...params, left: leftOfLedgerLine}));
+    let leftOfNoteHead = params.left;
+    if (arr[1]?.start) {
+      leftOfNoteHead = arr[1].start + ledgerLineExtension(params.note.duration, params.scale);
+    } else if (arr[0]?.end) {
+      leftOfNoteHead = arr[0]?.end + 10;
+    }
+    arr.push(drawNoteHead({...params, left: leftOfNoteHead}));
+    arr.push(drawStemAndFlags({...params, left: leftOfNoteHead}));
+    const start = Math.min(...arr.map((section) => section?.start ?? params.left));
+    const end = Math.max(...arr.map((section) => section?.end ?? params.left));
+    return {start, end};
   };
   var drawRest = (ctx, topOfStaff, leftOfRest, rest, scale) => {
     const path = restPathMap.get(rest.duration);
     drawBravuraPath(ctx, leftOfRest, topOfStaff + UNIT * path.top * scale, scale, path);
-    const {start, end} = calcSection(leftOfRest, scale, path);
-    return end - start;
+    return calcSection(leftOfRest, scale, path);
   };
   window.onload = () => {
     const ctx = initCanvas().getContext("2d");
     if (ctx == null)
       return;
     const scale = 0.08;
-    const marginHorizontal = 20;
+    const staffPaddingLeft = 20;
     const topOfStaff = 2e3 * scale;
-    const leftOfStaff = marginHorizontal;
-    const leftOfClef = marginHorizontal + 500 * scale;
-    const elementGap = 1e3 * scale;
+    const leftOfStaff = staffPaddingLeft;
+    const elementGap = UNIT * 2 * scale;
     const elements = [
       {type: "note", pitch: 10, duration: 1},
       {type: "note", pitch: 7, duration: 4, accidental: "sharp"},
@@ -369,35 +355,23 @@
       {type: "rest", duration: 32},
       {type: "rest", duration: 32}
     ];
-    drawStaff(ctx, leftOfStaff, topOfStaff, window.innerWidth - marginHorizontal * 2, scale);
-    drawGClef(ctx, leftOfClef, topOfStaff, scale);
+    drawStaff(ctx, leftOfStaff, topOfStaff, window.innerWidth - staffPaddingLeft * 2, scale);
+    let cursor = staffPaddingLeft + elementGap;
+    cursor = drawGClef(ctx, cursor, topOfStaff, scale).end;
     for (let i in elements) {
       const el = elements[i];
-      const leftOfNoteHead = leftOfClef + elementGap * (parseInt(i) + 1);
-      ctx.save();
-      ctx.strokeStyle = "#000";
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(leftOfNoteHead, topOfStaff);
-      ctx.lineTo(leftOfNoteHead, bStaffHeight * scale);
-      ctx.closePath();
-      ctx.stroke();
-      ctx.restore();
-      let width;
+      const left = cursor + elementGap;
       if (el.type === "note") {
-        width = drawNote({ctx, topOfStaff, leftOfNoteHead, note: el, scale});
+        cursor = drawNote({
+          ctx,
+          topOfStaff,
+          left,
+          note: el,
+          scale
+        }).end;
       } else {
-        width = drawRest(ctx, topOfStaff, leftOfNoteHead, el, scale);
+        cursor = drawRest(ctx, topOfStaff, left, el, scale).end;
       }
-      ctx.save();
-      ctx.strokeStyle = "#FF0000";
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(leftOfNoteHead + width, topOfStaff);
-      ctx.lineTo(leftOfNoteHead + width, bStaffHeight * scale);
-      ctx.closePath();
-      ctx.stroke();
-      ctx.restore();
     }
   };
 })();
