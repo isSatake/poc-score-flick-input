@@ -187,8 +187,8 @@ const drawNoteHead = (params: DrawNoteParams): DrawnSection => {
 };
 
 // note headからはみ出る長さ(片方)
-const ledgerLineExtension = (duration: Duration, scale: number): number => {
-  return noteHeadWidth(duration) * EXTENSION_LEDGER_LINE * scale;
+const ledgerLineExtension = (scale: number): number => {
+  return UNIT * EXTENSION_LEDGER_LINE * scale;
 };
 
 const drawLedgerLine = (
@@ -201,7 +201,7 @@ const drawLedgerLine = (
   const end =
     start +
     noteHeadWidth(note.duration) * scale +
-    ledgerLineExtension(note.duration, scale) * 2;
+    ledgerLineExtension(scale) * 2;
   ctx.save();
   ctx.strokeStyle = "#000";
   ctx.lineWidth = bLedgerLineWidth * scale;
@@ -342,21 +342,27 @@ interface DrawNoteParams {
   scale: number;
 }
 
+const gapWithAccidental = (scale: number): number => {
+  return (UNIT / 4) * scale; // 勘
+};
+
 /**
  * 音符描画
- * @param params: DrawNoteParams
  */
 const drawNote = (params: DrawNoteParams): DrawnSection => {
+  const { scale, left } = params;
   const arr: (DrawnSection | undefined)[] = [];
   arr.push(drawAccidental(params));
-  const leftOfLedgerLine = arr[0]?.end ?? params.left;
+  let leftOfLedgerLine = left;
+  if (arr[0]?.end) {
+    leftOfLedgerLine = arr[0]?.end + gapWithAccidental(scale);
+  }
   arr.push(drawLedgerLines({ ...params, left: leftOfLedgerLine }));
-  let leftOfNoteHead = params.left;
+  let leftOfNoteHead = left;
   if (arr[1]?.start) {
-    leftOfNoteHead =
-      arr[1].start + ledgerLineExtension(params.note.duration, params.scale);
+    leftOfNoteHead = arr[1].start + ledgerLineExtension(scale);
   } else if (arr[0]?.end) {
-    leftOfNoteHead = arr[0]?.end + 10;
+    leftOfNoteHead = arr[0]?.end + gapWithAccidental(scale) * 2;
   }
   arr.push(drawNoteHead({ ...params, left: leftOfNoteHead }));
   arr.push(drawStemAndFlags({ ...params, left: leftOfNoteHead }));
