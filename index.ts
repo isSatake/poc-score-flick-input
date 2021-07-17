@@ -104,10 +104,10 @@ const noteHeadWidth = (duration: Duration): number => {
   return WIDTH_NOTE_HEAD_BLACK;
 };
 
-const initCanvas = (): HTMLCanvasElement => {
+const initCanvas = (width: number, height: number): HTMLCanvasElement => {
   const canvas = document.getElementById("canvas") as HTMLCanvasElement;
-  canvas.width = window.innerWidth;
-  canvas.height = window.innerHeight;
+  canvas.width = width;
+  canvas.height = height;
   return canvas;
 };
 
@@ -425,47 +425,24 @@ const drawBarline = (
   };
 };
 
-window.onload = () => {
-  const ctx = initCanvas().getContext("2d");
-  if (ctx == null) return;
+const draw = (ctx: CanvasRenderingContext2D, elements: Element[]) => {
   const scale = 0.08;
   const staffPaddingLeft = 20;
   const topOfStaff = 2000 * scale;
-  const leftOfStaff = staffPaddingLeft;
   const elementGap = UNIT * 2 * scale;
-  const elements: Element[] = [
-    { type: "note", pitch: 10, duration: 1 },
-    { type: "bar" },
-    { type: "note", pitch: 7, duration: 8, accidental: "sharp" },
-    { type: "note", pitch: -1, duration: 8, accidental: "flat" },
-    { type: "note", pitch: 13, duration: 4 },
-    { type: "note", pitch: 0, duration: 4 },
-    { type: "note", pitch: 1, duration: 4, accidental: "natural" },
-    { type: "bar" },
-    { type: "note", pitch: -2, duration: 16 },
-    { type: "note", pitch: 14, duration: 32, accidental: "sharp" },
-    { type: "note", pitch: -6, duration: 32 },
-    { type: "note", pitch: 20, duration: 8 },
-    { type: "rest", duration: 4 },
-    { type: "rest", duration: 2 },
-    { type: "bar" },
-    { type: "rest", duration: 4 },
-    { type: "rest", duration: 8 },
-    { type: "rest", duration: 16 },
-    { type: "rest", duration: 16 },
-    { type: "rest", duration: 4 },
-    { type: "rest", duration: 4 },
-    { type: "bar" },
-  ];
+  ctx.clearRect(0, 0, innerWidth, innerHeight * 0.2);
   drawStaff(
     ctx,
-    leftOfStaff,
+    staffPaddingLeft,
     topOfStaff,
     window.innerWidth - staffPaddingLeft * 2,
     scale
   );
   let cursor = staffPaddingLeft + elementGap;
   cursor = drawGClef(ctx, cursor, topOfStaff, scale).end;
+  if (elements.length === 0) {
+    return;
+  }
   for (let i in elements) {
     const el = elements[i];
     const left = cursor + elementGap;
@@ -487,4 +464,46 @@ window.onload = () => {
         break;
     }
   }
+};
+
+const els: Element[] = [];
+const elements: Element[] = [
+  { type: "note", pitch: 10, duration: 1 },
+  { type: "bar" },
+  { type: "note", pitch: 7, duration: 8, accidental: "sharp" },
+  { type: "note", pitch: -1, duration: 8, accidental: "flat" },
+  { type: "note", pitch: 13, duration: 4 },
+  { type: "note", pitch: 0, duration: 4 },
+  { type: "note", pitch: 1, duration: 4, accidental: "natural" },
+  { type: "bar" },
+  { type: "note", pitch: -2, duration: 16 },
+  { type: "note", pitch: 14, duration: 32, accidental: "sharp" },
+  { type: "note", pitch: -6, duration: 32 },
+  { type: "note", pitch: 20, duration: 8 },
+  { type: "rest", duration: 4 },
+  { type: "rest", duration: 2 },
+  { type: "bar" },
+  { type: "rest", duration: 4 },
+  { type: "rest", duration: 8 },
+  { type: "rest", duration: 16 },
+  { type: "rest", duration: 16 },
+  { type: "rest", duration: 4 },
+  { type: "rest", duration: 4 },
+  { type: "bar" },
+];
+
+window.onload = () => {
+  const ctx = initCanvas(
+    window.innerWidth,
+    window.innerHeight * 0.2
+  ).getContext("2d");
+  if (ctx == null) return;
+  let i = 0;
+  const int = setInterval(() => {
+    els.push(elements[i++]);
+    draw(ctx, els);
+    if (i === elements.length) {
+      clearInterval(int);
+    }
+  }, 500);
 };
