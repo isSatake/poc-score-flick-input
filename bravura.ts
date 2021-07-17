@@ -10,6 +10,7 @@ export const bStemWidth = 30; // 1000 / 4 * 0.12
 export const WIDTH_NOTE_HEAD_BLACK = 295; // 1000 / 4 * 1.18
 export const WIDTH_NOTE_HEAD_WHOLE = 422; // 1000 / 4 * 1.688
 export const EXTENSION_LEDGER_LINE = 0.2;
+export const bThinBarlineThickness = 0.16; // e.g. a normal barline, or each of the lines of a double barline
 
 // 1 = UNIT
 type Point = {
