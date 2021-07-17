@@ -30,6 +30,7 @@ import {
   bLedgerLineWidth,
   bStaffLineWidth,
   bStemWidth,
+  bThinBarlineThickness,
 } from "./bravura";
 
 type Duration = 1 | 2 | 4 | 8 | 16 | 32;
@@ -52,7 +53,11 @@ type Rest = {
   duration: Duration;
 };
 
-type Element = Note | Rest;
+type Bar = {
+  type: "bar";
+};
+
+type Element = Note | Rest | Bar;
 
 const upFlagMap = new Map<Duration, FlagUp>([
   [8, bFlag8Up],
@@ -375,7 +380,6 @@ const drawNote = (params: DrawNoteParams): DrawnSection => {
 
 /**
  * 休符描画
- * @returns 描画に使った幅
  */
 const drawRest = (
   ctx: CanvasRenderingContext2D,
@@ -395,6 +399,32 @@ const drawRest = (
   return calcSection(leftOfRest, scale, path);
 };
 
+/**
+ * 小節線描画
+ */
+const drawBarline = (
+  ctx: CanvasRenderingContext2D,
+  topOfStaff: number,
+  left: number,
+  scale: number
+): DrawnSection => {
+  const width = UNIT * bThinBarlineThickness * scale;
+  const center = left + width / 2;
+  ctx.save();
+  ctx.strokeStyle = "#000";
+  ctx.lineWidth = width;
+  ctx.beginPath();
+  ctx.moveTo(center, topOfStaff);
+  ctx.lineTo(center, topOfStaff + bStaffHeight * scale);
+  ctx.closePath();
+  ctx.stroke();
+  ctx.restore();
+  return {
+    start: left,
+    end: left + width,
+  };
+};
+
 window.onload = () => {
   const ctx = initCanvas().getContext("2d");
   if (ctx == null) return;
@@ -405,23 +435,27 @@ window.onload = () => {
   const elementGap = UNIT * 2 * scale;
   const elements: Element[] = [
     { type: "note", pitch: 10, duration: 1 },
-    { type: "note", pitch: 7, duration: 4, accidental: "sharp" },
+    { type: "bar" },
+    { type: "note", pitch: 7, duration: 8, accidental: "sharp" },
     { type: "note", pitch: -1, duration: 8, accidental: "flat" },
     { type: "note", pitch: 13, duration: 4 },
     { type: "note", pitch: 0, duration: 4 },
     { type: "note", pitch: 1, duration: 4, accidental: "natural" },
-    { type: "note", pitch: -2, duration: 4 },
-    { type: "note", pitch: 14, duration: 16, accidental: "sharp" },
+    { type: "bar" },
+    { type: "note", pitch: -2, duration: 16 },
+    { type: "note", pitch: 14, duration: 32, accidental: "sharp" },
     { type: "note", pitch: -6, duration: 32 },
-    { type: "note", pitch: 20, duration: 4 },
-    { type: "rest", duration: 1 },
+    { type: "note", pitch: 20, duration: 8 },
+    { type: "rest", duration: 4 },
     { type: "rest", duration: 2 },
+    { type: "bar" },
     { type: "rest", duration: 4 },
     { type: "rest", duration: 8 },
     { type: "rest", duration: 16 },
-    { type: "rest", duration: 32 },
-    { type: "rest", duration: 32 },
-    { type: "rest", duration: 32 },
+    { type: "rest", duration: 16 },
+    { type: "rest", duration: 4 },
+    { type: "rest", duration: 4 },
+    { type: "bar" },
   ];
   drawStaff(
     ctx,
@@ -435,16 +469,22 @@ window.onload = () => {
   for (let i in elements) {
     const el = elements[i];
     const left = cursor + elementGap;
-    if (el.type === "note") {
-      cursor = drawNote({
-        ctx,
-        topOfStaff,
-        left,
-        note: el,
-        scale,
-      }).end;
-    } else {
-      cursor = drawRest(ctx, topOfStaff, left, el, scale).end;
+    switch (el.type) {
+      case "note":
+        cursor = drawNote({
+          ctx,
+          topOfStaff,
+          left,
+          note: el,
+          scale,
+        }).end;
+        break;
+      case "rest":
+        cursor = drawRest(ctx, topOfStaff, left, el, scale).end;
+        break;
+      case "bar":
+        cursor = drawBarline(ctx, topOfStaff, left, scale).end;
+        break;
     }
   }
 };
