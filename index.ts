@@ -33,7 +33,8 @@ import {
   bThinBarlineThickness,
 } from "./bravura";
 
-type Duration = 1 | 2 | 4 | 8 | 16 | 32;
+const durations = [1, 2, 4, 8, 16, 32] as const;
+type Duration = typeof durations[number]
 
 // C4 (middleC) = 0
 type Pitch = number;
@@ -104,8 +105,11 @@ const noteHeadWidth = (duration: Duration): number => {
   return WIDTH_NOTE_HEAD_BLACK;
 };
 
-const initCanvas = (width: number, height: number): HTMLCanvasElement => {
-  const canvas = document.getElementById("canvas") as HTMLCanvasElement;
+const initCanvas = (leftPx: number, topPx: number, width: number, height: number): HTMLCanvasElement => {
+  const canvas = document.createElement("canvas");
+  canvas.style.position = "absolute";
+  canvas.style.top = `${topPx}px`;
+  canvas.style.left = `${leftPx}px`;
   canvas.width = width;
   canvas.height = height;
   return canvas;
@@ -116,7 +120,7 @@ const drawBravuraPath = (
   left: number,
   top: number,
   scale: number,
-  path: Path
+  path: Path,
 ) => {
   ctx.save();
   ctx.rotate((Math.PI / 180) * 180); // もとのパスは回転している
@@ -130,7 +134,7 @@ const drawGClef = (
   ctx: CanvasRenderingContext2D,
   left: number,
   topOfStaff: number,
-  scale: number
+  scale: number,
 ): DrawnSection => {
   const y = topOfStaff + UNIT * scale * 3; // 五線上のGの高さ
   drawBravuraPath(ctx, left, y, scale, bClefG);
@@ -142,7 +146,7 @@ const drawStaff = (
   left: number,
   top: number,
   width: number,
-  scale: number
+  scale: number,
 ) => {
   const heightHead = UNIT * scale;
   for (let i = 0; i < 5; i++) {
@@ -176,15 +180,15 @@ type DrawnSection = {
 const calcSection = (
   start: number,
   scale: number,
-  path: Path
+  path: Path,
 ): DrawnSection => {
   const width = (path.bbox.ne.x - path.bbox.sw.x) * UNIT * scale;
-  return { start, end: start + width };
+  return {start, end: start + width};
 };
 
 const drawNoteHead = (params: DrawNoteParams): DrawnSection => {
-  const { ctx, left, topOfStaff, note, scale } = params;
-  const { pitch, duration } = note;
+  const {ctx, left, topOfStaff, note, scale} = params;
+  const {pitch, duration} = note;
   const top = pitchToY(topOfStaff, pitch, scale);
   const path = noteHeadByDuration(duration);
   drawBravuraPath(ctx, left, top, scale, path);
@@ -201,7 +205,7 @@ const drawLedgerLine = (
   top: number,
   start: number,
   note: Note,
-  scale: number
+  scale: number,
 ): DrawnSection => {
   const end =
     start +
@@ -216,12 +220,12 @@ const drawLedgerLine = (
   ctx.closePath();
   ctx.stroke();
   ctx.restore();
-  return { start, end };
+  return {start, end};
 };
 
 const drawLedgerLines = (params: DrawNoteParams): DrawnSection | undefined => {
-  const { ctx, note, scale, left, topOfStaff } = params;
-  const { pitch } = note;
+  const {ctx, note, scale, left, topOfStaff} = params;
+  const {pitch} = note;
   let section: DrawnSection | undefined;
   if (pitch <= 0) {
     // 0=C4
@@ -231,7 +235,7 @@ const drawLedgerLines = (params: DrawNoteParams): DrawnSection | undefined => {
         pitchToY(topOfStaff, i, scale),
         left,
         note,
-        scale
+        scale,
       );
     }
   } else if (pitch >= 12) {
@@ -242,7 +246,7 @@ const drawLedgerLines = (params: DrawNoteParams): DrawnSection | undefined => {
         pitchToY(topOfStaff, i, scale),
         left,
         note,
-        scale
+        scale,
       );
     }
   }
@@ -250,8 +254,8 @@ const drawLedgerLines = (params: DrawNoteParams): DrawnSection | undefined => {
 };
 
 const drawStemAndFlags = (params: DrawNoteParams): DrawnSection | undefined => {
-  const { ctx, topOfStaff, left, scale, note } = params;
-  const { pitch, duration } = note;
+  const {ctx, topOfStaff, left, scale, note} = params;
+  const {pitch, duration} = note;
   if (duration === 1) {
     return;
   }
@@ -282,7 +286,7 @@ const drawStemAndFlags = (params: DrawNoteParams): DrawnSection | undefined => {
         stemCenter - lineWidth / 2 + UNIT * path.stemUpNW.x * scale,
         top + UNIT * path.stemUpNW.y * scale,
         scale,
-        path
+        path,
       );
       drawnSection = calcSection(left, scale, path);
     }
@@ -304,7 +308,7 @@ const drawStemAndFlags = (params: DrawNoteParams): DrawnSection | undefined => {
         stemCenter - lineWidth / 2 + UNIT * path.stemDownSW.x * scale,
         bottom + UNIT * path.stemDownSW.y * scale,
         scale,
-        path
+        path,
       );
       drawnSection = calcSection(left, scale, path);
     }
@@ -323,13 +327,13 @@ const drawStemAndFlags = (params: DrawNoteParams): DrawnSection | undefined => {
   if (drawnSection) {
     return drawnSection;
   } else {
-    return { start: left, end: left + lineWidth };
+    return {start: left, end: left + lineWidth};
   }
 };
 
 const drawAccidental = (params: DrawNoteParams): DrawnSection | undefined => {
-  const { ctx, left, topOfStaff, note, scale } = params;
-  const { pitch, accidental } = note;
+  const {ctx, left, topOfStaff, note, scale} = params;
+  const {pitch, accidental} = note;
   if (!accidental) {
     return;
   }
@@ -355,27 +359,27 @@ const gapWithAccidental = (scale: number): number => {
  * 音符描画
  */
 const drawNote = (params: DrawNoteParams): DrawnSection => {
-  const { scale, left } = params;
+  const {scale, left} = params;
   const arr: (DrawnSection | undefined)[] = [];
   arr.push(drawAccidental(params));
   let leftOfLedgerLine = left;
   if (arr[0]?.end) {
     leftOfLedgerLine = arr[0]?.end + gapWithAccidental(scale);
   }
-  arr.push(drawLedgerLines({ ...params, left: leftOfLedgerLine }));
+  arr.push(drawLedgerLines({...params, left: leftOfLedgerLine}));
   let leftOfNoteHead = left;
   if (arr[1]?.start) {
     leftOfNoteHead = arr[1].start + ledgerLineExtension(scale);
   } else if (arr[0]?.end) {
     leftOfNoteHead = arr[0]?.end + gapWithAccidental(scale) * 2;
   }
-  arr.push(drawNoteHead({ ...params, left: leftOfNoteHead }));
-  arr.push(drawStemAndFlags({ ...params, left: leftOfNoteHead }));
+  arr.push(drawNoteHead({...params, left: leftOfNoteHead}));
+  arr.push(drawStemAndFlags({...params, left: leftOfNoteHead}));
   const start = Math.min(
-    ...arr.map((section) => section?.start ?? params.left)
+    ...arr.map((section) => section?.start ?? params.left),
   );
   const end = Math.max(...arr.map((section) => section?.end ?? params.left));
-  return { start, end };
+  return {start, end};
 };
 
 /**
@@ -386,7 +390,7 @@ const drawRest = (
   topOfStaff: number,
   leftOfRest: number,
   rest: Rest,
-  scale: number
+  scale: number,
 ): DrawnSection => {
   const path = restPathMap.get(rest.duration)!;
   drawBravuraPath(
@@ -394,7 +398,7 @@ const drawRest = (
     leftOfRest,
     topOfStaff + UNIT * path.top * scale,
     scale,
-    path
+    path,
   );
   return calcSection(leftOfRest, scale, path);
 };
@@ -406,7 +410,7 @@ const drawBarline = (
   ctx: CanvasRenderingContext2D,
   topOfStaff: number,
   left: number,
-  scale: number
+  scale: number,
 ): DrawnSection => {
   const width = UNIT * bThinBarlineThickness * scale;
   const center = left + width / 2;
@@ -425,20 +429,23 @@ const drawBarline = (
   };
 };
 
-const draw = (ctx: CanvasRenderingContext2D, elements: Element[]) => {
-  const scale = 0.08;
-  const staffPaddingLeft = 20;
-  const topOfStaff = 2000 * scale;
-  const elementGap = UNIT * 2 * scale;
-  ctx.clearRect(0, 0, innerWidth, innerHeight * 0.2);
+const draw = ({ctx, canvasWidth, scale, leftOfStaff, topOfStaff, elementGap, elements}: {
+  ctx: CanvasRenderingContext2D;
+  canvasWidth: number;
+  scale: number;
+  leftOfStaff: number;
+  topOfStaff: number;
+  elementGap: number;
+  elements: Element[];
+}) => {
   drawStaff(
     ctx,
-    staffPaddingLeft,
+    leftOfStaff,
     topOfStaff,
-    window.innerWidth - staffPaddingLeft * 2,
-    scale
+    canvasWidth - leftOfStaff * 2,
+    scale,
   );
-  let cursor = staffPaddingLeft + elementGap;
+  let cursor = leftOfStaff + elementGap;
   cursor = drawGClef(ctx, cursor, topOfStaff, scale).end;
   if (elements.length === 0) {
     return;
@@ -450,7 +457,7 @@ const draw = (ctx: CanvasRenderingContext2D, elements: Element[]) => {
       case "note":
         cursor = drawNote({
           ctx,
-          topOfStaff,
+          topOfStaff: topOfStaff,
           left,
           note: el,
           scale,
@@ -466,44 +473,105 @@ const draw = (ctx: CanvasRenderingContext2D, elements: Element[]) => {
   }
 };
 
-const els: Element[] = [];
-const elements: Element[] = [
-  { type: "note", pitch: 10, duration: 1 },
-  { type: "bar" },
-  { type: "note", pitch: 7, duration: 8, accidental: "sharp" },
-  { type: "note", pitch: -1, duration: 8, accidental: "flat" },
-  { type: "note", pitch: 13, duration: 4 },
-  { type: "note", pitch: 0, duration: 4 },
-  { type: "note", pitch: 1, duration: 4, accidental: "natural" },
-  { type: "bar" },
-  { type: "note", pitch: -2, duration: 16 },
-  { type: "note", pitch: 14, duration: 32, accidental: "sharp" },
-  { type: "note", pitch: -6, duration: 32 },
-  { type: "note", pitch: 20, duration: 8 },
-  { type: "rest", duration: 4 },
-  { type: "rest", duration: 2 },
-  { type: "bar" },
-  { type: "rest", duration: 4 },
-  { type: "rest", duration: 8 },
-  { type: "rest", duration: 16 },
-  { type: "rest", duration: 16 },
-  { type: "rest", duration: 4 },
-  { type: "rest", duration: 4 },
-  { type: "bar" },
-];
+const scale = 0.08;
+const leftOfStaff = 20;
+const topOfStaff = 2000 * scale;
+const elementGap = UNIT * 2 * scale;
+const elements: Element[] = [];
+// const els: Element[] = [
+//   {type: "note", pitch: 10, duration: 1},
+//   {type: "bar"},
+//   {type: "note", pitch: 7, duration: 8, accidental: "sharp"},
+//   {type: "note", pitch: -1, duration: 8, accidental: "flat"},
+//   {type: "note", pitch: 13, duration: 4},
+//   {type: "note", pitch: 0, duration: 4},
+//   {type: "note", pitch: 1, duration: 4, accidental: "natural"},
+//   {type: "bar"},
+//   {type: "note", pitch: -2, duration: 16},
+//   {type: "note", pitch: 14, duration: 32, accidental: "sharp"},
+//   {type: "note", pitch: -6, duration: 32},
+//   {type: "note", pitch: 20, duration: 8},
+//   {type: "rest", duration: 4},
+//   {type: "rest", duration: 2},
+//   {type: "bar"},
+//   {type: "rest", duration: 4},
+//   {type: "rest", duration: 8},
+//   {type: "rest", duration: 16},
+//   {type: "rest", duration: 16},
+//   {type: "rest", duration: 4},
+//   {type: "rest", duration: 4},
+//   {type: "bar"},
+// ];
+
+const resetCanvas = ({
+                       ctx,
+                       width,
+                       height,
+                       fillStyle,
+                     }: { ctx: CanvasRenderingContext2D; width: number; height: number; fillStyle: string; }) => {
+  ctx.save();
+  ctx.fillStyle = fillStyle;
+  ctx.fillRect(0, 0, width, height);
+  ctx.restore();
+};
+
+const previewNoteByDistance = (scale: number, dx: number, dy: number): Note => {
+  const unitY = UNIT / 2 * scale;
+  const pitch = Math.round(dy / unitY + 6);
+  const unitX = UNIT * 2 * scale;
+  const _di = Math.round(dx / unitX + 2);
+  const di = Math.min(Math.max(_di, 0), 6);
+  return {type: "note", pitch, duration: durations[di]};
+};
 
 window.onload = () => {
-  const ctx = initCanvas(
-    window.innerWidth,
-    window.innerHeight * 0.2
-  ).getContext("2d");
-  if (ctx == null) return;
-  let i = 0;
-  const int = setInterval(() => {
-    els.push(elements[i++]);
-    draw(ctx, els);
-    if (i === elements.length) {
-      clearInterval(int);
+  const mainWidth = window.innerWidth;
+  const mainHeight = window.innerHeight;
+  const mainCanvas = initCanvas(0, 0, window.innerWidth, window.innerHeight);
+  document.body.appendChild(mainCanvas);
+  const mainCtx = mainCanvas.getContext("2d")!;
+  resetCanvas({ctx: mainCtx, width: mainWidth, height: mainHeight, fillStyle: "#fff"});
+  draw({ctx: mainCtx, canvasWidth: mainWidth, scale, leftOfStaff, topOfStaff, elementGap, elements});
+
+  const previewWidth = 300;
+  const previewHeight = 300;
+  let inputPreviewCanvas: HTMLCanvasElement | undefined;
+  let inputPreviewCtx: CanvasRenderingContext2D | undefined;
+  let downPoint: { x: number, y: number } | undefined;
+  let newElement: Element | undefined;
+  document.onpointerdown = (ev: PointerEvent) => {
+    const {x, y} = ev;
+    downPoint = {x, y};
+    inputPreviewCanvas = initCanvas(x + 200, 400, previewWidth, previewHeight);
+    inputPreviewCtx = inputPreviewCanvas.getContext("2d")!;
+    document.body.appendChild(inputPreviewCanvas);
+  };
+  document.onpointermove = (ev: PointerEvent) => {
+    if (!downPoint || !inputPreviewCanvas || !inputPreviewCtx) {
+      return;
     }
-  }, 500);
+    const dx = ev.x - downPoint.x;
+    const dy = ev.y - downPoint.y;
+    newElement = previewNoteByDistance(scale, dx, -dy);
+    resetCanvas({ctx: inputPreviewCtx, width: previewWidth, height: previewHeight, fillStyle: "#eee"});
+    draw({
+      ctx: inputPreviewCtx,
+      canvasWidth: previewWidth,
+      scale,
+      leftOfStaff,
+      topOfStaff: 1500 * scale,
+      elementGap,
+      elements: [newElement],
+    });
+  };
+  document.onpointerup = () => {
+    elements.push(newElement!)
+    resetCanvas({ctx: mainCtx, width: mainWidth, height: mainHeight, fillStyle: "#fff"});
+    draw({ctx: mainCtx, canvasWidth: mainWidth, scale, leftOfStaff, topOfStaff, elementGap, elements});
+    newElement = undefined
+    downPoint = undefined;
+    document.body.removeChild(inputPreviewCanvas!);
+    inputPreviewCanvas = undefined;
+    inputPreviewCtx = undefined;
+  };
 };
