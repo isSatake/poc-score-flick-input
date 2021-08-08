@@ -527,13 +527,19 @@ const resetCanvas = ({
   ctx.restore();
 };
 
-const previewNoteByDistance = (scale: number, dx: number, dy: number): Note => {
+const pitchByDistance = (scale: number, dy: number, origin: Pitch): Pitch => {
   const unitY = (UNIT / 2) * scale;
-  const pitch = Math.round(dy / unitY + 6);
+  return Math.round(dy / unitY + origin);
+};
+const durationByDistance = (
+  scale: number,
+  dx: number,
+  origin: Duration
+): Duration => {
   const unitX = UNIT * 2 * scale;
-  const _di = Math.round(dx / unitX + 2);
+  const _di = Math.round(dx / unitX + durations.indexOf(origin));
   const di = Math.min(Math.max(_di, 0), 6);
-  return { type: "note", pitch, duration: durations[di] };
+  return durations[di];
 };
 
 window.onload = () => {
@@ -558,28 +564,32 @@ window.onload = () => {
     elements,
   });
 
+  const pitchHandler = document.createElement("div");
+  const durationHandler = document.createElement("div");
+  pitchHandler.className = "controller left";
+  durationHandler.className = "controller right";
+  document.body.append(pitchHandler, durationHandler);
+
   const previewWidth = 300;
   const previewHeight = 300;
-  let inputPreviewCanvas: HTMLCanvasElement | undefined;
-  let inputPreviewCtx: CanvasRenderingContext2D | undefined;
-  let downPoint: { x: number; y: number } | undefined;
-  let newElement: Element | undefined;
-  window.addEventListener("pointerdown", (ev: PointerEvent) => {
-    const { x, y } = ev;
-    downPoint = { x, y };
-    inputPreviewCanvas = initCanvas(x + 200, 400, previewWidth, previewHeight);
-    inputPreviewCtx = inputPreviewCanvas.getContext("2d")!;
-    document.body.appendChild(inputPreviewCanvas);
-  });
-  window.addEventListener("pointermove", (ev: PointerEvent) => {
-    ev.preventDefault();
-    console.log(ev);
-    if (!downPoint || !inputPreviewCanvas || !inputPreviewCtx) {
-      return;
-    }
-    const dx = ev.x - downPoint.x;
-    const dy = ev.y - downPoint.y;
-    newElement = previewNoteByDistance(scale, dx, -dy);
+  const inputPreviewCanvas = initCanvas(
+    window.innerWidth / 2 - previewWidth / 2,
+    (window.innerHeight / 100) * 45,
+    previewWidth,
+    previewHeight
+  );
+  const inputPreviewCtx = inputPreviewCanvas.getContext("2d")!;
+  document.body.appendChild(inputPreviewCanvas);
+
+  let downPointLeft: { x: number; y: number } | undefined;
+  let downPointRight: { x: number; y: number } | undefined;
+  let previewPitch: Pitch = 6; // B4
+  let lastPitch: Pitch = 6;
+  let previewDuration: Duration = 4; // quarter
+  let lastDuration: Duration = 4; // quarter
+  let semaphore = 0;
+
+  const updatePreview = () => {
     resetCanvas({
       ctx: inputPreviewCtx,
       width: previewWidth,
@@ -593,11 +603,22 @@ window.onload = () => {
       leftOfStaff,
       topOfStaff: 1500 * scale,
       elementGap,
-      elements: [newElement],
+      elements: [
+        { type: "note", pitch: previewPitch, duration: previewDuration },
+      ],
     });
-  });
-  window.addEventListener("pointerup", () => {
-    elements.push(newElement!);
+  };
+
+  const endComposition = () => {
+    semaphore--;
+    if (semaphore > 0) {
+      return;
+    }
+    elements.push({
+      type: "note",
+      pitch: previewPitch,
+      duration: previewDuration,
+    });
     resetCanvas({
       ctx: mainCtx,
       width: mainWidth,
@@ -613,10 +634,45 @@ window.onload = () => {
       elementGap,
       elements,
     });
-    newElement = undefined;
-    downPoint = undefined;
-    document.body.removeChild(inputPreviewCanvas!);
-    inputPreviewCanvas = undefined;
-    inputPreviewCtx = undefined;
+  };
+
+  pitchHandler.addEventListener("pointerdown", (ev: PointerEvent) => {
+    ev.preventDefault();
+    semaphore++;
+    downPointLeft = ev;
+  });
+  pitchHandler.addEventListener("pointermove", (ev: PointerEvent) => {
+    ev.preventDefault();
+    if (!downPointLeft) {
+      return;
+    }
+    const dy = ev.y - downPointLeft.y;
+    previewPitch = pitchByDistance(scale, -dy, lastPitch);
+    updatePreview();
+  });
+  pitchHandler.addEventListener("pointerup", () => {
+    downPointLeft = undefined;
+    lastPitch = previewPitch;
+    endComposition();
+  });
+
+  durationHandler.addEventListener("pointerdown", (ev: PointerEvent) => {
+    semaphore++;
+    ev.preventDefault();
+    downPointRight = ev;
+  });
+  durationHandler.addEventListener("pointermove", (ev: PointerEvent) => {
+    ev.preventDefault();
+    if (!downPointRight) {
+      return;
+    }
+    const dx = ev.x - downPointRight.x;
+    previewDuration = durationByDistance(scale, dx, lastDuration);
+    updatePreview();
+  });
+  durationHandler.addEventListener("pointerup", () => {
+    downPointRight = undefined;
+    lastDuration = previewDuration;
+    endComposition();
   });
 };
