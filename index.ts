@@ -109,9 +109,10 @@ const initCanvas = (
   leftPx: number,
   topPx: number,
   width: number,
-  height: number
+  height: number,
+  _canvas?: HTMLCanvasElement
 ): HTMLCanvasElement => {
-  const canvas = document.createElement("canvas");
+  const canvas = _canvas ?? document.createElement("canvas");
   canvas.style.position = "absolute";
   canvas.style.top = `${topPx}px`;
   canvas.style.left = `${leftPx}px`;
@@ -545,8 +546,8 @@ const durationByDistance = (
 window.onload = () => {
   const mainWidth = window.innerWidth;
   const mainHeight = window.innerHeight;
-  const mainCanvas = initCanvas(0, 0, window.innerWidth, window.innerHeight);
-  document.body.appendChild(mainCanvas);
+  const mainCanvas = document.getElementById("mainCanvas") as HTMLCanvasElement;
+  initCanvas(0, 0, window.innerWidth, window.innerHeight, mainCanvas);
   const mainCtx = mainCanvas.getContext("2d")!;
   resetCanvas({
     ctx: mainCtx,
