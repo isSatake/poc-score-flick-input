@@ -565,115 +565,35 @@ window.onload = () => {
     elements,
   });
 
-  const pitchHandler = document.createElement("div");
-  const durationHandler = document.createElement("div");
-  pitchHandler.className = "controller left";
-  durationHandler.className = "controller right";
-  document.body.append(pitchHandler, durationHandler);
+  const keyboardEl = document.getElementById("keyboard") as HTMLDivElement;
+  const translated = { x: 0, y: 0 };
+  let dragStartPos: { x: number; y: number } | undefined;
 
-  const previewWidth = 300;
-  const previewHeight = 300;
-  const inputPreviewCanvas = initCanvas(
-    window.innerWidth / 2 - previewWidth / 2,
-    (window.innerHeight / 100) * 45,
-    previewWidth,
-    previewHeight
-  );
-  const inputPreviewCtx = inputPreviewCanvas.getContext("2d")!;
-  document.body.appendChild(inputPreviewCanvas);
-
-  let downPointLeft: { x: number; y: number } | undefined;
-  let downPointRight: { x: number; y: number } | undefined;
-  let previewPitch: Pitch = 6; // B4
-  let lastPitch: Pitch = 6;
-  let previewDuration: Duration = 4; // quarter
-  let lastDuration: Duration = 4; // quarter
-  let semaphore = 0;
-
-  const updatePreview = () => {
-    resetCanvas({
-      ctx: inputPreviewCtx,
-      width: previewWidth,
-      height: previewHeight,
-      fillStyle: "#eee",
-    });
-    draw({
-      ctx: inputPreviewCtx,
-      canvasWidth: previewWidth,
-      scale,
-      leftOfStaff,
-      topOfStaff: 1500 * scale,
-      elementGap,
-      elements: [
-        { type: "note", pitch: previewPitch, duration: previewDuration },
-      ],
-    });
-  };
-
-  const endComposition = () => {
-    semaphore--;
-    if (semaphore > 0) {
-      return;
+  window.addEventListener("pointerdown", (ev: PointerEvent) => {
+    ev.preventDefault();
+    if (isKeyboardEvent(ev)) {
+      dragStartPos = { x: ev.x, y: ev.y };
     }
-    elements.push({
-      type: "note",
-      pitch: previewPitch,
-      duration: previewDuration,
-    });
-    resetCanvas({
-      ctx: mainCtx,
-      width: mainWidth,
-      height: mainHeight,
-      fillStyle: "#fff",
-    });
-    draw({
-      ctx: mainCtx,
-      canvasWidth: mainWidth,
-      scale,
-      leftOfStaff,
-      topOfStaff,
-      elementGap,
-      elements,
-    });
-  };
-
-  pitchHandler.addEventListener("pointerdown", (ev: PointerEvent) => {
-    ev.preventDefault();
-    semaphore++;
-    downPointLeft = ev;
   });
-  pitchHandler.addEventListener("pointermove", (ev: PointerEvent) => {
+  window.addEventListener("pointermove", (ev: PointerEvent) => {
     ev.preventDefault();
-    if (!downPointLeft) {
-      return;
+    if (dragStartPos) {
+      const nextX = translated.x + ev.x - dragStartPos.x;
+      const nextY = translated.y + ev.y - dragStartPos.y;
+      keyboardEl.style.transform = `translate(${nextX}px, ${nextY}px)`;
     }
-    const dy = ev.y - downPointLeft.y;
-    previewPitch = pitchByDistance(scale, -dy, lastPitch);
-    updatePreview();
   });
-  pitchHandler.addEventListener("pointerup", () => {
-    downPointLeft = undefined;
-    lastPitch = previewPitch;
-    endComposition();
-  });
-
-  durationHandler.addEventListener("pointerdown", (ev: PointerEvent) => {
-    semaphore++;
-    ev.preventDefault();
-    downPointRight = ev;
-  });
-  durationHandler.addEventListener("pointermove", (ev: PointerEvent) => {
-    ev.preventDefault();
-    if (!downPointRight) {
-      return;
+  window.addEventListener("pointerup", (ev: PointerEvent) => {
+    if (dragStartPos) {
+      translated.x += ev.x - dragStartPos.x;
+      translated.y += ev.y - dragStartPos.y;
+      dragStartPos = undefined;
     }
-    const dx = ev.x - downPointRight.x;
-    previewDuration = durationByDistance(scale, dx, lastDuration);
-    updatePreview();
   });
-  durationHandler.addEventListener("pointerup", () => {
-    downPointRight = undefined;
-    lastDuration = previewDuration;
-    endComposition();
-  });
+};
+
+const isKeyboardEvent = (ev: PointerEvent): boolean => {
+  const { target } = ev;
+  const cn = (target as HTMLDivElement)?.className;
+  return cn === "keyboardBottom" || cn === "keyboardHandle";
 };
