@@ -44,18 +44,43 @@ html, body {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
   grid-template-rows: repeat(4, 1fr);
-  gap: 5px;
-  width: 344px;
+  column-gap: 6px;
+  row-gap: 8px;
+  width: 340px;
   height: 224px;
 }
 
-.key {
-  background: white;
+.keyContainer div {
   border-radius: 5px;
+  box-shadow: #949699 0 1px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.sideKey {
-  background: black;
+.whiteKey {
+  background: #fff no-repeat center;
+  font-size: 1.3rem;
+}
+
+.flag {
+  background-size: auto 70%;
+}
+
+.n8 {
+  background-image: url(./img/8.png);
+}
+
+.n16 {
+  background-image: url(./img/16.png);
+}
+
+.n32 {
+  background-image: url(./img/32.png);
+}
+
+.grayKey {
+  background: #b4b8c1;
 }
 
 .returnKey {

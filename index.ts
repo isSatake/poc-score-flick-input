@@ -164,7 +164,7 @@ const drawStaff = (
     ctx.moveTo(left, y);
     ctx.lineTo(left + width, y);
     ctx.closePath();
-    ctx.stroke();
+    // ctx.stroke();
     ctx.restore();
   }
 };
@@ -224,7 +224,7 @@ const drawLedgerLine = (
   ctx.moveTo(start, top);
   ctx.lineTo(end, top);
   ctx.closePath();
-  ctx.stroke();
+  // ctx.stroke();
   ctx.restore();
   return { start, end };
 };
@@ -486,30 +486,18 @@ const leftOfStaff = 20;
 const topOfStaff = 2000 * scale;
 const elementGap = UNIT * 2 * scale;
 const elements: Element[] = [];
-// const els: Element[] = [
-//   {type: "note", pitch: 10, duration: 1},
-//   {type: "bar"},
-//   {type: "note", pitch: 7, duration: 8, accidental: "sharp"},
-//   {type: "note", pitch: -1, duration: 8, accidental: "flat"},
-//   {type: "note", pitch: 13, duration: 4},
-//   {type: "note", pitch: 0, duration: 4},
-//   {type: "note", pitch: 1, duration: 4, accidental: "natural"},
-//   {type: "bar"},
-//   {type: "note", pitch: -2, duration: 16},
-//   {type: "note", pitch: 14, duration: 32, accidental: "sharp"},
-//   {type: "note", pitch: -6, duration: 32},
-//   {type: "note", pitch: 20, duration: 8},
-//   {type: "rest", duration: 4},
-//   {type: "rest", duration: 2},
-//   {type: "bar"},
-//   {type: "rest", duration: 4},
-//   {type: "rest", duration: 8},
-//   {type: "rest", duration: 16},
-//   {type: "rest", duration: 16},
-//   {type: "rest", duration: 4},
-//   {type: "rest", duration: 4},
-//   {type: "bar"},
-// ];
+const els: Element[] = [
+  { type: "note", pitch: -1, duration: 1 },
+  { type: "note", pitch: -1, duration: 2 },
+  { type: "note", pitch: -1, duration: 4 },
+  { type: "note", pitch: -10, duration: 8 },
+  { type: "note", pitch: -10, duration: 16 },
+  { type: "note", pitch: -10, duration: 32 },
+  { type: "rest", duration: 4 },
+  { type: "rest", duration: 8 },
+  { type: "rest", duration: 16 },
+  { type: "rest", duration: 32 },
+];
 
 const resetCanvas = ({
   ctx,
@@ -549,12 +537,12 @@ window.onload = () => {
   const mainCanvas = document.getElementById("mainCanvas") as HTMLCanvasElement;
   initCanvas(0, 0, window.innerWidth, window.innerHeight, mainCanvas);
   const mainCtx = mainCanvas.getContext("2d")!;
-  resetCanvas({
-    ctx: mainCtx,
-    width: mainWidth,
-    height: mainHeight,
-    fillStyle: "#fff",
-  });
+  // resetCanvas({
+  //   ctx: mainCtx,
+  //   width: mainWidth,
+  //   height: mainHeight,
+  //   fillStyle: "#fff",
+  // });
   draw({
     ctx: mainCtx,
     canvasWidth: mainWidth,
@@ -562,8 +550,10 @@ window.onload = () => {
     leftOfStaff,
     topOfStaff,
     elementGap,
-    elements,
+    elements: els,
   });
+  (document.getElementById("hoge") as HTMLImageElement).src =
+    mainCanvas.toDataURL();
 
   const keyboardEl = document.getElementById("keyboard") as HTMLDivElement;
   const translated = { x: 0, y: 0 };
