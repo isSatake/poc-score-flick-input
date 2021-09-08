@@ -552,8 +552,6 @@ window.onload = () => {
     elementGap,
     elements: els,
   });
-  (document.getElementById("hoge") as HTMLImageElement).src =
-    mainCanvas.toDataURL();
 
   const keyboardEl = document.getElementById("keyboard") as HTMLDivElement;
   const translated = { x: 0, y: 0 };

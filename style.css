@@ -34,6 +34,7 @@ html, body {
   border-radius: 9px;
   border: solid 1px #c9cace;
   box-shadow: #ccc 0 20px 70px -10px;
+  user-select: none;
 }
 
 .candidateContainer {
@@ -63,30 +64,67 @@ html, body {
   font-size: 1.3rem;
 }
 
-.flag {
-  background-size: auto 70%;
+.grayKey {
+  background: #b4b8c1;
+}
+
+.n1 {
+  background-position-y: 60%;
+  background-size: 30% auto;
+  background-image: url(./img/1.png);
+}
+
+.n2 {
+  background-size: 20% auto;
+  background-image: url(./img/2.png);
+}
+
+.n4 {
+  background-size: 20% auto;
+  background-image: url(./img/4.png);
 }
 
 .n8 {
+  background-size: auto 70%;
   background-image: url(./img/8.png);
 }
 
 .n16 {
+  background-size: auto 70%;
   background-image: url(./img/16.png);
 }
 
 .n32 {
+  background-size: auto 70%;
   background-image: url(./img/32.png);
 }
 
-.grayKey {
-  background: #b4b8c1;
+.backspace {
+  background-image: url("./img/backspace_black_24dp.svg");
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+.changeNoteRest {
+  background-image: url("./img/r4.png");
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: auto 60%;
+}
+
+.changeUi {
+  background-image: url("./img/piano_black_24dp.svg");
+  background-position: center;
+  background-repeat: no-repeat;
 }
 
 .returnKey {
   grid-column-start: 5;
   grid-row-start: 3;
   grid-row-end: 5;
+  background-image: url("./img/keyboard_return_black_24dp.svg");
+  background-position: center;
+  background-repeat: no-repeat;
 }
 
 .keyboardBottom {
