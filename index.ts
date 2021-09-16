@@ -531,6 +531,68 @@ const durationByDistance = (
   return durations[di];
 };
 
+const downHandlerMap = new Map<string, (ev: PointerEvent) => void>();
+const moveHandlerMap = new Map<string, (ev: PointerEvent) => void>();
+const upHandlerMap = new Map<string, (ev: PointerEvent) => void>();
+const pointerHandlerMap = new Map([
+  ["pointerdown", downHandlerMap],
+  ["pointermove", moveHandlerMap],
+  ["pointerup", upHandlerMap],
+]);
+
+/**
+ * @param type
+ * @param className ハンドラを登録するHTML className
+ * default: windowに登録
+ * @param fn イベントハンドラ
+ */
+const addPointerHandler = ({
+  type,
+  className = ["window"],
+  fn,
+}: {
+  type: "pointerdown" | "pointermove" | "pointerup";
+  fn: (ev: PointerEvent) => void;
+  className?: string[];
+}) => {
+  className.forEach((cn) => {
+    pointerHandlerMap.get(type)!.set(cn, fn);
+  });
+};
+
+type PointerEventType = "down" | "move" | "up" | "click" | "longpress";
+type PointerEventHandler = {
+  type: PointerEventType;
+  fn: (ev: PointerEvent) => void;
+};
+
+const classHandlerMap = new Map<string, PointerEventHandler[]>();
+
+const addPointerHandlerV2 = ({
+  className = "window",
+  handlers,
+}: {
+  className: string;
+  handlers: PointerEventHandler[];
+}) => {
+  classHandlerMap.set(className, handlers);
+};
+
+const registerPointerHandlers = () => {
+  const clickThresholdMs = 10;
+  const longPressThresholdMS = 500;
+  window.addEventListener("pointerdown", () => {});
+  window.addEventListener("pointermove", () => {});
+  window.addEventListener("pointerup", () => {});
+};
+
+const pointerHandler = (ev: Event) => {
+  Array.from(pointerHandlerMap.get(ev.type)!.values()).forEach((fn) => {
+    ev.preventDefault();
+    fn(ev as PointerEvent);
+  });
+};
+
 window.onload = () => {
   const mainWidth = window.innerWidth;
   const mainHeight = window.innerHeight;
@@ -557,31 +619,43 @@ window.onload = () => {
   const translated = { x: 0, y: 0 };
   let dragStartPos: { x: number; y: number } | undefined;
 
-  window.addEventListener("pointerdown", (ev: PointerEvent) => {
-    ev.preventDefault();
-    if (isKeyboardEvent(ev)) {
+  addPointerHandler({
+    type: "pointerdown",
+    className: ["keyboardBottom", "keyboardHandle"],
+    fn: (ev: PointerEvent) => {
       dragStartPos = { x: ev.x, y: ev.y };
-    }
+    },
   });
-  window.addEventListener("pointermove", (ev: PointerEvent) => {
-    ev.preventDefault();
-    if (dragStartPos) {
-      const nextX = translated.x + ev.x - dragStartPos.x;
-      const nextY = translated.y + ev.y - dragStartPos.y;
-      keyboardEl.style.transform = `translate(${nextX}px, ${nextY}px)`;
-    }
-  });
-  window.addEventListener("pointerup", (ev: PointerEvent) => {
-    if (dragStartPos) {
-      translated.x += ev.x - dragStartPos.x;
-      translated.y += ev.y - dragStartPos.y;
-      dragStartPos = undefined;
-    }
-  });
-};
 
-const isKeyboardEvent = (ev: PointerEvent): boolean => {
-  const { target } = ev;
-  const cn = (target as HTMLDivElement)?.className;
-  return cn === "keyboardBottom" || cn === "keyboardHandle";
+  addPointerHandler({
+    type: "pointerdown",
+    className: ["changeNoteRest"],
+    fn: (ev: PointerEvent) => {},
+  });
+
+  addPointerHandler({
+    type: "pointermove",
+    fn: (ev: PointerEvent) => {
+      if (dragStartPos) {
+        const nextX = translated.x + ev.x - dragStartPos.x;
+        const nextY = translated.y + ev.y - dragStartPos.y;
+        keyboardEl.style.transform = `translate(${nextX}px, ${nextY}px)`;
+      }
+    },
+  });
+
+  addPointerHandler({
+    type: "pointerup",
+    fn: (ev: PointerEvent) => {
+      if (dragStartPos) {
+        translated.x += ev.x - dragStartPos.x;
+        translated.y += ev.y - dragStartPos.y;
+        dragStartPos = undefined;
+      }
+    },
+  });
+
+  ["pointerdown", "pointermove", "pointerup"].forEach((type) => {
+    window.addEventListener(type, pointerHandler);
+  });
 };
