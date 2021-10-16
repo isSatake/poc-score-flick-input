@@ -5,20 +5,9 @@ html, body {
     touch-action: none;
 }
 
-.controller {
+#previewCanvas {
     position: absolute;
-    top: 45%;
-    width: 500px;
-    height: 500px;
-    background: #eee;
-}
-
-.controller.left {
-    left: 0;
-}
-
-.controller.right {
-    right: 0;
+    visibility: hidden;
 }
 
 #keyboard {

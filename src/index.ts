@@ -492,19 +492,6 @@ const scale = 0.08;
 const leftOfStaff = 20;
 const topOfStaff = 2000 * scale;
 const elementGap = UNIT * 2 * scale;
-const elements: Element[] = [];
-const els: Element[] = [
-  { type: "rest", duration: 1 },
-  { type: "rest", duration: 2 },
-  { type: "note", pitch: -1, duration: 4 },
-  { type: "note", pitch: -10, duration: 8 },
-  { type: "note", pitch: -10, duration: 16 },
-  { type: "note", pitch: -10, duration: 32 },
-  { type: "rest", duration: 4 },
-  { type: "rest", duration: 8 },
-  { type: "rest", duration: 16 },
-  { type: "rest", duration: 32 },
-];
 
 const resetCanvas = ({
   ctx,
@@ -547,19 +534,26 @@ export interface ChangeNoteRestCallback {
 
 // このコールバックはキーハンドラだけじゃなくてMIDIキーとか普通のキーボードとかからも使う想定
 export interface InputCallback {
-  preview(duration: Duration, y: number): void;
-  commit(duration: Duration, y: number): void;
+  preview(duration: Duration, dy: number): void;
+  commit(duration: Duration, dy?: number): void;
   backspace(): void;
+  finish(): void;
 }
 
 window.onload = () => {
   const mainWidth = window.innerWidth;
   const mainHeight = window.innerHeight;
+  const previewWidth = 300;
+  const previewHeight = 600;
   const mainCanvas = document.getElementById("mainCanvas") as HTMLCanvasElement;
-  initCanvas(0, 0, window.innerWidth, window.innerHeight, mainCanvas);
+  const previewCanvas = document.getElementById(
+    "previewCanvas"
+  ) as HTMLCanvasElement;
   const mainCtx = mainCanvas.getContext("2d")!;
+  const previewCtx = previewCanvas.getContext("2d")!;
   const noteKeyEls = Array.from(document.getElementsByClassName("note"));
-  const update = () => {
+  const mainElements: Element[] = [];
+  const updateMain = (elements: Element[]) => {
     resetCanvas({
       ctx: mainCtx,
       width: mainWidth,
@@ -576,10 +570,25 @@ window.onload = () => {
       elements,
     });
   };
-  // const a = document.createElement("a");
-  // a.href = mainCanvas.toDataURL();
-  // a.download = "rest.png";
-  // a.click();
+  const updatePreview = (element?: Element) => {
+    resetCanvas({
+      ctx: previewCtx,
+      width: previewWidth,
+      height: previewHeight,
+      fillStyle: "#aaa",
+    });
+    if (element) {
+      draw({
+        ctx: previewCtx,
+        canvasWidth: previewWidth,
+        scale,
+        leftOfStaff,
+        topOfStaff,
+        elementGap,
+        elements: [element],
+      });
+    }
+  };
 
   const changeNoteRestCallback: ChangeNoteRestCallback = {
     isNoteInputMode() {
@@ -596,21 +605,29 @@ window.onload = () => {
     },
   };
   const inputCallback: InputCallback = {
-    preview(duration: Duration, y: number) {
-      // プレビューview表示
-      // yに対応した音符描画
-    },
-    commit(duration: Duration, y: number = 0) {
-      elements.push({
+    preview(duration: Duration, dy: number) {
+      updatePreview({
         type: isNoteInputMode ? "note" : "rest",
         duration,
-        pitch: 0,
+        pitch: pitchByDistance(scale, dy, 0),
       });
-      update();
+      previewCanvas.style.visibility = "visible";
+    },
+    commit(duration: Duration, dy?: number) {
+      const pitch = pitchByDistance(scale, dy ?? 0, 0);
+      mainElements.push({
+        type: isNoteInputMode ? "note" : "rest",
+        duration,
+        pitch,
+      });
+      updateMain(mainElements);
     },
     backspace() {
-      elements.pop();
-      update();
+      mainElements.pop();
+      updateMain(mainElements);
+    },
+    finish() {
+      previewCanvas.style.visibility = "hidden";
     },
   };
 
@@ -627,5 +644,8 @@ window.onload = () => {
     ["grayKey", "whiteKey"],
     [new InputHandler(inputCallback)]
   );
-  update();
+
+  initCanvas(0, 0, window.innerWidth, window.innerHeight, mainCanvas);
+  initCanvas(0, 0, previewWidth, previewHeight, previewCanvas);
+  updateMain(mainElements);
 };

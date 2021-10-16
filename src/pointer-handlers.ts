@@ -116,29 +116,58 @@ export class InputHandler extends EmptyPointerHandler {
     ["23", 16],
     ["24", 32],
   ]);
-  private target: HTMLDivElement | undefined;
+  private targetClassNames: string[] = [];
+  private dragDy: number | undefined;
 
   constructor(private callback: InputCallback) {
     super();
   }
 
-  onClick(ev: PointerEvent) {
-    this.target = ev.target as HTMLDivElement;
-    const classNames = this.target.className.split(" ");
-    if (classNames.some((cn) => cn === "backspace")) {
-      this.callback.backspace();
-      return;
-    }
-    const pos = classNames
+  get duration(): Duration | undefined {
+    const pos = this.targetClassNames
       .find((cn) => cn.match(/k[0-9][0-9]/))
       ?.replace("k", "");
     if (!pos) {
       return;
     }
-    const duration = this.posToDurationMap.get(pos);
-    if (!duration) {
-      return;
+    return this.posToDurationMap.get(pos);
+  }
+
+  onDown(ev: PointerEvent) {
+    const target = ev.target as HTMLDivElement;
+    this.targetClassNames = target.className.split(" ");
+  }
+
+  onClick(ev: PointerEvent) {
+    if (this.duration) {
+      this.callback.commit(this.duration);
     }
-    this.callback.commit(duration, 0);
+    this.finish();
+  }
+
+  onLongDown(ev: PointerEvent) {
+    this.callback.preview(this.duration!, 0);
+  }
+
+  onDrag(ev: PointerEvent, downPoint: Point) {
+    this.dragDy = downPoint.y - ev.y;
+    this.callback.preview(this.duration!, this.dragDy);
+  }
+
+  onUp(ev: PointerEvent, downPoint: Point) {
+    if (this.targetClassNames.some((cn) => cn === "backspace")) {
+      this.callback.backspace();
+    } else if (this.dragDy) {
+      if (this.duration) {
+        this.callback.commit(this.duration, this.dragDy);
+      }
+      this.finish();
+    }
+  }
+
+  finish() {
+    this.targetClassNames = [];
+    this.dragDy = undefined;
+    this.callback.finish();
   }
 }
