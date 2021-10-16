@@ -1,143 +1,197 @@
 html, body {
-  width: 100%;
-  height: 100%;
-  margin: 0;
-  touch-action: none;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    touch-action: none;
 }
 
 .controller {
-  position: absolute;
-  top: 45%;
-  width: 500px;
-  height: 500px;
-  background: #eee;
+    position: absolute;
+    top: 45%;
+    width: 500px;
+    height: 500px;
+    background: #eee;
 }
 
 .controller.left {
-  left: 0;
+    left: 0;
 }
 
 .controller.right {
-  right: 0;
+    right: 0;
 }
 
 #keyboard {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  position: absolute;
-  width: 360px;
-  height: 312px;
-  left: 10px;
-  top: 382px;
-  background: #d5d8dd;
-  border-radius: 9px;
-  border: solid 1px #c9cace;
-  box-shadow: #ccc 0 20px 70px -10px;
-  user-select: none;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: absolute;
+    width: 360px;
+    height: 312px;
+    left: 10px;
+    top: 382px;
+    background: #d5d8dd;
+    border-radius: 9px;
+    border: solid 1px #c9cace;
+    box-shadow: #ccc 0 20px 70px -10px;
+    user-select: none;
 }
 
 .candidateContainer {
-  height: 54px;
+    height: 54px;
 }
 
 .keyContainer {
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  grid-template-rows: repeat(4, 1fr);
-  column-gap: 6px;
-  row-gap: 8px;
-  width: 340px;
-  height: 224px;
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    grid-template-rows: repeat(4, 1fr);
+    column-gap: 6px;
+    row-gap: 8px;
+    width: 340px;
+    height: 224px;
 }
 
 .keyContainer div {
-  border-radius: 5px;
-  box-shadow: #949699 0 1px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+    border-radius: 5px;
+    box-shadow: #949699 0 1px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .whiteKey {
-  background: #fff no-repeat center;
-  font-size: 1.3rem;
+    background-color: #fff;
+    background-repeat: no-repeat;
+    background-position: center;
+    font-size: 1.3rem;
+}
+
+.whiteKey.pressed {
+    background-color: #b4b8c1;
 }
 
 .grayKey {
-  background: #b4b8c1;
+    background-color: #b4b8c1;
 }
 
-.n1 {
-  background-position-y: 60%;
-  background-size: 30% auto;
-  background-image: url(./img/1.png);
+.grayKey.pressed {
+    background-color: #fff;
 }
 
-.n2 {
-  background-size: 20% auto;
-  background-image: url(./img/2.png);
+/* whole */
+.k12.note {
+    background-position-y: 60%;
+    background-size: 30% auto;
+    background-image: url(img/n1.png);
 }
 
-.n4 {
-  background-size: 20% auto;
-  background-image: url(./img/4.png);
+.k12.rest {
+    background-size: 40% auto;
+    background-image: url(img/r1.png);
 }
 
-.n8 {
-  background-size: auto 70%;
-  background-image: url(./img/8.png);
+/* 1/2 */
+.k13.note {
+    background-size: 20% auto;
+    background-image: url(img/n2.png);
 }
 
-.n16 {
-  background-size: auto 70%;
-  background-image: url(./img/16.png);
+.k13.rest {
+    background-size: 40% auto;
+    background-image: url(img/r2.png);
 }
 
-.n32 {
-  background-size: auto 70%;
-  background-image: url(./img/32.png);
+/* 1/4 */
+.k14.note {
+    background-size: 20% auto;
+    background-image: url(img/n4.png);
+}
+
+.k14.rest {
+    background-image: url(./img/r4.png);
+    background-size: auto 60%;
+}
+
+/* 1/8 */
+.k22.note {
+    background-size: auto 70%;
+    background-image: url(img/n8.png);
+}
+
+.k22.rest {
+    background-size: 20% auto;
+    background-image: url(img/r8.png);
+}
+
+/* 1/16 */
+.k23.note {
+    background-size: auto 70%;
+    background-image: url(img/n16.png);
+}
+
+.k23.rest {
+    background-size: 20% auto;
+    background-image: url(img/r16.png);
+}
+
+/* 1/32 */
+.k24.note {
+    background-size: auto 70%;
+    background-image: url(img/n32.png);
+}
+
+.k24.rest {
+    background-size: 20% auto;
+    background-image: url(img/r32.png);
 }
 
 .backspace {
-  background-image: url("./img/backspace_black_24dp.svg");
-  background-position: center;
-  background-repeat: no-repeat;
+    background-image: url("./img/backspace_black_24dp.svg");
+    background-position: center;
+    background-repeat: no-repeat;
 }
 
 .changeNoteRest {
-  background-image: url("./img/r4.png");
-  background-position: center;
-  background-repeat: no-repeat;
-  background-size: auto 60%;
+    background-position: center;
+    background-repeat: no-repeat;
+}
+
+.changeNoteRest.note {
+    background-size: 20% auto;
+    background-image: url(img/n4.png);
+}
+
+.changeNoteRest.rest {
+    background-size: auto 60%;
+    background-image: url("./img/r4.png");
 }
 
 .changeUi {
-  background-image: url("./img/piano_black_24dp.svg");
-  background-position: center;
-  background-repeat: no-repeat;
+    background-image: url("./img/piano_black_24dp.svg");
+    background-position: center;
+    background-repeat: no-repeat;
 }
 
 .returnKey {
-  grid-column-start: 5;
-  grid-row-start: 3;
-  grid-row-end: 5;
-  background-image: url("./img/keyboard_return_black_24dp.svg");
-  background-position: center;
-  background-repeat: no-repeat;
+    grid-column-start: 5;
+    grid-row-start: 3;
+    grid-row-end: 5;
+    background-image: url("./img/keyboard_return_black_24dp.svg");
+    background-position: center;
+    background-repeat: no-repeat;
 }
 
 .keyboardBottom {
-  display: flex;
-  width: 100%;
-  height: 40px;
-  bottom: 0;
+    display: flex;
+    width: 100%;
+    height: 40px;
+    bottom: 0;
 }
 
 .keyboardHandle {
-  margin: 18px auto 0;
-  background: #aaa;
-  width: 40px;
-  height: 5px;
-  border-radius: 2px;
+    margin: 18px auto 0;
+    background: #aaa;
+    width: 40px;
+    height: 5px;
+    border-radius: 2px;
 }

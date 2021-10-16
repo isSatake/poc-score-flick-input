@@ -2,39 +2,46 @@ import {
   bAccidentalFlat,
   bAccidentalNatural,
   bAccidentalSharp,
+  bClefG,
   bFlag16Down,
   bFlag16Up,
   bFlag32Down,
   bFlag32Up,
   bFlag8Down,
   bFlag8Up,
+  bLedgerLineWidth,
+  bNoteHead,
+  bNoteHeadHalf,
+  bNoteHeadWhole,
   bRest1,
   bRest16,
   bRest2,
   bRest32,
   bRest4,
   bRest8,
+  bStaffHeight,
+  bStaffLineWidth,
+  bStemWidth,
+  bThinBarlineThickness,
   EXTENSION_LEDGER_LINE,
   FlagDown,
   FlagUp,
-  bStaffHeight,
   Path,
-  bClefG,
-  bNoteHead,
-  bNoteHeadHalf,
-  bNoteHeadWhole,
   RestPath,
   UNIT,
   WIDTH_NOTE_HEAD_BLACK,
   WIDTH_NOTE_HEAD_WHOLE,
-  bLedgerLineWidth,
-  bStaffLineWidth,
-  bStemWidth,
-  bThinBarlineThickness,
-} from "./bravura";
+} from "../bravura";
+import { registerPointerHandlers } from "./pointer-event";
+import {
+  ChangeNoteRestHandler,
+  InputHandler,
+  KeyboardDragHandler,
+  KeyPressHandler,
+} from "./pointer-handlers";
 
 const durations = [1, 2, 4, 8, 16, 32] as const;
-type Duration = typeof durations[number];
+export type Duration = typeof durations[number];
 
 // C4 (middleC) = 0
 type Pitch = number;
@@ -164,7 +171,7 @@ const drawStaff = (
     ctx.moveTo(left, y);
     ctx.lineTo(left + width, y);
     ctx.closePath();
-    // ctx.stroke();
+    ctx.stroke();
     ctx.restore();
   }
 };
@@ -224,7 +231,7 @@ const drawLedgerLine = (
   ctx.moveTo(start, top);
   ctx.lineTo(end, top);
   ctx.closePath();
-  // ctx.stroke();
+  ctx.stroke();
   ctx.restore();
   return { start, end };
 };
@@ -487,8 +494,8 @@ const topOfStaff = 2000 * scale;
 const elementGap = UNIT * 2 * scale;
 const elements: Element[] = [];
 const els: Element[] = [
-  { type: "note", pitch: -1, duration: 1 },
-  { type: "note", pitch: -1, duration: 2 },
+  { type: "rest", duration: 1 },
+  { type: "rest", duration: 2 },
   { type: "note", pitch: -1, duration: 4 },
   { type: "note", pitch: -10, duration: 8 },
   { type: "note", pitch: -10, duration: 16 },
@@ -531,67 +538,19 @@ const durationByDistance = (
   return durations[di];
 };
 
-const downHandlerMap = new Map<string, (ev: PointerEvent) => void>();
-const moveHandlerMap = new Map<string, (ev: PointerEvent) => void>();
-const upHandlerMap = new Map<string, (ev: PointerEvent) => void>();
-const pointerHandlerMap = new Map([
-  ["pointerdown", downHandlerMap],
-  ["pointermove", moveHandlerMap],
-  ["pointerup", upHandlerMap],
-]);
+let isNoteInputMode = true;
 
-/**
- * @param type
- * @param className ハンドラを登録するHTML className
- * default: windowに登録
- * @param fn イベントハンドラ
- */
-const addPointerHandler = ({
-  type,
-  className = ["window"],
-  fn,
-}: {
-  type: "pointerdown" | "pointermove" | "pointerup";
-  fn: (ev: PointerEvent) => void;
-  className?: string[];
-}) => {
-  className.forEach((cn) => {
-    pointerHandlerMap.get(type)!.set(cn, fn);
-  });
-};
+export interface ChangeNoteRestCallback {
+  isNoteInputMode(): boolean;
+  change(): void;
+}
 
-type PointerEventType = "down" | "move" | "up" | "click" | "longpress";
-type PointerEventHandler = {
-  type: PointerEventType;
-  fn: (ev: PointerEvent) => void;
-};
-
-const classHandlerMap = new Map<string, PointerEventHandler[]>();
-
-const addPointerHandlerV2 = ({
-  className = "window",
-  handlers,
-}: {
-  className: string;
-  handlers: PointerEventHandler[];
-}) => {
-  classHandlerMap.set(className, handlers);
-};
-
-const registerPointerHandlers = () => {
-  const clickThresholdMs = 10;
-  const longPressThresholdMS = 500;
-  window.addEventListener("pointerdown", () => {});
-  window.addEventListener("pointermove", () => {});
-  window.addEventListener("pointerup", () => {});
-};
-
-const pointerHandler = (ev: Event) => {
-  Array.from(pointerHandlerMap.get(ev.type)!.values()).forEach((fn) => {
-    ev.preventDefault();
-    fn(ev as PointerEvent);
-  });
-};
+// このコールバックはキーハンドラだけじゃなくてMIDIキーとか普通のキーボードとかからも使う想定
+export interface InputCallback {
+  preview(duration: Duration, y: number): void;
+  commit(duration: Duration, y: number): void;
+  backspace(): void;
+}
 
 window.onload = () => {
   const mainWidth = window.innerWidth;
@@ -599,63 +558,74 @@ window.onload = () => {
   const mainCanvas = document.getElementById("mainCanvas") as HTMLCanvasElement;
   initCanvas(0, 0, window.innerWidth, window.innerHeight, mainCanvas);
   const mainCtx = mainCanvas.getContext("2d")!;
-  // resetCanvas({
-  //   ctx: mainCtx,
-  //   width: mainWidth,
-  //   height: mainHeight,
-  //   fillStyle: "#fff",
-  // });
-  draw({
-    ctx: mainCtx,
-    canvasWidth: mainWidth,
-    scale,
-    leftOfStaff,
-    topOfStaff,
-    elementGap,
-    elements: els,
-  });
+  const noteKeyEls = Array.from(document.getElementsByClassName("note"));
+  const update = () => {
+    resetCanvas({
+      ctx: mainCtx,
+      width: mainWidth,
+      height: mainHeight,
+      fillStyle: "#fff",
+    });
+    draw({
+      ctx: mainCtx,
+      canvasWidth: mainWidth,
+      scale,
+      leftOfStaff,
+      topOfStaff,
+      elementGap,
+      elements,
+    });
+  };
+  // const a = document.createElement("a");
+  // a.href = mainCanvas.toDataURL();
+  // a.download = "rest.png";
+  // a.click();
 
-  const keyboardEl = document.getElementById("keyboard") as HTMLDivElement;
-  const translated = { x: 0, y: 0 };
-  let dragStartPos: { x: number; y: number } | undefined;
-
-  addPointerHandler({
-    type: "pointerdown",
-    className: ["keyboardBottom", "keyboardHandle"],
-    fn: (ev: PointerEvent) => {
-      dragStartPos = { x: ev.x, y: ev.y };
+  const changeNoteRestCallback: ChangeNoteRestCallback = {
+    isNoteInputMode() {
+      return isNoteInputMode;
     },
-  });
-
-  addPointerHandler({
-    type: "pointerdown",
-    className: ["changeNoteRest"],
-    fn: (ev: PointerEvent) => {},
-  });
-
-  addPointerHandler({
-    type: "pointermove",
-    fn: (ev: PointerEvent) => {
-      if (dragStartPos) {
-        const nextX = translated.x + ev.x - dragStartPos.x;
-        const nextY = translated.y + ev.y - dragStartPos.y;
-        keyboardEl.style.transform = `translate(${nextX}px, ${nextY}px)`;
-      }
+    change() {
+      noteKeyEls.forEach((el) => {
+        el.className = el.className.replace(
+          this.isNoteInputMode() ? "note" : "rest",
+          this.isNoteInputMode() ? "rest" : "note"
+        );
+      });
+      isNoteInputMode = !isNoteInputMode;
     },
-  });
-
-  addPointerHandler({
-    type: "pointerup",
-    fn: (ev: PointerEvent) => {
-      if (dragStartPos) {
-        translated.x += ev.x - dragStartPos.x;
-        translated.y += ev.y - dragStartPos.y;
-        dragStartPos = undefined;
-      }
+  };
+  const inputCallback: InputCallback = {
+    preview(duration: Duration, y: number) {
+      // プレビューview表示
+      // yに対応した音符描画
     },
-  });
+    commit(duration: Duration, y: number = 0) {
+      elements.push({
+        type: isNoteInputMode ? "note" : "rest",
+        duration,
+        pitch: 0,
+      });
+      update();
+    },
+    backspace() {
+      elements.pop();
+      update();
+    },
+  };
 
-  ["pointerdown", "pointermove", "pointerup"].forEach((type) => {
-    window.addEventListener(type, pointerHandler);
-  });
+  registerPointerHandlers(
+    ["keyboardBottom", "keyboardHandle"],
+    [new KeyboardDragHandler()]
+  );
+  registerPointerHandlers(
+    ["changeNoteRest"],
+    [new ChangeNoteRestHandler(changeNoteRestCallback)]
+  );
+  registerPointerHandlers(["grayKey", "whiteKey"], [new KeyPressHandler()]);
+  registerPointerHandlers(
+    ["grayKey", "whiteKey"],
+    [new InputHandler(inputCallback)]
+  );
+  update();
 };
