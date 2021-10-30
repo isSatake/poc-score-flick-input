@@ -31,7 +31,7 @@ import {
   UNIT,
   WIDTH_NOTE_HEAD_BLACK,
   WIDTH_NOTE_HEAD_WHOLE,
-} from "../bravura";
+} from "./bravura";
 import { registerPointerHandlers } from "./pointer-event";
 import {
   ChangeNoteRestHandler,
@@ -534,7 +534,8 @@ export interface ChangeNoteRestCallback {
 
 // このコールバックはキーハンドラだけじゃなくてMIDIキーとか普通のキーボードとかからも使う想定
 export interface InputCallback {
-  preview(duration: Duration, dy: number): void;
+  startPreview(duration: Duration, downX: number, downY: number): void;
+  updatePreview(duration: Duration, dy: number): void;
   commit(duration: Duration, dy?: number): void;
   backspace(): void;
   finish(): void;
@@ -578,12 +579,14 @@ window.onload = () => {
       fillStyle: "#aaa",
     });
     if (element) {
+      // B4がcanvasのvertical centerにくるように
+      const _topOfStaff = previewHeight / 2 - (bStaffHeight * scale) / 2;
       draw({
         ctx: previewCtx,
         canvasWidth: previewWidth,
         scale,
         leftOfStaff,
-        topOfStaff,
+        topOfStaff: _topOfStaff,
         elementGap,
         elements: [element],
       });
@@ -605,16 +608,26 @@ window.onload = () => {
     },
   };
   const inputCallback: InputCallback = {
-    preview(duration: Duration, dy: number) {
+    startPreview(duration: Duration, downX: number, downY: number) {
+      const left = downX - previewWidth / 2;
+      const top = downY - previewHeight / 2;
+      initCanvas(left, top, previewWidth, previewHeight, previewCanvas);
       updatePreview({
         type: isNoteInputMode ? "note" : "rest",
         duration,
-        pitch: pitchByDistance(scale, dy, 0),
+        pitch: pitchByDistance(scale, 0, 6),
       });
       previewCanvas.style.visibility = "visible";
     },
+    updatePreview(duration: Duration, dy: number) {
+      updatePreview({
+        type: isNoteInputMode ? "note" : "rest",
+        duration,
+        pitch: pitchByDistance(scale, dy, 6),
+      });
+    },
     commit(duration: Duration, dy?: number) {
-      const pitch = pitchByDistance(scale, dy ?? 0, 0);
+      const pitch = pitchByDistance(scale, dy ?? 0, 6);
       mainElements.push({
         type: isNoteInputMode ? "note" : "rest",
         duration,

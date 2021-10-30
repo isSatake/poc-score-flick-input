@@ -146,23 +146,21 @@ export class InputHandler extends EmptyPointerHandler {
   }
 
   onLongDown(ev: PointerEvent) {
-    this.callback.preview(this.duration!, 0);
+    this.callback.startPreview(this.duration!, ev.x, ev.y);
   }
 
   onDrag(ev: PointerEvent, downPoint: Point) {
     this.dragDy = downPoint.y - ev.y;
-    this.callback.preview(this.duration!, this.dragDy);
+    this.callback.updatePreview(this.duration!, this.dragDy);
   }
 
   onUp(ev: PointerEvent, downPoint: Point) {
     if (this.targetClassNames.some((cn) => cn === "backspace")) {
       this.callback.backspace();
-    } else if (this.dragDy) {
-      if (this.duration) {
-        this.callback.commit(this.duration, this.dragDy);
-      }
-      this.finish();
+    } else if (this.duration) {
+      this.callback.commit(this.duration, this.dragDy ?? 0);
     }
+    this.finish();
   }
 
   finish() {

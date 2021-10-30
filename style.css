@@ -3,6 +3,8 @@ html, body {
     height: 100%;
     margin: 0;
     touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
 }
 
 #previewCanvas {
@@ -23,7 +25,6 @@ html, body {
     border-radius: 9px;
     border: solid 1px #c9cace;
     box-shadow: #ccc 0 20px 70px -10px;
-    user-select: none;
 }
 
 .candidateContainer {
