@@ -576,7 +576,7 @@ window.onload = () => {
       ctx: previewCtx,
       width: previewWidth,
       height: previewHeight,
-      fillStyle: "#aaa",
+      fillStyle: "#fff",
     });
     if (element) {
       // B4がcanvasのvertical centerにくるように

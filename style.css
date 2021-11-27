@@ -10,6 +10,8 @@ html, body {
 #previewCanvas {
     position: absolute;
     visibility: hidden;
+    border-radius: 30px;
+    box-shadow: #ccc 0 20px 70px -10px;
 }
 
 #keyboard {
@@ -154,6 +156,10 @@ html, body {
 .changeNoteRest.rest {
     background-size: auto 60%;
     background-image: url("./img/r4.png");
+}
+
+.accidentals {
+    background-image: url("./img/accidentals.svg");
 }
 
 .changeUi {
