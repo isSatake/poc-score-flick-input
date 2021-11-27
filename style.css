@@ -162,6 +162,15 @@ html, body {
     background-image: url("./img/accidentals.svg");
 }
 
+.dynamics {
+    background-image: url("./img/dynamics.svg");
+}
+
+.bars {
+    background-image: url("./img/bars.svg");
+    background-size: auto 55%;
+}
+
 .changeUi {
     background-image: url("./img/piano_black_24dp.svg");
     background-position: center;
