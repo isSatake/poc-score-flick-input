@@ -143,6 +143,20 @@ html, body {
     background-repeat: no-repeat;
 }
 
+.toLeft {
+    background-image: url("./img/west_black_24dp.svg");
+    background-position: center;
+    background-repeat: no-repeat;
+    background-size: 30%;
+}
+
+.toRight {
+    background-image: url("./img/east_black_24dp.svg");
+    background-position: center;
+    background-repeat: no-repeat;
+    background-size: 30%;
+}
+
 .changeNoteRest {
     background-position: center;
     background-repeat: no-repeat;

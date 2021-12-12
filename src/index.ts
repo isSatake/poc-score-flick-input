@@ -35,9 +35,10 @@ import {
 import { registerPointerHandlers } from "./pointer-event";
 import {
   ChangeNoteRestHandler,
-  InputHandler,
+  NoteInputHandler,
   KeyboardDragHandler,
   KeyPressHandler,
+  ArrowHandler,
 } from "./pointer-handlers";
 
 const durations = [1, 2, 4, 8, 16, 32] as const;
@@ -442,7 +443,9 @@ const drawBarline = (
   };
 };
 
-const draw = ({
+type Caret = { x: number; y: number; width: number; elIdx: number };
+
+const drawElements = ({
   ctx,
   canvasWidth,
   scale,
@@ -458,16 +461,24 @@ const draw = ({
   topOfStaff: number;
   elementGap: number;
   elements: Element[];
-}) => {
+}): Caret[] => {
   drawStaff(ctx, leftOfStaff, topOfStaff, canvasWidth - leftOfStaff * 2, scale);
   let cursor = leftOfStaff + elementGap;
   cursor = drawGClef(ctx, cursor, topOfStaff, scale).end;
   if (elements.length === 0) {
-    return;
+    return [{ x: cursor + elementGap, y: topOfStaff, width: 1, elIdx: -1 }];
   }
+  const elementIdxToX: Caret[] = [];
   for (let i in elements) {
-    const el = elements[i];
+    const elIdx = Number(i);
+    const el = elements[elIdx];
     const left = cursor + elementGap;
+    elementIdxToX.push({
+      x: left,
+      y: topOfStaff,
+      width: 1,
+      elIdx: elIdx - 1 >= 0 ? elIdx - 1 : -1,
+    });
     switch (el.type) {
       case "note":
         cursor = drawNote({
@@ -477,15 +488,48 @@ const draw = ({
           note: el,
           scale,
         }).end;
+        elementIdxToX.push({
+          x: left,
+          y: topOfStaff,
+          width: cursor - left,
+          elIdx,
+        });
         break;
       case "rest":
         cursor = drawRest(ctx, topOfStaff, left, el, scale).end;
+        elementIdxToX.push({ x: left, y: topOfStaff, width: 1, elIdx });
         break;
       case "bar":
         cursor = drawBarline(ctx, topOfStaff, left, scale).end;
+        elementIdxToX.push({ x: left, y: topOfStaff, width: 1, elIdx });
         break;
     }
   }
+  const lastX = elementIdxToX[elementIdxToX.length - 1].x;
+  elementIdxToX.push({
+    x: lastX + elementGap,
+    y: topOfStaff,
+    width: 1,
+    elIdx: elements.length - 1,
+  });
+  return elementIdxToX;
+};
+
+const drawCaret = ({
+  ctx,
+  scale,
+  pos,
+}: {
+  ctx: CanvasRenderingContext2D;
+  scale: number;
+  pos: Caret;
+}) => {
+  const { x, y, width } = pos;
+  const height = bStaffHeight * scale;
+  ctx.save();
+  ctx.fillStyle = "#FF000055";
+  ctx.fillRect(x, y, width, height);
+  ctx.restore();
 };
 
 const scale = 0.08;
@@ -529,16 +573,26 @@ let isNoteInputMode = true;
 
 export interface ChangeNoteRestCallback {
   isNoteInputMode(): boolean;
+
   change(): void;
 }
 
 // このコールバックはキーハンドラだけじゃなくてMIDIキーとか普通のキーボードとかからも使う想定
-export interface InputCallback {
+export interface NoteInputCallback {
   startPreview(duration: Duration, downX: number, downY: number): void;
+
   updatePreview(duration: Duration, dy: number): void;
+
   commit(duration: Duration, dy?: number): void;
+
   backspace(): void;
+
   finish(): void;
+}
+
+export interface CaretMoveCallback {
+  back(): void;
+  forward(): void;
 }
 
 window.onload = () => {
@@ -554,21 +608,28 @@ window.onload = () => {
   const previewCtx = previewCanvas.getContext("2d")!;
   const noteKeyEls = Array.from(document.getElementsByClassName("note"));
   const mainElements: Element[] = [];
-  const updateMain = (elements: Element[]) => {
+  let caretPositions: Caret[] = [];
+  let caretIndex = 0;
+  const updateMain = () => {
     resetCanvas({
       ctx: mainCtx,
       width: mainWidth,
       height: mainHeight,
       fillStyle: "#fff",
     });
-    draw({
+    caretPositions = drawElements({
       ctx: mainCtx,
       canvasWidth: mainWidth,
       scale,
       leftOfStaff,
       topOfStaff,
       elementGap,
-      elements,
+      elements: mainElements,
+    });
+    drawCaret({
+      ctx: mainCtx,
+      scale,
+      pos: caretPositions[caretIndex],
     });
   };
   const updatePreview = (element?: Element) => {
@@ -578,19 +639,20 @@ window.onload = () => {
       height: previewHeight,
       fillStyle: "#fff",
     });
-    if (element) {
-      // B4がcanvasのvertical centerにくるように
-      const _topOfStaff = previewHeight / 2 - (bStaffHeight * scale) / 2;
-      draw({
-        ctx: previewCtx,
-        canvasWidth: previewWidth,
-        scale,
-        leftOfStaff,
-        topOfStaff: _topOfStaff,
-        elementGap,
-        elements: [element],
-      });
+    if (!element) {
+      return;
     }
+    // B4がcanvasのvertical centerにくるように
+    const _topOfStaff = previewHeight / 2 - (bStaffHeight * scale) / 2;
+    drawElements({
+      ctx: previewCtx,
+      canvasWidth: previewWidth,
+      scale,
+      leftOfStaff,
+      topOfStaff: _topOfStaff,
+      elementGap,
+      elements: [element],
+    });
   };
 
   const changeNoteRestCallback: ChangeNoteRestCallback = {
@@ -607,7 +669,7 @@ window.onload = () => {
       isNoteInputMode = !isNoteInputMode;
     },
   };
-  const inputCallback: InputCallback = {
+  const noteInputCallback: NoteInputCallback = {
     startPreview(duration: Duration, downX: number, downY: number) {
       const left = downX - previewWidth / 2;
       const top = downY - previewHeight / 2;
@@ -633,14 +695,44 @@ window.onload = () => {
         duration,
         pitch,
       });
-      updateMain(mainElements);
+      updateMain();
     },
     backspace() {
-      mainElements.pop();
-      updateMain(mainElements);
+      const targetElIdx = caretPositions[caretIndex].elIdx;
+      if (targetElIdx < 0) {
+        return;
+      }
+      mainElements.splice(targetElIdx, 1);
+
+      // 削除後のcaret位置を計算
+      let t = caretIndex - 1;
+      while (t > -1) {
+        if (t === 0) {
+          caretIndex = 0;
+          t = -1;
+        } else if (caretPositions[t].elIdx !== targetElIdx) {
+          caretIndex = t;
+          t = -1;
+        } else {
+          t--;
+        }
+      }
+
+      updateMain();
     },
     finish() {
       previewCanvas.style.visibility = "hidden";
+    },
+  };
+
+  const caretMoveCallback: CaretMoveCallback = {
+    back() {
+      caretIndex = Math.max(caretIndex - 1, 0);
+      updateMain();
+    },
+    forward() {
+      caretIndex = Math.min(caretIndex + 1, caretPositions.length - 1);
+      updateMain();
     },
   };
 
@@ -654,11 +746,15 @@ window.onload = () => {
   );
   registerPointerHandlers(["grayKey", "whiteKey"], [new KeyPressHandler()]);
   registerPointerHandlers(
-    ["grayKey", "whiteKey"],
-    [new InputHandler(inputCallback)]
+    ["note", "backspace"],
+    [new NoteInputHandler(noteInputCallback)]
+  );
+  registerPointerHandlers(
+    ["toLeft", "toRight"],
+    [new ArrowHandler(caretMoveCallback)]
   );
 
   initCanvas(0, 0, window.innerWidth, window.innerHeight, mainCanvas);
   initCanvas(0, 0, previewWidth, previewHeight, previewCanvas);
-  updateMain(mainElements);
+  updateMain();
 };

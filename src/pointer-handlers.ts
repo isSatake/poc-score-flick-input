@@ -1,6 +1,11 @@
 import { PointerHandler } from "./pointer-event";
 import { Point } from "./point";
-import { ChangeNoteRestCallback, Duration, InputCallback } from "./index";
+import {
+  CaretMoveCallback,
+  ChangeNoteRestCallback,
+  Duration,
+  NoteInputCallback,
+} from "./index";
 
 export class N1Handler implements PointerHandler {
   // ポインタハンドラがクラスになってるので、状態を持てる
@@ -107,7 +112,7 @@ export class KeyPressHandler extends EmptyPointerHandler {
   }
 }
 
-export class InputHandler extends EmptyPointerHandler {
+export class NoteInputHandler extends EmptyPointerHandler {
   private readonly posToDurationMap = new Map<string, Duration>([
     ["12", 1],
     ["13", 2],
@@ -119,7 +124,7 @@ export class InputHandler extends EmptyPointerHandler {
   private targetClassNames: string[] = [];
   private dragDy: number | undefined;
 
-  constructor(private callback: InputCallback) {
+  constructor(private callback: NoteInputCallback) {
     super();
   }
 
@@ -131,6 +136,10 @@ export class InputHandler extends EmptyPointerHandler {
       return;
     }
     return this.posToDurationMap.get(pos);
+  }
+
+  private isBackspace(): boolean {
+    return this.targetClassNames.some((cn) => cn === "backspace");
   }
 
   onDown(ev: PointerEvent) {
@@ -146,6 +155,9 @@ export class InputHandler extends EmptyPointerHandler {
   }
 
   onLongDown(ev: PointerEvent) {
+    if (this.isBackspace()) {
+      return;
+    }
     this.callback.startPreview(this.duration!, ev.x, ev.y);
   }
 
@@ -155,7 +167,7 @@ export class InputHandler extends EmptyPointerHandler {
   }
 
   onUp(ev: PointerEvent, downPoint: Point) {
-    if (this.targetClassNames.some((cn) => cn === "backspace")) {
+    if (this.isBackspace()) {
       this.callback.backspace();
     } else if (this.duration) {
       this.callback.commit(this.duration, this.dragDy ?? 0);
@@ -167,5 +179,20 @@ export class InputHandler extends EmptyPointerHandler {
     this.targetClassNames = [];
     this.dragDy = undefined;
     this.callback.finish();
+  }
+}
+
+export class ArrowHandler extends EmptyPointerHandler {
+  constructor(private callback: CaretMoveCallback) {
+    super();
+  }
+
+  onClick(ev: PointerEvent) {
+    const { className } = ev.target as HTMLDivElement;
+    if (className.match(/.*toLeft.*/)) {
+      this.callback.back();
+    } else if (className.match(/.*toRight.*/)) {
+      this.callback.forward();
+    }
   }
 }
