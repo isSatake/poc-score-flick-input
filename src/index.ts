@@ -50,11 +50,15 @@ type Pitch = number;
 // 臨時記号の表記
 type Accidental = "sharp" | "natural" | "flat";
 
+type PitchAcc = {
+  pitch: Pitch;
+  accidental?: Accidental;
+};
+
 type Note = {
   type: "note";
-  pitch: Pitch;
   duration: Duration;
-  accidental?: Accidental;
+  notes: PitchAcc[];
 };
 
 type Rest = {
@@ -200,10 +204,12 @@ const calcSection = (
   return { start, end: start + width };
 };
 
-const drawNoteHead = (params: DrawNoteParams): DrawnSection => {
-  const { ctx, left, topOfStaff, note, scale } = params;
-  const { pitch, duration } = note;
-  const top = pitchToY(topOfStaff, pitch, scale);
+const drawNoteHead = (dnp: DrawNoteParams, pas: PitchAcc[]): DrawnSection => {
+  const { ctx, left, topOfStaff, scale, duration } = dnp;
+
+  // TODO 2度音程の考慮(楽譜の書き方p69,70)
+
+  const top = pitchToY(topOfStaff, pa.pitch, scale);
   const path = noteHeadByDuration(duration);
   drawBravuraPath(ctx, left, top, scale, path);
   return calcSection(left, scale, path);
@@ -214,17 +220,21 @@ const ledgerLineExtension = (scale: number): number => {
   return UNIT * EXTENSION_LEDGER_LINE * scale;
 };
 
-const drawLedgerLine = (
-  ctx: CanvasRenderingContext2D,
-  top: number,
-  start: number,
-  note: Note,
-  scale: number
-): DrawnSection => {
+const drawLedgerLine = ({
+  ctx,
+  top,
+  start,
+  duration,
+  scale,
+}: {
+  ctx: CanvasRenderingContext2D;
+  top: number;
+  start: number;
+  duration: Duration;
+  scale: number;
+}): DrawnSection => {
   const end =
-    start +
-    noteHeadWidth(note.duration) * scale +
-    ledgerLineExtension(scale) * 2;
+    start + noteHeadWidth(duration) * scale + ledgerLineExtension(scale) * 2;
   ctx.save();
   ctx.strokeStyle = "#000";
   ctx.lineWidth = bLedgerLineWidth * scale;
@@ -237,42 +247,59 @@ const drawLedgerLine = (
   return { start, end };
 };
 
-const drawLedgerLines = (params: DrawNoteParams): DrawnSection | undefined => {
-  const { ctx, note, scale, left, topOfStaff } = params;
-  const { pitch } = note;
+/**
+ * 構成音に対して必要なledger lineをすべて描画する
+ * @returns Section of ledger line
+ * @param dnp DrawNoteParams
+ * @param pas PitchAcc array of pitches
+ */
+const drawLedgerLines = (
+  dnp: DrawNoteParams,
+  pas: PitchAcc[]
+): DrawnSection | undefined => {
+  const { scale, topOfStaff } = dnp;
+  const pitches = pas.map((pa) => pa.pitch);
+  const minPitch = Math.min(...pitches);
+  const maxPitch = Math.max(...pitches);
   let section: DrawnSection | undefined;
-  if (pitch <= 0) {
+
+  // min<=0 && max<=0 : minのみ描画
+  // min>=12 && max>=12 : maxのみ描画
+  // min===max && min<=0 : minのみ描画
+  // min===max && min>=12 : minのみ描画
+  // min<=0 && max>=12 : min, max描画
+
+  if (minPitch <= 0) {
     // 0=C4
-    for (let i = 0; i >= pitch; i -= 2) {
-      section = drawLedgerLine(
-        ctx,
-        pitchToY(topOfStaff, i, scale),
-        left,
-        note,
-        scale
-      );
+    for (let i = 0; i >= minPitch; i -= 2) {
+      section = drawLedgerLine({
+        ...dnp,
+        start: dnp.left,
+        top: pitchToY(topOfStaff, i, scale),
+      });
     }
-  } else if (pitch >= 12) {
+  }
+  if (maxPitch >= 12) {
     // 12=A5
-    for (let i = 12; i < pitch + 1; i += 2) {
-      section = drawLedgerLine(
-        ctx,
-        pitchToY(topOfStaff, i, scale),
-        left,
-        note,
-        scale
-      );
+    for (let i = 12; i < maxPitch + 1; i += 2) {
+      section = drawLedgerLine({
+        ...dnp,
+        start: dnp.left,
+        top: pitchToY(topOfStaff, i, scale),
+      });
     }
   }
   return section;
 };
 
-const drawStemAndFlags = (params: DrawNoteParams): DrawnSection | undefined => {
+const drawStemFlag = (params: DrawNoteParams): DrawnSection | undefined => {
   const { ctx, topOfStaff, left, scale, note } = params;
   const { pitch, duration } = note;
   if (duration === 1) {
     return;
   }
+  // TODO 和音
+  // B4から最も離れた音程を基準に上向き/下向きを決めればいい希ガス
   const heightOfB3 = topOfStaff + (bStaffHeight * scale) / 2;
   const lineWidth = bStemWidth * scale;
   let stemCenter: number;
@@ -345,55 +372,75 @@ const drawStemAndFlags = (params: DrawNoteParams): DrawnSection | undefined => {
   }
 };
 
-const drawAccidental = (params: DrawNoteParams): DrawnSection | undefined => {
-  const { ctx, left, topOfStaff, note, scale } = params;
-  const { pitch, accidental } = note;
-  if (!accidental) {
-    return;
+/**
+ * 構成音すべてのAccidentalを描画
+ * @return すべてのAccidentalを内包するDrawnSection
+ * @param dnp DrawNoteParams
+ * @param pas PitchAcc array of pitches
+ */
+const drawAccidental = (
+  dnp: DrawNoteParams,
+  pas: PitchAcc[]
+): DrawnSection | undefined => {
+  const { ctx, left, topOfStaff, scale } = dnp;
+  const sections: DrawnSection[] = [];
+  // TODO 7度未満の音程に複数のAccidentalが付く場合 (楽譜の書き方p75)
+  for (const pa of pas) {
+    if (!pa.accidental) {
+      return;
+    }
+    const { pitch, accidental } = pa;
+    const top = pitchToY(topOfStaff, pitch, scale);
+    const path = accidentalPathMap.get(accidental)!;
+    drawBravuraPath(ctx, left, top, scale, path);
+    sections.push(calcSection(left, scale, path));
   }
-  const top = pitchToY(topOfStaff, pitch, scale);
-  const path = accidentalPathMap.get(accidental)!;
-  drawBravuraPath(ctx, left, top, scale, path);
-  return calcSection(left, scale, path);
+  return maxSection(left, sections);
 };
 
 interface DrawNoteParams {
   ctx: CanvasRenderingContext2D;
   topOfStaff: number;
   left: number;
-  note: Note;
   scale: number;
+  duration: Duration;
 }
+
+const maxSection = (left: number, sections: DrawnSection[]): DrawnSection => {
+  const start = Math.min(...sections.map((section) => section?.start ?? left));
+  const end = Math.max(...sections.map((section) => section?.end ?? left));
+  return { start, end };
+};
 
 const gapWithAccidental = (scale: number): number => {
   return (UNIT / 4) * scale; // 勘
 };
 
-/**
- * 音符描画
- */
-const drawNote = (params: DrawNoteParams): DrawnSection => {
-  const { scale, left } = params;
-  const arr: (DrawnSection | undefined)[] = [];
-  arr.push(drawAccidental(params));
+const drawNote = (dnp: DrawNoteParams, pas: PitchAcc[]): DrawnSection => {
+  const { scale, left } = dnp;
+  const sections: (DrawnSection | undefined)[] = [];
+
+  sections.push(drawAccidental(dnp, pas));
   let leftOfLedgerLine = left;
-  if (arr[0]?.end) {
-    leftOfLedgerLine = arr[0]?.end + gapWithAccidental(scale);
+  if (sections[0]?.end) {
+    // Accidentalが描画されていればledger line開始位置を右にずらす
+    leftOfLedgerLine = sections[0]?.end + gapWithAccidental(scale);
   }
-  arr.push(drawLedgerLines({ ...params, left: leftOfLedgerLine }));
+  sections.push(drawLedgerLines({ ...dnp, left: leftOfLedgerLine }, pas));
+
   let leftOfNoteHead = left;
-  if (arr[1]?.start) {
-    leftOfNoteHead = arr[1].start + ledgerLineExtension(scale);
-  } else if (arr[0]?.end) {
-    leftOfNoteHead = arr[0]?.end + gapWithAccidental(scale) * 2;
+  if (sections[1]?.start) {
+    // Ledger lineが描画されていればnote描画位置を右にずらす
+    leftOfNoteHead = sections[1].start + ledgerLineExtension(scale);
+  } else if (sections[0]?.end) {
+    // Accidentalが描画されていればnote描画位置を右にずらす
+    leftOfNoteHead = sections[0]?.end + gapWithAccidental(scale) * 2;
   }
-  arr.push(drawNoteHead({ ...params, left: leftOfNoteHead }));
-  arr.push(drawStemAndFlags({ ...params, left: leftOfNoteHead }));
-  const start = Math.min(
-    ...arr.map((section) => section?.start ?? params.left)
-  );
-  const end = Math.max(...arr.map((section) => section?.end ?? params.left));
-  return { start, end };
+
+  sections.push(drawNoteHead({ ...dnp, left: leftOfNoteHead }, pas));
+
+  arr.push(drawStemFlag({ ...dnp, left: leftOfNoteHead }));
+  return maxSection(dnp.left, arr);
 };
 
 /**
@@ -485,7 +532,8 @@ const drawElements = ({
           ctx,
           topOfStaff: topOfStaff,
           left,
-          note: el,
+          duration: el.duration,
+          notes: el.notes,
           scale,
         }).end;
         elementIdxToX.push({
@@ -592,6 +640,7 @@ export interface NoteInputCallback {
 
 export interface CaretMoveCallback {
   back(): void;
+
   forward(): void;
 }
 
@@ -690,6 +739,7 @@ window.onload = () => {
     },
     commit(duration: Duration, dy?: number) {
       const pitch = pitchByDistance(scale, dy ?? 0, 6);
+      console.log(isNoteInputMode);
       mainElements.push({
         type: isNoteInputMode ? "note" : "rest",
         duration,
@@ -746,7 +796,7 @@ window.onload = () => {
   );
   registerPointerHandlers(["grayKey", "whiteKey"], [new KeyPressHandler()]);
   registerPointerHandlers(
-    ["note", "backspace"],
+    ["note", "rest", "backspace"],
     [new NoteInputHandler(noteInputCallback)]
   );
   registerPointerHandlers(
