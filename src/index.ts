@@ -195,20 +195,21 @@ type DrawnSection = {
   end: number;
 };
 
+const createSection = (start: number, end?: number): DrawnSection => {
+  return { start, end: end ?? start };
+};
+
 const calcSection = (
   start: number,
   scale: number,
   path: Path
 ): DrawnSection => {
   const width = (path.bbox.ne.x - path.bbox.sw.x) * UNIT * scale;
-  return { start, end: start + width };
+  return createSection(start, start + width);
 };
 
-const drawNoteHead = (dnp: DrawNoteParams, pas: PitchAcc[]): DrawnSection => {
+const drawNoteHead = (dnp: DrawNoteParams, pa: PitchAcc): DrawnSection => {
   const { ctx, left, topOfStaff, scale, duration } = dnp;
-
-  // TODO 2度音程の考慮(楽譜の書き方p69,70)
-
   const top = pitchToY(topOfStaff, pa.pitch, scale);
   const path = noteHeadByDuration(duration);
   drawBravuraPath(ctx, left, top, scale, path);
@@ -256,12 +257,12 @@ const drawLedgerLine = ({
 const drawLedgerLines = (
   dnp: DrawNoteParams,
   pas: PitchAcc[]
-): DrawnSection | undefined => {
-  const { scale, topOfStaff } = dnp;
+): DrawnSection => {
+  const { scale, topOfStaff, left } = dnp;
   const pitches = pas.map((pa) => pa.pitch);
   const minPitch = Math.min(...pitches);
   const maxPitch = Math.max(...pitches);
-  let section: DrawnSection | undefined;
+  let section = createSection(left);
 
   // min<=0 && max<=0 : minのみ描画
   // min>=12 && max>=12 : maxのみ描画
@@ -274,7 +275,7 @@ const drawLedgerLines = (
     for (let i = 0; i >= minPitch; i -= 2) {
       section = drawLedgerLine({
         ...dnp,
-        start: dnp.left,
+        start: left,
         top: pitchToY(topOfStaff, i, scale),
       });
     }
@@ -284,7 +285,7 @@ const drawLedgerLines = (
     for (let i = 12; i < maxPitch + 1; i += 2) {
       section = drawLedgerLine({
         ...dnp,
-        start: dnp.left,
+        start: left,
         top: pitchToY(topOfStaff, i, scale),
       });
     }
@@ -292,32 +293,38 @@ const drawLedgerLines = (
   return section;
 };
 
-const drawStemFlag = (params: DrawNoteParams): DrawnSection | undefined => {
-  const { ctx, topOfStaff, left, scale, note } = params;
-  const { pitch, duration } = note;
+const drawStemFlag = ({
+  dnp,
+  direction,
+  lowest,
+  highest,
+}: {
+  dnp: DrawNoteParams;
+  direction: "down" | "up";
+  lowest: PitchAcc;
+  highest: PitchAcc;
+}): DrawnSection => {
+  const { ctx, topOfStaff, left, scale, duration } = dnp;
   if (duration === 1) {
-    return;
+    return createSection(left);
   }
-  // TODO 和音
-  // B4から最も離れた音程を基準に上向き/下向きを決めればいい希ガス
-  const heightOfB3 = topOfStaff + (bStaffHeight * scale) / 2;
+  const heightOfB4 = topOfStaff + (bStaffHeight * scale) / 2;
   const lineWidth = bStemWidth * scale;
   let stemCenter: number;
   let top: number;
   let bottom: number;
   let drawnSection: DrawnSection | undefined;
-  if (pitch < 6) {
-    // B4未満 -> 上向き (楽譜の書き方p17)
-    // 符頭の右に符幹がはみ出るのを補正 (lineWidth / 2)
-    stemCenter = left + WIDTH_NOTE_HEAD_BLACK * scale - lineWidth / 2;
-    bottom = pitchToY(topOfStaff, pitch, scale) - 5;
-    if (pitch < 0) {
-      // C4より低い -> topはB3 (楽譜の書き方p17)
-      top = heightOfB3;
+  if (direction === "up") {
+    // 符頭の右に符幹がはみ出るのを補正
+    stemCenter = left - lineWidth / 2;
+    bottom = pitchToY(topOfStaff, lowest.pitch, scale) - 5;
+    if (highest.pitch < 0) {
+      // C4より低い -> topはB4 (楽譜の書き方p17)
+      top = heightOfB4;
     } else {
       // stemの長さは基本1オクターブ分 (楽譜の書き方p17)
       // 32分以降は1間ずつ長くする (楽譜の書き方p53)
-      const index = duration <= 32 ? pitch + 7 : pitch + 8;
+      const index = duration <= 32 ? highest.pitch + 7 : highest.pitch + 8;
       top = pitchToY(topOfStaff, index, scale);
     }
     const path = upFlagMap.get(duration);
@@ -332,14 +339,13 @@ const drawStemFlag = (params: DrawNoteParams): DrawnSection | undefined => {
       drawnSection = calcSection(left, scale, path);
     }
   } else {
-    // 下向き
     stemCenter = left + lineWidth / 2;
-    top = pitchToY(topOfStaff, pitch, scale);
-    if (pitch > 12) {
+    top = pitchToY(topOfStaff, highest.pitch, scale);
+    if (lowest.pitch > 12) {
       // A5より高い -> bottomはB3
-      bottom = heightOfB3;
+      bottom = heightOfB4;
     } else {
-      const index = duration < 32 ? pitch - 7 : pitch - 8;
+      const index = duration < 32 ? lowest.pitch - 7 : lowest.pitch - 8;
       bottom = pitchToY(topOfStaff, index, scale);
     }
     const path = downFlagMap.get(duration);
@@ -378,16 +384,13 @@ const drawStemFlag = (params: DrawNoteParams): DrawnSection | undefined => {
  * @param dnp DrawNoteParams
  * @param pas PitchAcc array of pitches
  */
-const drawAccidental = (
-  dnp: DrawNoteParams,
-  pas: PitchAcc[]
-): DrawnSection | undefined => {
+const drawAccidental = (dnp: DrawNoteParams, pas: PitchAcc[]): DrawnSection => {
   const { ctx, left, topOfStaff, scale } = dnp;
   const sections: DrawnSection[] = [];
   // TODO 7度未満の音程に複数のAccidentalが付く場合 (楽譜の書き方p75)
   for (const pa of pas) {
     if (!pa.accidental) {
-      return;
+      return createSection(left);
     }
     const { pitch, accidental } = pa;
     const top = pitchToY(topOfStaff, pitch, scale);
@@ -416,9 +419,41 @@ const gapWithAccidental = (scale: number): number => {
   return (UNIT / 4) * scale; // 勘
 };
 
+const calcStemDirection = (pitches: Pitch[]): "up" | "down" => {
+  // B4から最も遠い音程を計算する
+  // B4未満 -> 上向き (楽譜の書き方p17)
+  const lowestToB4 = 6 - Math.min(...pitches);
+  const highestToB4 = Math.max(...pitches) - 6;
+  if (lowestToB4 > highestToB4) {
+    return "up";
+  } else if (highestToB4 > lowestToB4) {
+    return "down";
+  }
+
+  // 最も遠い音程が高低側で同じ場合、重心から向きを決定する (satake案)
+  let lowerB4 = 0;
+  let higherB4 = 0;
+  pitches.forEach((p) => {
+    if (p < 6) {
+      lowerB4++;
+    } else if (p > 6) {
+      higherB4++;
+    }
+  });
+  if (lowerB4 > higherB4) {
+    return "up";
+  } else if (higherB4 > lowerB4) {
+    return "down";
+  }
+
+  // FM7のような和音はとりあえず上向きにしておく
+  // TODO 直前のSectionが和音なら、その和音の向きに揃える
+  return "up";
+};
+
 const drawNote = (dnp: DrawNoteParams, pas: PitchAcc[]): DrawnSection => {
   const { scale, left } = dnp;
-  const sections: (DrawnSection | undefined)[] = [];
+  const sections: DrawnSection[] = [];
 
   sections.push(drawAccidental(dnp, pas));
   let leftOfLedgerLine = left;
@@ -437,10 +472,76 @@ const drawNote = (dnp: DrawNoteParams, pas: PitchAcc[]): DrawnSection => {
     leftOfNoteHead = sections[0]?.end + gapWithAccidental(scale) * 2;
   }
 
-  sections.push(drawNoteHead({ ...dnp, left: leftOfNoteHead }, pas));
+  // stemの左右どちらに音符を描画するか
+  const stemDirection = calcStemDirection(pas.map((pa) => pa.pitch));
+  const notesLeftOfStem: PitchAcc[] = [];
+  const notesRightOfStem: PitchAcc[] = [];
+  const 低い順 = pas.sort((a, b) => {
+    if (a.pitch < b.pitch) {
+      return -1;
+    } else if (a.pitch === b.pitch) {
+      return 0;
+    } else {
+      return 1;
+    }
+  });
+  if (stemDirection === "up") {
+    // 上向きstem
+    for (let i = 0; i < 低い順.length; i++) {
+      if (i === 0) {
+        // 最低音は左側
+        notesLeftOfStem.push(低い順[i]);
+      } else if (低い順[i].pitch - 低い順[i - 1].pitch === 1) {
+        // 2度は右側
+        notesRightOfStem.push(低い順[i]);
+        if (i + 1 < 低い順.length) {
+          // 右側描画となった次の音は左側
+          notesLeftOfStem.push(低い順[++i]);
+        }
+      } else {
+        notesLeftOfStem.push(低い順[i]);
+      }
+    }
+  } else {
+    // 下向きstem
+    const 高い順 = 低い順.concat().reverse();
+    for (let i = 0; i < 高い順.length; i++) {
+      if (i === 0) {
+        // 最低音は右側
+        notesRightOfStem.push(高い順[i]);
+      } else if (高い順[i - 1].pitch - 高い順[i].pitch === 1) {
+        // 2度は左側
+        notesLeftOfStem.push(高い順[i]);
+        if (i + 1 < 高い順.length) {
+          // 左側描画となった次の音は右側
+          notesRightOfStem.push(高い順[++i]);
+        }
+      } else {
+        notesRightOfStem.push(高い順[i]);
+      }
+    }
+  }
 
-  arr.push(drawStemFlag({ ...dnp, left: leftOfNoteHead }));
-  return maxSection(dnp.left, arr);
+  notesLeftOfStem.forEach((pa) => {
+    sections.push(drawNoteHead({ ...dnp, left: leftOfNoteHead }, pa));
+  });
+  let leftOfStemOrNotehead = leftOfNoteHead;
+  if (notesLeftOfStem.length > 0) {
+    // Stem左側にnotehead描画していたらnotehead右端をstem開始位置に指定する
+    leftOfStemOrNotehead = sections[sections.length - 1]?.end ?? leftOfNoteHead;
+  }
+  sections.push(
+    drawStemFlag({
+      dnp: { ...dnp, left: leftOfStemOrNotehead },
+      direction: stemDirection,
+      lowest: 低い順[0],
+      highest: 低い順[低い順.length - 1],
+    })
+  );
+  notesRightOfStem.forEach((pa) => {
+    sections.push(drawNoteHead({ ...dnp, left: leftOfStemOrNotehead }, pa));
+  });
+  return maxSection(dnp.left, sections);
 };
 
 /**
@@ -528,14 +629,16 @@ const drawElements = ({
     });
     switch (el.type) {
       case "note":
-        cursor = drawNote({
-          ctx,
-          topOfStaff: topOfStaff,
-          left,
-          duration: el.duration,
-          notes: el.notes,
-          scale,
-        }).end;
+        cursor = drawNote(
+          {
+            ctx,
+            topOfStaff: topOfStaff,
+            left,
+            duration: el.duration,
+            scale,
+          },
+          el.notes
+        ).end;
         elementIdxToX.push({
           x: left,
           y: topOfStaff,
@@ -657,6 +760,69 @@ window.onload = () => {
   const previewCtx = previewCanvas.getContext("2d")!;
   const noteKeyEls = Array.from(document.getElementsByClassName("note"));
   const mainElements: Element[] = [];
+  const elements: Element[] = [
+    {
+      type: "note",
+      duration: 4,
+      notes: [{ pitch: 5 }, { pitch: 7 }, { pitch: 9 }],
+    },
+    {
+      type: "note",
+      duration: 4,
+      notes: [{ pitch: 3 }, { pitch: 5 }, { pitch: 7 }],
+    },
+    {
+      type: "note",
+      duration: 1,
+      notes: [{ pitch: 3 }, { pitch: 5 }, { pitch: 7 }],
+    },
+    {
+      type: "note",
+      duration: 4,
+      notes: [{ pitch: 6 }, { pitch: 8 }, { pitch: 10 }],
+    },
+    {
+      type: "note",
+      duration: 4,
+      notes: [{ pitch: 2 }, { pitch: 4 }, { pitch: 6 }],
+    },
+    {
+      type: "note",
+      duration: 1,
+      notes: [{ pitch: 4 }, { pitch: 6 }, { pitch: 8 }],
+    },
+    {
+      type: "note",
+      duration: 4,
+      notes: [{ pitch: 5 }, { pitch: 6 }],
+    },
+    {
+      type: "note",
+      duration: 8,
+      notes: [{ pitch: 2 }, { pitch: 3 }, { pitch: 5 }, { pitch: 7 }],
+    },
+    {
+      type: "note",
+      duration: 1,
+      notes: [{ pitch: 2 }, { pitch: 3 }],
+    },
+    {
+      type: "note",
+      duration: 16,
+      notes: [
+        { pitch: 3 },
+        { pitch: 5 },
+        { pitch: 7 },
+        { pitch: 8 },
+        { pitch: 9 },
+      ],
+    },
+    {
+      type: "note",
+      duration: 2,
+      notes: [{ pitch: 4 }, { pitch: 5 }, { pitch: 9 }, { pitch: 10 }],
+    },
+  ];
   let caretPositions: Caret[] = [];
   let caretIndex = 0;
   const updateMain = () => {
@@ -673,7 +839,7 @@ window.onload = () => {
       leftOfStaff,
       topOfStaff,
       elementGap,
-      elements: mainElements,
+      elements,
     });
     drawCaret({
       ctx: mainCtx,
