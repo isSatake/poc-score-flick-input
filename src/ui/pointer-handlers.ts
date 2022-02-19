@@ -1,11 +1,11 @@
 import { PointerHandler } from "./pointer-event";
-import { Point } from "./point";
+import { Geometry } from "../geometry";
 import {
-  CaretMoveCallback,
+  CaretCallback,
   ChangeNoteRestCallback,
-  Duration,
   NoteInputCallback,
-} from "./index";
+} from "./callbacks";
+import { Duration } from "../notation/types";
 
 export class N1Handler implements PointerHandler {
   // ポインタハンドラがクラスになってるので、状態を持てる
@@ -44,17 +44,17 @@ class EmptyPointerHandler implements PointerHandler {
 
   onDown(ev: PointerEvent) {}
 
-  onUp(ev: PointerEvent, downPoint: Point) {}
+  onUp(ev: PointerEvent, downPoint: Geometry) {}
 
   onClick(ev: PointerEvent) {}
 
   onLongDown(ev: PointerEvent) {}
 
-  onDrag(ev: PointerEvent, downPoint: Point) {}
+  onDrag(ev: PointerEvent, downPoint: Geometry) {}
 }
 
 export class KeyboardDragHandler extends EmptyPointerHandler {
-  private readonly translated: Point = { x: 0, y: 0 };
+  private readonly translated: Geometry = { x: 0, y: 0 };
 
   private readonly keyboardEl = document.getElementById(
     "keyboard"
@@ -64,12 +64,12 @@ export class KeyboardDragHandler extends EmptyPointerHandler {
     super();
   }
 
-  onUp(ev: PointerEvent, down: Point) {
+  onUp(ev: PointerEvent, down: Geometry) {
     this.translated.x += ev.x - down.x;
     this.translated.y += ev.y - down.y;
   }
 
-  onDrag(ev: PointerEvent, down: Point) {
+  onDrag(ev: PointerEvent, down: Geometry) {
     const nextX = this.translated.x + ev.x - down.x;
     const nextY = this.translated.y + ev.y - down.y;
     this.keyboardEl.style.transform = `translate(${nextX}px, ${nextY}px)`;
@@ -161,12 +161,12 @@ export class NoteInputHandler extends EmptyPointerHandler {
     this.callback.startPreview(this.duration!, ev.x, ev.y);
   }
 
-  onDrag(ev: PointerEvent, downPoint: Point) {
+  onDrag(ev: PointerEvent, downPoint: Geometry) {
     this.dragDy = downPoint.y - ev.y;
     this.callback.updatePreview(this.duration!, this.dragDy);
   }
 
-  onUp(ev: PointerEvent, downPoint: Point) {
+  onUp(ev: PointerEvent, downPoint: Geometry) {
     if (this.isBackspace()) {
       this.callback.backspace();
     } else if (this.duration) {
@@ -183,7 +183,7 @@ export class NoteInputHandler extends EmptyPointerHandler {
 }
 
 export class ArrowHandler extends EmptyPointerHandler {
-  constructor(private callback: CaretMoveCallback) {
+  constructor(private callback: CaretCallback) {
     super();
   }
 

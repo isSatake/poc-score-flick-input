@@ -12,7 +12,7 @@ const onError = () => {
 
 if (isWatch) {
   build({
-    entryPoints: ["src/index.ts"],
+    entryPoints: ["src/entrypoint.ts"],
     bundle: true,
     watch: {
       onRebuild: (error, _) => {
@@ -29,7 +29,7 @@ if (isWatch) {
     .catch(onError);
 } else {
   build({
-    entryPoints: ["index.ts"],
+    entryPoints: ["entrypoint.ts"],
     bundle: true,
     minify: true,
     sourcemap: true,

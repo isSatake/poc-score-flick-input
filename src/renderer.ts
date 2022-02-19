@@ -1,123 +1,33 @@
 import {
-  bAccidentalFlat,
-  bAccidentalNatural,
-  bAccidentalSharp,
   bClefG,
-  bFlag16Down,
-  bFlag16Up,
-  bFlag32Down,
-  bFlag32Up,
-  bFlag8Down,
-  bFlag8Up,
   bLedgerLineWidth,
-  bNoteHead,
-  bNoteHeadHalf,
-  bNoteHeadWhole,
-  bRest1,
-  bRest16,
-  bRest2,
-  bRest32,
-  bRest4,
-  bRest8,
   bStaffHeight,
   bStaffLineWidth,
   bStemWidth,
   bThinBarlineThickness,
   EXTENSION_LEDGER_LINE,
-  FlagDown,
-  FlagUp,
   Path,
-  RestPath,
   UNIT,
-  WIDTH_NOTE_HEAD_BLACK,
-  WIDTH_NOTE_HEAD_WHOLE,
 } from "./bravura";
-import { registerPointerHandlers } from "./pointer-event";
 import {
-  ChangeNoteRestHandler,
-  NoteInputHandler,
-  KeyboardDragHandler,
-  KeyPressHandler,
-  ArrowHandler,
-} from "./pointer-handlers";
+  Duration,
+  durations,
+  Element,
+  Note,
+  Pitch,
+  PitchAcc,
+  Rest,
+} from "./notation/types";
+import {
+  accidentalPathMap,
+  downFlagMap,
+  noteHeadByDuration,
+  noteHeadWidth,
+  restPathMap,
+  upFlagMap,
+} from "./notation/notation";
 
-const durations = [1, 2, 4, 8, 16, 32] as const;
-export type Duration = typeof durations[number];
-
-// C4 (middleC) = 0
-type Pitch = number;
-
-// 臨時記号の表記
-type Accidental = "sharp" | "natural" | "flat";
-
-type PitchAcc = {
-  pitch: Pitch;
-  accidental?: Accidental;
-};
-
-type Note = {
-  type: "note";
-  duration: Duration;
-  notes: PitchAcc[];
-};
-
-type Rest = {
-  type: "rest";
-  duration: Duration;
-};
-
-type Bar = {
-  type: "bar";
-};
-
-type Element = Note | Rest | Bar;
-
-const upFlagMap = new Map<Duration, FlagUp>([
-  [8, bFlag8Up],
-  [16, bFlag16Up],
-  [32, bFlag32Up],
-]);
-
-const downFlagMap = new Map<Duration, FlagDown>([
-  [8, bFlag8Down],
-  [16, bFlag16Down],
-  [32, bFlag32Down],
-]);
-
-const restPathMap = new Map<Duration, RestPath>([
-  [1, bRest1],
-  [2, bRest2],
-  [4, bRest4],
-  [8, bRest8],
-  [16, bRest16],
-  [32, bRest32],
-]);
-
-const accidentalPathMap = new Map<Accidental, Path>([
-  ["sharp", bAccidentalSharp],
-  ["natural", bAccidentalNatural],
-  ["flat", bAccidentalFlat],
-]);
-
-const noteHeadByDuration = (duration: Duration): Path => {
-  switch (duration) {
-    case 1:
-      return bNoteHeadWhole;
-    case 2:
-      return bNoteHeadHalf;
-    default:
-      return bNoteHead;
-  }
-};
-
-const noteHeadWidth = (duration: Duration): number => {
-  if (duration === 1) {
-    return WIDTH_NOTE_HEAD_WHOLE;
-  }
-  return WIDTH_NOTE_HEAD_BLACK;
-};
-
-const initCanvas = (
+export const initCanvas = (
   leftPx: number,
   topPx: number,
   width: number,
@@ -451,6 +361,24 @@ const calcStemDirection = (pitches: Pitch[]): "up" | "down" => {
   return "up";
 };
 
+// durationがdnpの中に入ってるなぁ…
+// とりあえずdnp使わない。
+const drawBeamedNotes = function* (
+  ctx: CanvasRenderingContext2D,
+  topOfStaff: number,
+  left: number,
+  notes: Note[],
+  scale: number,
+  startIdx: number
+): IterableIterator<{ elIdx: number; cursor: number; left: number }> {
+  // beamの向きを決める
+  // 始点・終点のstemの長さを決める (duration, 傾きを考慮)
+  // stemのflag側の端っこの座標を求める1次関数を定義する
+  // 左から順にnotehead, stemを描画 (cursorとかもyieldして返す)
+  // beamの描画どうしよう。1本ずつrectを書くのか？そしたら途中で音価が変わるとどうなるんだ？
+  // わかんね🔥
+};
+
 const drawNote = (dnp: DrawNoteParams, pas: PitchAcc[]): DrawnSection => {
   const { scale, left } = dnp;
   const sections: DrawnSection[] = [];
@@ -591,9 +519,9 @@ const drawBarline = (
   };
 };
 
-type Caret = { x: number; y: number; width: number; elIdx: number };
+export type Caret = { x: number; y: number; width: number; elIdx: number };
 
-const drawElements = ({
+export const drawElements = ({
   ctx,
   canvasWidth,
   scale,
@@ -617,8 +545,7 @@ const drawElements = ({
     return [{ x: cursor + elementGap, y: topOfStaff, width: 1, elIdx: -1 }];
   }
   const elementIdxToX: Caret[] = [];
-  for (let i in elements) {
-    const elIdx = Number(i);
+  for (let elIdx = 0; elIdx < elements.length; elIdx++) {
     const el = elements[elIdx];
     const left = cursor + elementGap;
     elementIdxToX.push({
@@ -629,22 +556,48 @@ const drawElements = ({
     });
     switch (el.type) {
       case "note":
-        cursor = drawNote(
-          {
+        if (el.beam) {
+          let beamed: Note[] = [el];
+          let idx = elIdx + 1;
+          let next = elements[idx];
+          while (next.type === "note" && next.beam) {
+            beamed.push(next);
+            next = elements[++idx];
+          }
+          for (let result of drawBeamedNotes(
             ctx,
-            topOfStaff: topOfStaff,
+            topOfStaff,
             left,
-            duration: el.duration,
+            beamed,
             scale,
-          },
-          el.notes
-        ).end;
-        elementIdxToX.push({
-          x: left,
-          y: topOfStaff,
-          width: cursor - left,
-          elIdx,
-        });
+            elIdx
+          )) {
+            elementIdxToX.push({
+              x: result.left,
+              y: topOfStaff,
+              width: result.cursor - result.left,
+              elIdx: result.elIdx,
+            });
+          }
+          elIdx += beamed.length;
+        } else {
+          cursor = drawNote(
+            {
+              ctx,
+              topOfStaff: topOfStaff,
+              left,
+              duration: el.duration,
+              scale,
+            },
+            el.notes
+          ).end;
+          elementIdxToX.push({
+            x: left,
+            y: topOfStaff,
+            width: cursor - left,
+            elIdx,
+          });
+        }
         break;
       case "rest":
         cursor = drawRest(ctx, topOfStaff, left, el, scale).end;
@@ -666,7 +619,7 @@ const drawElements = ({
   return elementIdxToX;
 };
 
-const drawCaret = ({
+export const drawCaret = ({
   ctx,
   scale,
   pos,
@@ -683,12 +636,7 @@ const drawCaret = ({
   ctx.restore();
 };
 
-const scale = 0.08;
-const leftOfStaff = 20;
-const topOfStaff = 2000 * scale;
-const elementGap = UNIT * 2 * scale;
-
-const resetCanvas = ({
+export const resetCanvas = ({
   ctx,
   width,
   height,
@@ -705,11 +653,15 @@ const resetCanvas = ({
   ctx.restore();
 };
 
-const pitchByDistance = (scale: number, dy: number, origin: Pitch): Pitch => {
+export const pitchByDistance = (
+  scale: number,
+  dy: number,
+  origin: Pitch
+): Pitch => {
   const unitY = (UNIT / 2) * scale;
   return Math.round(dy / unitY + origin);
 };
-const durationByDistance = (
+export const durationByDistance = (
   scale: number,
   dx: number,
   origin: Duration
@@ -718,259 +670,4 @@ const durationByDistance = (
   const _di = Math.round(dx / unitX + durations.indexOf(origin));
   const di = Math.min(Math.max(_di, 0), 6);
   return durations[di];
-};
-
-let isNoteInputMode = true;
-
-export interface ChangeNoteRestCallback {
-  isNoteInputMode(): boolean;
-
-  change(): void;
-}
-
-// このコールバックはキーハンドラだけじゃなくてMIDIキーとか普通のキーボードとかからも使う想定
-export interface NoteInputCallback {
-  startPreview(duration: Duration, downX: number, downY: number): void;
-
-  updatePreview(duration: Duration, dy: number): void;
-
-  commit(duration: Duration, dy?: number): void;
-
-  backspace(): void;
-
-  finish(): void;
-}
-
-export interface CaretMoveCallback {
-  back(): void;
-
-  forward(): void;
-}
-
-window.onload = () => {
-  const mainWidth = window.innerWidth;
-  const mainHeight = window.innerHeight;
-  const previewWidth = 300;
-  const previewHeight = 600;
-  const mainCanvas = document.getElementById("mainCanvas") as HTMLCanvasElement;
-  const previewCanvas = document.getElementById(
-    "previewCanvas"
-  ) as HTMLCanvasElement;
-  const mainCtx = mainCanvas.getContext("2d")!;
-  const previewCtx = previewCanvas.getContext("2d")!;
-  const noteKeyEls = Array.from(document.getElementsByClassName("note"));
-  const mainElements: Element[] = [];
-  const elements: Element[] = [
-    {
-      type: "note",
-      duration: 4,
-      notes: [{ pitch: 5 }, { pitch: 7 }, { pitch: 9 }],
-    },
-    {
-      type: "note",
-      duration: 4,
-      notes: [{ pitch: 3 }, { pitch: 5 }, { pitch: 7 }],
-    },
-    {
-      type: "note",
-      duration: 1,
-      notes: [{ pitch: 3 }, { pitch: 5 }, { pitch: 7 }],
-    },
-    {
-      type: "note",
-      duration: 4,
-      notes: [{ pitch: 6 }, { pitch: 8 }, { pitch: 10 }],
-    },
-    {
-      type: "note",
-      duration: 4,
-      notes: [{ pitch: 2 }, { pitch: 4 }, { pitch: 6 }],
-    },
-    {
-      type: "note",
-      duration: 1,
-      notes: [{ pitch: 4 }, { pitch: 6 }, { pitch: 8 }],
-    },
-    {
-      type: "note",
-      duration: 4,
-      notes: [{ pitch: 5 }, { pitch: 6 }],
-    },
-    {
-      type: "note",
-      duration: 8,
-      notes: [{ pitch: 2 }, { pitch: 3 }, { pitch: 5 }, { pitch: 7 }],
-    },
-    {
-      type: "note",
-      duration: 1,
-      notes: [{ pitch: 2 }, { pitch: 3 }],
-    },
-    {
-      type: "note",
-      duration: 16,
-      notes: [
-        { pitch: 3 },
-        { pitch: 5 },
-        { pitch: 7 },
-        { pitch: 8 },
-        { pitch: 9 },
-      ],
-    },
-    {
-      type: "note",
-      duration: 2,
-      notes: [{ pitch: 4 }, { pitch: 5 }, { pitch: 9 }, { pitch: 10 }],
-    },
-  ];
-  let caretPositions: Caret[] = [];
-  let caretIndex = 0;
-  const updateMain = () => {
-    resetCanvas({
-      ctx: mainCtx,
-      width: mainWidth,
-      height: mainHeight,
-      fillStyle: "#fff",
-    });
-    caretPositions = drawElements({
-      ctx: mainCtx,
-      canvasWidth: mainWidth,
-      scale,
-      leftOfStaff,
-      topOfStaff,
-      elementGap,
-      elements,
-    });
-    drawCaret({
-      ctx: mainCtx,
-      scale,
-      pos: caretPositions[caretIndex],
-    });
-  };
-  const updatePreview = (element?: Element) => {
-    resetCanvas({
-      ctx: previewCtx,
-      width: previewWidth,
-      height: previewHeight,
-      fillStyle: "#fff",
-    });
-    if (!element) {
-      return;
-    }
-    // B4がcanvasのvertical centerにくるように
-    const _topOfStaff = previewHeight / 2 - (bStaffHeight * scale) / 2;
-    drawElements({
-      ctx: previewCtx,
-      canvasWidth: previewWidth,
-      scale,
-      leftOfStaff,
-      topOfStaff: _topOfStaff,
-      elementGap,
-      elements: [element],
-    });
-  };
-
-  const changeNoteRestCallback: ChangeNoteRestCallback = {
-    isNoteInputMode() {
-      return isNoteInputMode;
-    },
-    change() {
-      noteKeyEls.forEach((el) => {
-        el.className = el.className.replace(
-          this.isNoteInputMode() ? "note" : "rest",
-          this.isNoteInputMode() ? "rest" : "note"
-        );
-      });
-      isNoteInputMode = !isNoteInputMode;
-    },
-  };
-  const noteInputCallback: NoteInputCallback = {
-    startPreview(duration: Duration, downX: number, downY: number) {
-      const left = downX - previewWidth / 2;
-      const top = downY - previewHeight / 2;
-      initCanvas(left, top, previewWidth, previewHeight, previewCanvas);
-      updatePreview({
-        type: isNoteInputMode ? "note" : "rest",
-        duration,
-        pitch: pitchByDistance(scale, 0, 6),
-      });
-      previewCanvas.style.visibility = "visible";
-    },
-    updatePreview(duration: Duration, dy: number) {
-      updatePreview({
-        type: isNoteInputMode ? "note" : "rest",
-        duration,
-        pitch: pitchByDistance(scale, dy, 6),
-      });
-    },
-    commit(duration: Duration, dy?: number) {
-      const pitch = pitchByDistance(scale, dy ?? 0, 6);
-      console.log(isNoteInputMode);
-      mainElements.push({
-        type: isNoteInputMode ? "note" : "rest",
-        duration,
-        pitch,
-      });
-      updateMain();
-    },
-    backspace() {
-      const targetElIdx = caretPositions[caretIndex].elIdx;
-      if (targetElIdx < 0) {
-        return;
-      }
-      mainElements.splice(targetElIdx, 1);
-
-      // 削除後のcaret位置を計算
-      let t = caretIndex - 1;
-      while (t > -1) {
-        if (t === 0) {
-          caretIndex = 0;
-          t = -1;
-        } else if (caretPositions[t].elIdx !== targetElIdx) {
-          caretIndex = t;
-          t = -1;
-        } else {
-          t--;
-        }
-      }
-
-      updateMain();
-    },
-    finish() {
-      previewCanvas.style.visibility = "hidden";
-    },
-  };
-
-  const caretMoveCallback: CaretMoveCallback = {
-    back() {
-      caretIndex = Math.max(caretIndex - 1, 0);
-      updateMain();
-    },
-    forward() {
-      caretIndex = Math.min(caretIndex + 1, caretPositions.length - 1);
-      updateMain();
-    },
-  };
-
-  registerPointerHandlers(
-    ["keyboardBottom", "keyboardHandle"],
-    [new KeyboardDragHandler()]
-  );
-  registerPointerHandlers(
-    ["changeNoteRest"],
-    [new ChangeNoteRestHandler(changeNoteRestCallback)]
-  );
-  registerPointerHandlers(["grayKey", "whiteKey"], [new KeyPressHandler()]);
-  registerPointerHandlers(
-    ["note", "rest", "backspace"],
-    [new NoteInputHandler(noteInputCallback)]
-  );
-  registerPointerHandlers(
-    ["toLeft", "toRight"],
-    [new ArrowHandler(caretMoveCallback)]
-  );
-
-  initCanvas(0, 0, window.innerWidth, window.innerHeight, mainCanvas);
-  initCanvas(0, 0, previewWidth, previewHeight, previewCanvas);
-  updateMain();
 };
