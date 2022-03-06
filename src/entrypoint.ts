@@ -44,65 +44,89 @@ window.onload = () => {
   const elements: Element[] = [
     {
       type: "note",
-      duration: 4,
-      notes: [{ pitch: 5 }, { pitch: 7 }, { pitch: 9 }],
-    },
-    {
-      type: "note",
-      duration: 4,
-      notes: [{ pitch: 3 }, { pitch: 5 }, { pitch: 7 }],
-    },
-    {
-      type: "note",
-      duration: 1,
-      notes: [{ pitch: 3 }, { pitch: 5 }, { pitch: 7 }],
-    },
-    {
-      type: "note",
-      duration: 4,
-      notes: [{ pitch: 6 }, { pitch: 8 }, { pitch: 10 }],
-    },
-    {
-      type: "note",
-      duration: 4,
-      notes: [{ pitch: 2 }, { pitch: 4 }, { pitch: 6 }],
-    },
-    {
-      type: "note",
-      duration: 1,
-      notes: [{ pitch: 4 }, { pitch: 6 }, { pitch: 8 }],
-    },
-    {
-      type: "note",
-      duration: 4,
-      notes: [{ pitch: 5 }, { pitch: 6 }],
+      duration: 8,
+      notes: [{ pitch: 9 }],
+      beam: true,
     },
     {
       type: "note",
       duration: 8,
-      notes: [{ pitch: 2 }, { pitch: 3 }, { pitch: 5 }, { pitch: 7 }],
+      notes: [{ pitch: 0 }, { pitch: 2 }],
+      beam: true,
     },
     {
       type: "note",
-      duration: 1,
-      notes: [{ pitch: 2 }, { pitch: 3 }],
+      duration: 8,
+      notes: [{ pitch: 0 }, { pitch: 2 }],
+      beam: true,
     },
     {
       type: "note",
-      duration: 16,
-      notes: [
-        { pitch: 3 },
-        { pitch: 5 },
-        { pitch: 7 },
-        { pitch: 8 },
-        { pitch: 9 },
-      ],
+      duration: 8,
+      notes: [{ pitch: 4 }],
+      beam: true,
     },
     {
       type: "note",
-      duration: 2,
-      notes: [{ pitch: 4 }, { pitch: 5 }, { pitch: 9 }, { pitch: 10 }],
+      duration: 4,
+      notes: [{ pitch: 4 }],
     },
+    // {
+    //   type: "note",
+    //   duration: 4,
+    //   notes: [{ pitch: 3 }, { pitch: 5 }, { pitch: 7 }],
+    // },
+    // {
+    //   type: "note",
+    //   duration: 1,
+    //   notes: [{ pitch: 3 }, { pitch: 5 }, { pitch: 7 }],
+    // },
+    // {
+    //   type: "note",
+    //   duration: 4,
+    //   notes: [{ pitch: 6 }, { pitch: 8 }, { pitch: 10 }],
+    // },
+    // {
+    //   type: "note",
+    //   duration: 4,
+    //   notes: [{ pitch: 2 }, { pitch: 4 }, { pitch: 6 }],
+    // },
+    // {
+    //   type: "note",
+    //   duration: 1,
+    //   notes: [{ pitch: 4 }, { pitch: 6 }, { pitch: 8 }],
+    // },
+    // {
+    //   type: "note",
+    //   duration: 4,
+    //   notes: [{ pitch: 5 }, { pitch: 6 }],
+    // },
+    // {
+    //   type: "note",
+    //   duration: 8,
+    //   notes: [{ pitch: 2 }, { pitch: 3 }, { pitch: 5 }, { pitch: 7 }],
+    // },
+    // {
+    //   type: "note",
+    //   duration: 1,
+    //   notes: [{ pitch: 2 }, { pitch: 3 }],
+    // },
+    // {
+    //   type: "note",
+    //   duration: 16,
+    //   notes: [
+    //     { pitch: 3 },
+    //     { pitch: 5 },
+    //     { pitch: 7 },
+    //     { pitch: 8 },
+    //     { pitch: 9 },
+    //   ],
+    // },
+    // {
+    //   type: "note",
+    //   duration: 2,
+    //   notes: [{ pitch: 4 }, { pitch: 5 }, { pitch: 9 }, { pitch: 10 }],
+    // },
   ];
   let caretPositions: Caret[] = [];
   let caretIndex = 0;

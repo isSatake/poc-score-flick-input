@@ -1,5 +1,5 @@
 /**
- * Bravura固有の情報
+ * Bravura specific geometries
  * @see https://raw.githubusercontent.com/steinbergmedia/bravura/master/redist/bravura_metadata.json
  */
 export const bStaffHeight = 1000; // 五線の高さ, bravuraのunits-per-em

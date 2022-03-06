@@ -203,30 +203,23 @@ const drawLedgerLines = (
   return section;
 };
 
-const drawStemFlag = ({
+const calcStemShape = ({
   dnp,
   direction,
   lowest,
   highest,
 }: {
   dnp: DrawNoteParams;
-  direction: "down" | "up";
+  direction: "up" | "down";
   lowest: PitchAcc;
   highest: PitchAcc;
-}): DrawnSection => {
-  const { ctx, topOfStaff, left, scale, duration } = dnp;
-  if (duration === 1) {
-    return createSection(left);
-  }
+}): { top: number; bottom: number } => {
+  const { topOfStaff, scale, duration } = dnp;
   const heightOfB4 = topOfStaff + (bStaffHeight * scale) / 2;
-  const lineWidth = bStemWidth * scale;
-  let stemCenter: number;
   let top: number;
   let bottom: number;
-  let drawnSection: DrawnSection | undefined;
   if (direction === "up") {
     // 符頭の右に符幹がはみ出るのを補正
-    stemCenter = left - lineWidth / 2;
     bottom = pitchToY(topOfStaff, lowest.pitch, scale) - 5;
     if (highest.pitch < 0) {
       // C4より低い -> topはB4 (楽譜の書き方p17)
@@ -237,19 +230,7 @@ const drawStemFlag = ({
       const index = duration <= 32 ? highest.pitch + 7 : highest.pitch + 8;
       top = pitchToY(topOfStaff, index, scale);
     }
-    const path = upFlagMap.get(duration);
-    if (path) {
-      drawBravuraPath(
-        ctx,
-        stemCenter - lineWidth / 2 + UNIT * path.stemUpNW.x * scale,
-        top + UNIT * path.stemUpNW.y * scale,
-        scale,
-        path
-      );
-      drawnSection = calcSection(left, scale, path);
-    }
   } else {
-    stemCenter = left + lineWidth / 2;
     top = pitchToY(topOfStaff, highest.pitch, scale);
     if (lowest.pitch > 12) {
       // A5より高い -> bottomはB3
@@ -258,16 +239,67 @@ const drawStemFlag = ({
       const index = duration < 32 ? lowest.pitch - 7 : lowest.pitch - 8;
       bottom = pitchToY(topOfStaff, index, scale);
     }
-    const path = downFlagMap.get(duration);
-    if (path) {
-      drawBravuraPath(
-        ctx,
-        stemCenter - lineWidth / 2 + UNIT * path.stemDownSW.x * scale,
-        bottom + UNIT * path.stemDownSW.y * scale,
-        scale,
-        path
-      );
-      drawnSection = calcSection(left, scale, path);
+  }
+  return { top, bottom };
+};
+
+const drawStemFlag = ({
+  dnp,
+  direction,
+  lowest,
+  highest,
+  beamed,
+}: {
+  dnp: DrawNoteParams;
+  direction: "down" | "up";
+  lowest: PitchAcc;
+  highest: PitchAcc;
+  beamed?: {
+    top?: number;
+    bottom?: number;
+  };
+}): DrawnSection => {
+  const { ctx, left, scale, duration } = dnp;
+  if (duration === 1) {
+    return createSection(left);
+  }
+  const lineWidth = bStemWidth * scale;
+  let { top, bottom } = calcStemShape({ dnp, direction, lowest, highest });
+  let stemCenter: number;
+  let drawnSection: DrawnSection | undefined;
+  if (direction === "up") {
+    stemCenter = left - lineWidth / 2;
+    if (beamed) {
+      top = beamed.top!;
+    } else {
+      const path = upFlagMap.get(duration);
+      if (path) {
+        drawBravuraPath(
+          ctx,
+          stemCenter - lineWidth / 2 + UNIT * path.stemUpNW.x * scale,
+          top + UNIT * path.stemUpNW.y * scale,
+          scale,
+          path
+        );
+        drawnSection = calcSection(left, scale, path);
+      }
+    }
+  } else {
+    stemCenter = left + lineWidth / 2;
+    if (beamed) {
+      bottom = beamed.bottom!;
+    } else {
+      const path = downFlagMap.get(duration);
+      if (path) {
+        drawBravuraPath(
+          ctx,
+          stemCenter - lineWidth / 2 + UNIT * path.stemDownSW.x * scale,
+          bottom + UNIT * path.stemDownSW.y * scale,
+          scale,
+          path
+        );
+        drawnSection = calcSection(left, scale, path);
+      }
     }
   }
 
@@ -361,25 +393,146 @@ const calcStemDirection = (pitches: Pitch[]): "up" | "down" => {
   return "up";
 };
 
-// durationがdnpの中に入ってるなぁ…
-// とりあえずdnp使わない。
-const drawBeamedNotes = function* (
-  ctx: CanvasRenderingContext2D,
-  topOfStaff: number,
-  left: number,
-  notes: Note[],
-  scale: number,
-  startIdx: number
-): IterableIterator<{ elIdx: number; cursor: number; left: number }> {
-  // beamの向きを決める
-  // 始点・終点のstemの長さを決める (duration, 傾きを考慮)
+const drawBeamedNotes = function* ({
+  dnp,
+  elementGap,
+  els,
+  startIdx,
+}: {
+  dnp: DrawNoteParams; // duration in dnp is not used here
+  elementGap: number;
+  els: Note[];
+  startIdx: number;
+}): IterableIterator<{ elIdx: number; elEnd: number; elLeft: number }> {
+  const { ctx, scale, left: startLeft } = dnp;
+  const stemDirection = calcStemDirection(
+    els.flatMap((n) => n.notes).map((p) => p.pitch)
+  );
+
+  // draw note heads
+  // ふつうにdrawNoteすればいいかな？
+  const leftOfStemArr: number[] = [];
+  let left = startLeft;
+  for (let { notes } of els) {
+    const { leftOfStem: elLeft, section } = drawNote({
+      dnp: { ...dnp, left },
+      pas: notes,
+      stemDirection,
+      beamed: true,
+    });
+    left = section.end + elementGap;
+    leftOfStemArr.push(elLeft);
+    yield { elIdx: startIdx++, elLeft, elEnd: section.end };
+  }
+
+  // calc beam start/end coords
+  const firstAsc = sortPitch(els[0].notes, "asc");
+  const lastAsc = sortPitch(els[els.length - 1].notes, "asc");
+  const stemFirst = calcStemShape({
+    dnp,
+    direction: stemDirection,
+    lowest: firstAsc[0],
+    highest: firstAsc[firstAsc.length - 1],
+  });
+  const stemLast = calcStemShape({
+    dnp,
+    direction: stemDirection,
+    lowest: lastAsc[0],
+    highest: lastAsc[lastAsc.length - 1],
+  });
+  const beamStartX = leftOfStemArr[0];
+  const beamEndX = leftOfStemArr[leftOfStemArr.length - 1];
+  let beamStartY: number;
+  let beamEndY: number;
+  if (stemDirection === "up") {
+    beamStartY = stemFirst.top;
+    beamEndY = stemLast.top;
+  } else {
+    beamStartY = stemFirst.bottom;
+    beamEndY = stemLast.bottom;
+  }
+
+  // declare linear function of beam line
   // stemのflag側の端っこの座標を求める1次関数を定義する
-  // 左から順にnotehead, stemを描画 (cursorとかもyieldして返す)
+  // 傾きを求める
+  let 傾き = 0;
+  if (beamStartY !== beamEndY) {
+    傾き = Math.abs(beamEndY - beamStartY) / (beamEndX - beamStartX);
+    if (beamStartY - beamEndY > 0) {
+      傾き *= -1;
+    }
+  }
+  const 切片 = beamStartY - beamStartX * 傾き;
+  const stemEdge = (stemX: number) => {
+    return stemX * 傾き + 切片;
+  };
+
+  // draw stem
+  els.forEach(({ notes }, idx) => {
+    const left = leftOfStemArr[idx];
+    const edge = stemEdge(left);
+    let beamed;
+    if (stemDirection === "up") {
+      beamed = { top: edge };
+    } else {
+      beamed = { bottom: edge };
+    }
+    const pitchesAsc = sortPitch(notes, "asc");
+    drawStemFlag({
+      dnp: { ...dnp, left },
+      direction: stemDirection,
+      lowest: pitchesAsc[0],
+      highest: pitchesAsc[pitchesAsc.length - 1],
+      beamed,
+    });
+  });
+
   // beamの描画どうしよう。1本ずつrectを書くのか？そしたら途中で音価が変わるとどうなるんだ？
-  // わかんね🔥
+  // とりあえずdnpのduration使っておくか。
+  ctx.save();
+  ctx.beginPath();
+  // NW -> SW -> SE -> NE -> NW
+  ctx.moveTo(beamStartX, beamStartY);
+  ctx.lineTo(beamStartX, beamStartY + (UNIT / 2) * scale);
+  ctx.lineTo(beamEndX, beamEndY + (UNIT / 2) * scale);
+  ctx.lineTo(beamEndX, beamEndY);
+  ctx.lineTo(beamStartX, beamStartY);
+  ctx.closePath();
+  ctx.fillStyle = "#000";
+  ctx.fill();
+  ctx.restore();
 };
 
-const drawNote = (dnp: DrawNoteParams, pas: PitchAcc[]): DrawnSection => {
+const sortPitch = (p: PitchAcc[], dir: "asc" | "dsc"): PitchAcc[] => {
+  const comparator = (a: PitchAcc, b: PitchAcc) => {
+    if (dir === "asc") {
+      return a.pitch < b.pitch;
+    } else {
+      return b.pitch < a.pitch;
+    }
+  };
+  return p.sort((a, b) => {
+    if (comparator(a, b)) {
+      return -1;
+    } else if (a.pitch === b.pitch) {
+      return 0;
+    } else {
+      return 1;
+    }
+  });
+};
+
+const drawNote = ({
+  dnp,
+  pas,
+  stemDirection,
+  beamed = false,
+}: {
+  dnp: DrawNoteParams;
+  pas: PitchAcc[];
+  stemDirection?: "up" | "down";
+  beamed?: boolean;
+}): { section: DrawnSection; leftOfStem: number } => {
   const { scale, left } = dnp;
   const sections: DrawnSection[] = [];
 
@@ -401,38 +554,32 @@ const drawNote = (dnp: DrawNoteParams, pas: PitchAcc[]): DrawnSection => {
   }
 
   // stemの左右どちらに音符を描画するか
-  const stemDirection = calcStemDirection(pas.map((pa) => pa.pitch));
+  if (!stemDirection) {
+    stemDirection = calcStemDirection(pas.map((pa) => pa.pitch));
+  }
   const notesLeftOfStem: PitchAcc[] = [];
   const notesRightOfStem: PitchAcc[] = [];
-  const 低い順 = pas.sort((a, b) => {
-    if (a.pitch < b.pitch) {
-      return -1;
-    } else if (a.pitch === b.pitch) {
-      return 0;
-    } else {
-      return 1;
-    }
-  });
+  const pitchAsc = sortPitch(pas, "asc");
   if (stemDirection === "up") {
     // 上向きstem
-    for (let i = 0; i < 低い順.length; i++) {
+    for (let i = 0; i < pitchAsc.length; i++) {
       if (i === 0) {
         // 最低音は左側
-        notesLeftOfStem.push(低い順[i]);
-      } else if (低い順[i].pitch - 低い順[i - 1].pitch === 1) {
+        notesLeftOfStem.push(pitchAsc[i]);
+      } else if (pitchAsc[i].pitch - pitchAsc[i - 1].pitch === 1) {
         // 2度は右側
-        notesRightOfStem.push(低い順[i]);
-        if (i + 1 < 低い順.length) {
+        notesRightOfStem.push(pitchAsc[i]);
+        if (i + 1 < pitchAsc.length) {
           // 右側描画となった次の音は左側
-          notesLeftOfStem.push(低い順[++i]);
+          notesLeftOfStem.push(pitchAsc[++i]);
         }
       } else {
-        notesLeftOfStem.push(低い順[i]);
+        notesLeftOfStem.push(pitchAsc[i]);
       }
     }
   } else {
     // 下向きstem
-    const 高い順 = 低い順.concat().reverse();
+    const 高い順 = pitchAsc.concat().reverse();
     for (let i = 0; i < 高い順.length; i++) {
       if (i === 0) {
         // 最低音は右側
@@ -458,18 +605,24 @@ const drawNote = (dnp: DrawNoteParams, pas: PitchAcc[]): DrawnSection => {
     // Stem左側にnotehead描画していたらnotehead右端をstem開始位置に指定する
     leftOfStemOrNotehead = sections[sections.length - 1]?.end ?? leftOfNoteHead;
   }
-  sections.push(
-    drawStemFlag({
-      dnp: { ...dnp, left: leftOfStemOrNotehead },
-      direction: stemDirection,
-      lowest: 低い順[0],
-      highest: 低い順[低い順.length - 1],
-    })
-  );
+
+  if (!beamed) {
+    sections.push(
+      drawStemFlag({
+        dnp: { ...dnp, left: leftOfStemOrNotehead },
+        direction: stemDirection,
+        lowest: pitchAsc[0],
+        highest: pitchAsc[pitchAsc.length - 1],
+      })
+    );
+  }
   notesRightOfStem.forEach((pa) => {
     sections.push(drawNoteHead({ ...dnp, left: leftOfStemOrNotehead }, pa));
   });
-  return maxSection(dnp.left, sections);
+  return {
+    section: maxSection(dnp.left, sections),
+    leftOfStem: leftOfStemOrNotehead,
+  };
 };
 
 /**
@@ -545,7 +698,8 @@ export const drawElements = ({
     return [{ x: cursor + elementGap, y: topOfStaff, width: 1, elIdx: -1 }];
   }
   const elementIdxToX: Caret[] = [];
-  for (let elIdx = 0; elIdx < elements.length; elIdx++) {
+  let elIdx = 0;
+  while (elIdx < elements.length) {
     const el = elements[elIdx];
     const left = cursor + elementGap;
     elementIdxToX.push({
@@ -557,55 +711,74 @@ export const drawElements = ({
     switch (el.type) {
       case "note":
         if (el.beam) {
-          let beamed: Note[] = [el];
-          let idx = elIdx + 1;
-          let next = elements[idx];
-          while (next.type === "note" && next.beam) {
-            beamed.push(next);
-            next = elements[++idx];
+          // 連桁
+          const startIdx = elIdx;
+          let beamedNotes: Note[] = [el];
+          let nextIdx = elIdx + 1;
+          if (nextIdx === elements.length) {
+            break;
           }
-          for (let result of drawBeamedNotes(
-            ctx,
-            topOfStaff,
-            left,
-            beamed,
-            scale,
-            elIdx
-          )) {
-            elementIdxToX.push({
-              x: result.left,
-              y: topOfStaff,
-              width: result.cursor - result.left,
-              elIdx: result.elIdx,
-            });
+          let next = elements[nextIdx];
+          // beamed noteが2個以上並ぶことを期待する
+          while (
+            nextIdx < elements.length &&
+            next.type === "note" &&
+            next.beam
+          ) {
+            beamedNotes.push(next);
+            next = elements[++nextIdx];
           }
-          elIdx += beamed.length;
-        } else {
-          cursor = drawNote(
-            {
+          for (let result of drawBeamedNotes({
+            dnp: {
               ctx,
-              topOfStaff: topOfStaff,
+              topOfStaff,
               left,
               duration: el.duration,
               scale,
             },
-            el.notes
-          ).end;
+            elementGap,
+            els: beamedNotes,
+            startIdx,
+          })) {
+            const { elLeft, elEnd, elIdx } = result;
+            cursor = elEnd;
+            elementIdxToX.push({
+              x: elLeft,
+              y: topOfStaff,
+              width: elEnd - elLeft,
+              elIdx,
+            });
+          }
+          elIdx += beamedNotes.length;
+        } else {
+          cursor = drawNote({
+            dnp: {
+              ctx,
+              topOfStaff,
+              left,
+              duration: el.duration,
+              scale,
+            },
+            pas: el.notes,
+          }).section.end;
           elementIdxToX.push({
             x: left,
             y: topOfStaff,
             width: cursor - left,
             elIdx,
           });
+          elIdx++;
         }
         break;
       case "rest":
         cursor = drawRest(ctx, topOfStaff, left, el, scale).end;
         elementIdxToX.push({ x: left, y: topOfStaff, width: 1, elIdx });
+        elIdx++;
         break;
       case "bar":
         cursor = drawBarline(ctx, topOfStaff, left, scale).end;
         elementIdxToX.push({ x: left, y: topOfStaff, width: 1, elIdx });
+        elIdx++;
         break;
     }
   }
