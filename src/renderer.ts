@@ -409,22 +409,19 @@ const drawBeamedNotes = function* ({
     els.flatMap((n) => n.notes).map((p) => p.pitch)
   );
 
-  // draw note heads
-  // ふつうにdrawNoteすればいいかな？
   const leftOfStemArr: number[] = [];
   let left = startLeft;
   for (let { notes } of els) {
-    const { leftOfStem: elLeft, section } = drawNote({
+    const { leftOfStem, section } = drawNote({
       dnp: { ...dnp, left },
       pas: notes,
       stemDirection,
       beamed: true,
     });
+    yield { elIdx: startIdx++, elLeft: left, elEnd: section.end };
     left = section.end + elementGap;
-    leftOfStemArr.push(elLeft);
-    yield { elIdx: startIdx++, elLeft, elEnd: section.end };
+    leftOfStemArr.push(leftOfStem);
   }
-
   // calc beam start/end coords
   const firstAsc = sortPitch(els[0].notes, "asc");
   const lastAsc = sortPitch(els[els.length - 1].notes, "asc");
@@ -491,11 +488,10 @@ const drawBeamedNotes = function* ({
   // とりあえずdnpのduration使っておくか。
   ctx.save();
   ctx.beginPath();
-  // NW -> SW -> SE -> NE -> NW
-  ctx.moveTo(beamStartX, beamStartY);
-  ctx.lineTo(beamStartX, beamStartY + (UNIT / 2) * scale);
-  ctx.lineTo(beamEndX, beamEndY + (UNIT / 2) * scale);
-  ctx.lineTo(beamEndX, beamEndY);
+  ctx.moveTo(beamStartX, beamStartY); // NW
+  ctx.lineTo(beamStartX, beamStartY + (UNIT / 2) * scale); // SW
+  ctx.lineTo(beamEndX, beamEndY + (UNIT / 2) * scale); // SE
+  ctx.lineTo(beamEndX, beamEndY); // NE
   ctx.lineTo(beamStartX, beamStartY);
   ctx.closePath();
   ctx.fillStyle = "#000";
@@ -692,21 +688,21 @@ export const drawElements = ({
   elements: Element[];
 }): Caret[] => {
   drawStaff(ctx, leftOfStaff, topOfStaff, canvasWidth - leftOfStaff * 2, scale);
-  let cursor = leftOfStaff + elementGap;
-  cursor = drawGClef(ctx, cursor, topOfStaff, scale).end;
+  let left = leftOfStaff + elementGap;
+  left = drawGClef(ctx, left, topOfStaff, scale).end;
   if (elements.length === 0) {
-    return [{ x: cursor + elementGap, y: topOfStaff, width: 1, elIdx: -1 }];
+    return [{ x: left + elementGap, y: topOfStaff, width: 1, elIdx: -1 }];
   }
   const elementIdxToX: Caret[] = [];
   let elIdx = 0;
   while (elIdx < elements.length) {
     const el = elements[elIdx];
-    const left = cursor + elementGap;
+    left += elementGap;
     elementIdxToX.push({
       x: left,
       y: topOfStaff,
       width: 1,
-      elIdx: elIdx - 1 >= 0 ? elIdx - 1 : -1,
+      elIdx: elIdx - 1,
     });
     switch (el.type) {
       case "note":
@@ -728,7 +724,7 @@ export const drawElements = ({
             beamedNotes.push(next);
             next = elements[++nextIdx];
           }
-          for (let result of drawBeamedNotes({
+          const beams = drawBeamedNotes({
             dnp: {
               ctx,
               topOfStaff,
@@ -739,19 +735,29 @@ export const drawElements = ({
             elementGap,
             els: beamedNotes,
             startIdx,
-          })) {
-            const { elLeft, elEnd, elIdx } = result;
-            cursor = elEnd;
+          });
+          for (let beamEl of beams) {
+            const { elLeft, elEnd, elIdx } = beamEl;
             elementIdxToX.push({
               x: elLeft,
               y: topOfStaff,
               width: elEnd - elLeft,
               elIdx,
             });
+            if (elIdx - startIdx + 1 < beamedNotes.length) {
+              // caret
+              elementIdxToX.push({
+                x: elEnd + elementGap,
+                y: topOfStaff,
+                width: 1,
+                elIdx,
+              });
+            }
+            left = elEnd;
           }
           elIdx += beamedNotes.length;
         } else {
-          cursor = drawNote({
+          const { end } = drawNote({
             dnp: {
               ctx,
               topOfStaff,
@@ -760,35 +766,37 @@ export const drawElements = ({
               scale,
             },
             pas: el.notes,
-          }).section.end;
+          }).section;
           elementIdxToX.push({
             x: left,
             y: topOfStaff,
-            width: cursor - left,
+            width: end - left,
             elIdx,
           });
+          left = end;
           elIdx++;
         }
         break;
       case "rest":
-        cursor = drawRest(ctx, topOfStaff, left, el, scale).end;
+        left = drawRest(ctx, topOfStaff, left, el, scale).end;
         elementIdxToX.push({ x: left, y: topOfStaff, width: 1, elIdx });
         elIdx++;
         break;
       case "bar":
-        cursor = drawBarline(ctx, topOfStaff, left, scale).end;
+        left = drawBarline(ctx, topOfStaff, left, scale).end;
         elementIdxToX.push({ x: left, y: topOfStaff, width: 1, elIdx });
         elIdx++;
         break;
     }
   }
-  const lastX = elementIdxToX[elementIdxToX.length - 1].x;
+  const { x: lastX } = elementIdxToX[elementIdxToX.length - 1];
   elementIdxToX.push({
     x: lastX + elementGap,
     y: topOfStaff,
     width: 1,
     elIdx: elements.length - 1,
   });
+  console.log(elementIdxToX);
   return elementIdxToX;
 };
 

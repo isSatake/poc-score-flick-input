@@ -44,26 +44,36 @@ window.onload = () => {
   const elements: Element[] = [
     {
       type: "note",
+      duration: 4,
+      notes: [{ pitch: 4 }, { pitch: 5 }, { pitch: 7 }],
+    },
+    {
+      type: "note",
+      duration: 1,
+      notes: [{ pitch: 3 }, { pitch: 5 }, { pitch: 7 }],
+    },
+    {
+      type: "note",
       duration: 8,
-      notes: [{ pitch: 9 }],
+      notes: [{ pitch: 7 }],
       beam: true,
     },
     {
       type: "note",
       duration: 8,
-      notes: [{ pitch: 0 }, { pitch: 2 }],
+      notes: [{ pitch: 0 }],
       beam: true,
     },
     {
       type: "note",
       duration: 8,
-      notes: [{ pitch: 0 }, { pitch: 2 }],
+      notes: [{ pitch: 0 }],
       beam: true,
     },
     {
       type: "note",
       duration: 8,
-      notes: [{ pitch: 4 }],
+      notes: [{ pitch: 2 }],
       beam: true,
     },
     {
@@ -71,21 +81,11 @@ window.onload = () => {
       duration: 4,
       notes: [{ pitch: 4 }],
     },
-    // {
-    //   type: "note",
-    //   duration: 4,
-    //   notes: [{ pitch: 3 }, { pitch: 5 }, { pitch: 7 }],
-    // },
-    // {
-    //   type: "note",
-    //   duration: 1,
-    //   notes: [{ pitch: 3 }, { pitch: 5 }, { pitch: 7 }],
-    // },
-    // {
-    //   type: "note",
-    //   duration: 4,
-    //   notes: [{ pitch: 6 }, { pitch: 8 }, { pitch: 10 }],
-    // },
+    {
+      type: "note",
+      duration: 4,
+      notes: [{ pitch: 6 }, { pitch: 8 }, { pitch: 10 }, { pitch: 3 }],
+    },
     // {
     //   type: "note",
     //   duration: 4,
