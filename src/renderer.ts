@@ -361,6 +361,11 @@ const gapWithAccidental = (scale: number): number => {
   return (UNIT / 4) * scale; // 勘
 };
 
+const centerOfNotes = (pitches: Pitch[]): Pitch => {
+  const average = pitches.reduce((prev, curr) => prev + curr) / pitches.length;
+  return Math.round(average);
+};
+
 const calcStemDirection = (pitches: Pitch[]): "up" | "down" => {
   // B4から最も遠い音程を計算する
   // B4未満 -> 上向き (楽譜の書き方p17)
@@ -371,26 +376,8 @@ const calcStemDirection = (pitches: Pitch[]): "up" | "down" => {
   } else if (highestToB4 > lowestToB4) {
     return "down";
   }
-
-  // 最も遠い音程が高低側で同じ場合、重心から向きを決定する (satake案)
-  let lowerB4 = 0;
-  let higherB4 = 0;
-  pitches.forEach((p) => {
-    if (p < 6) {
-      lowerB4++;
-    } else if (p > 6) {
-      higherB4++;
-    }
-  });
-  if (lowerB4 > higherB4) {
-    return "up";
-  } else if (higherB4 > lowerB4) {
-    return "down";
-  }
-
-  // FM7のような和音はとりあえず上向きにしておく
-  // TODO 直前のSectionが和音なら、その和音の向きに揃える
-  return "up";
+  // calc direction by center of pitches if lowest and highest are same
+  return centerOfNotes(pitches) < 6 ? "up" : "down";
 };
 
 const drawBeamedNotes = function* ({
@@ -405,10 +392,8 @@ const drawBeamedNotes = function* ({
   startIdx: number;
 }): IterableIterator<{ elIdx: number; elEnd: number; elLeft: number }> {
   const { ctx, scale, left: startLeft } = dnp;
-  const stemDirection = calcStemDirection(
-    els.flatMap((n) => n.notes).map((p) => p.pitch)
-  );
-
+  const pitches = els.flatMap((n) => n.notes).map((p) => p.pitch);
+  const stemDirection = calcStemDirection(pitches);
   const leftOfStemArr: number[] = [];
   let left = startLeft;
   for (let { notes } of els) {
@@ -422,31 +407,40 @@ const drawBeamedNotes = function* ({
     left = section.end + elementGap;
     leftOfStemArr.push(leftOfStem);
   }
+  const center = centerOfNotes(pitches);
+  const stem = calcStemShape({
+    dnp,
+    direction: stemDirection,
+    lowest: { pitch: center },
+    highest: { pitch: center },
+  });
+
   // calc beam start/end coords
-  const firstAsc = sortPitch(els[0].notes, "asc");
-  const lastAsc = sortPitch(els[els.length - 1].notes, "asc");
-  const stemFirst = calcStemShape({
-    dnp,
-    direction: stemDirection,
-    lowest: firstAsc[0],
-    highest: firstAsc[firstAsc.length - 1],
-  });
-  const stemLast = calcStemShape({
-    dnp,
-    direction: stemDirection,
-    lowest: lastAsc[0],
-    highest: lastAsc[lastAsc.length - 1],
-  });
+  // const firstAsc = sortPitch(els[0].notes, "asc");
+  // const lastAsc = sortPitch(els[els.length - 1].notes, "asc");
+  // const stemFirst = calcStemShape({
+  //   dnp,
+  //   direction: stemDirection,
+  //   lowest: firstAsc[0],
+  //   highest: firstAsc[firstAsc.length - 1],
+  // });
+  // const stemLast = calcStemShape({
+  //   dnp,
+  //   direction: stemDirection,
+  //   lowest: lastAsc[0],
+  //   highest: lastAsc[lastAsc.length - 1],
+  // });
   const beamStartX = leftOfStemArr[0];
   const beamEndX = leftOfStemArr[leftOfStemArr.length - 1];
+  const offsetY = UNIT * scale; // adjustment
   let beamStartY: number;
   let beamEndY: number;
   if (stemDirection === "up") {
-    beamStartY = stemFirst.top;
-    beamEndY = stemLast.top;
+    beamStartY = stem.top - offsetY;
+    beamEndY = stem.top - offsetY;
   } else {
-    beamStartY = stemFirst.bottom;
-    beamEndY = stemLast.bottom;
+    beamStartY = stem.bottom + offsetY;
+    beamEndY = stem.bottom + offsetY;
   }
 
   // declare linear function of beam line

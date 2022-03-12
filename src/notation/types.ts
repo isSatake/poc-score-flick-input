@@ -4,7 +4,6 @@ export type Duration = typeof durations[number];
 // C4 (middleC) = 0
 export type Pitch = number;
 
-// 臨時記号の表記
 export type Accidental = "sharp" | "natural" | "flat";
 
 export type PitchAcc = {
