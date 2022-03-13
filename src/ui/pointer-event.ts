@@ -1,11 +1,11 @@
-import { magnitude, Geometry } from "../geometry";
+import { magnitude, Point } from "../geometry";
 
 export interface PointerHandler {
   onDown: (ev: PointerEvent) => void;
-  onUp: (ev: PointerEvent, downPoint: Geometry) => void;
+  onUp: (ev: PointerEvent, downPoint: Point) => void;
   onClick: (ev: PointerEvent) => void;
   onLongDown: (ev: PointerEvent) => void;
-  onDrag: (ev: PointerEvent, downPoint: Geometry) => void;
+  onDrag: (ev: PointerEvent, downPoint: Point) => void;
 }
 
 export class PointerEventListener {
@@ -13,7 +13,7 @@ export class PointerEventListener {
   private kDragThresholdMagnitude = 10;
   private longDownTimer = 0;
   private downClassName: string | undefined;
-  private downPoint: Geometry | undefined;
+  private downPoint: Point | undefined;
   private isDragging = false;
 
   constructor(
@@ -78,7 +78,7 @@ export class PointerEventListener {
     this.handlers.forEach((h) => h.onDown(ev));
   }
 
-  private onUp(ev: PointerEvent, down: Geometry) {
+  private onUp(ev: PointerEvent, down: Point) {
     this.handlers.forEach((h) => h.onUp(ev, down));
   }
 
@@ -90,7 +90,7 @@ export class PointerEventListener {
     this.handlers.forEach((h) => h.onLongDown(ev));
   }
 
-  private onDrag(ev: PointerEvent, down: Geometry) {
+  private onDrag(ev: PointerEvent, down: Point) {
     this.handlers.forEach((h) => h.onDrag(ev, down));
   }
 }

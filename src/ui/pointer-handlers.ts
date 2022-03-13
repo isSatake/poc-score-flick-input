@@ -1,5 +1,5 @@
 import { PointerHandler } from "./pointer-event";
-import { Geometry } from "../geometry";
+import { Point } from "../geometry";
 import {
   CaretCallback,
   ChangeNoteRestCallback,
@@ -44,17 +44,17 @@ class EmptyPointerHandler implements PointerHandler {
 
   onDown(ev: PointerEvent) {}
 
-  onUp(ev: PointerEvent, downPoint: Geometry) {}
+  onUp(ev: PointerEvent, downPoint: Point) {}
 
   onClick(ev: PointerEvent) {}
 
   onLongDown(ev: PointerEvent) {}
 
-  onDrag(ev: PointerEvent, downPoint: Geometry) {}
+  onDrag(ev: PointerEvent, downPoint: Point) {}
 }
 
 export class KeyboardDragHandler extends EmptyPointerHandler {
-  private readonly translated: Geometry = { x: 0, y: 0 };
+  private readonly translated: Point = { x: 0, y: 0 };
 
   private readonly keyboardEl = document.getElementById(
     "keyboard"
@@ -64,12 +64,12 @@ export class KeyboardDragHandler extends EmptyPointerHandler {
     super();
   }
 
-  onUp(ev: PointerEvent, down: Geometry) {
+  onUp(ev: PointerEvent, down: Point) {
     this.translated.x += ev.x - down.x;
     this.translated.y += ev.y - down.y;
   }
 
-  onDrag(ev: PointerEvent, down: Geometry) {
+  onDrag(ev: PointerEvent, down: Point) {
     const nextX = this.translated.x + ev.x - down.x;
     const nextY = this.translated.y + ev.y - down.y;
     this.keyboardEl.style.transform = `translate(${nextX}px, ${nextY}px)`;
@@ -161,12 +161,12 @@ export class NoteInputHandler extends EmptyPointerHandler {
     this.callback.startPreview(this.duration!, ev.x, ev.y);
   }
 
-  onDrag(ev: PointerEvent, downPoint: Geometry) {
+  onDrag(ev: PointerEvent, downPoint: Point) {
     this.dragDy = downPoint.y - ev.y;
     this.callback.updatePreview(this.duration!, this.dragDy);
   }
 
-  onUp(ev: PointerEvent, downPoint: Geometry) {
+  onUp(ev: PointerEvent, downPoint: Point) {
     if (this.isBackspace()) {
       this.callback.backspace();
     } else if (this.duration) {

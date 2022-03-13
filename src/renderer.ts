@@ -26,6 +26,7 @@ import {
   restPathMap,
   upFlagMap,
 } from "./notation/notation";
+import { Point } from "./geometry";
 
 export const initCanvas = (
   leftPx: number,
@@ -208,11 +209,13 @@ const calcStemShape = ({
   direction,
   lowest,
   highest,
+  extension = 0,
 }: {
   dnp: DrawNoteParams;
   direction: "up" | "down";
   lowest: PitchAcc;
   highest: PitchAcc;
+  extension?: number;
 }): { top: number; bottom: number } => {
   const { topOfStaff, scale, duration } = dnp;
   const heightOfB4 = topOfStaff + (bStaffHeight * scale) / 2;
@@ -230,6 +233,7 @@ const calcStemShape = ({
       const index = duration <= 32 ? highest.pitch + 7 : highest.pitch + 8;
       top = pitchToY(topOfStaff, index, scale);
     }
+    top -= extension;
   } else {
     top = pitchToY(topOfStaff, highest.pitch, scale);
     if (lowest.pitch > 12) {
@@ -239,6 +243,7 @@ const calcStemShape = ({
       const index = duration < 32 ? lowest.pitch - 7 : lowest.pitch - 8;
       bottom = pitchToY(topOfStaff, index, scale);
     }
+    bottom += extension;
   }
   return { top, bottom };
 };
@@ -413,6 +418,9 @@ const drawBeamedNotes = function* ({
     direction: stemDirection,
     lowest: { pitch: center },
     highest: { pitch: center },
+    // TODO Beamed notes are not always need extension
+    //   e.g c4-c4
+    extension: UNIT * scale,
   });
 
   // calc beam start/end coords
@@ -430,30 +438,41 @@ const drawBeamedNotes = function* ({
   //   lowest: lastAsc[0],
   //   highest: lastAsc[lastAsc.length - 1],
   // });
-  const beamStartX = leftOfStemArr[0];
-  const beamEndX = leftOfStemArr[leftOfStemArr.length - 1];
-  const offsetY = UNIT * scale; // adjustment
-  let beamStartY: number;
-  let beamEndY: number;
-  if (stemDirection === "up") {
-    beamStartY = stem.top - offsetY;
-    beamEndY = stem.top - offsetY;
-  } else {
-    beamStartY = stem.bottom + offsetY;
-    beamEndY = stem.bottom + offsetY;
-  }
+
+  const beamWidth = (UNIT / 2) * scale;
+  const beam = {
+    nw: {
+      x: leftOfStemArr[0],
+      y: stemDirection === "up" ? stem.top : stem.bottom,
+    },
+    ne: {
+      x: leftOfStemArr[leftOfStemArr.length - 1],
+      y: stemDirection === "up" ? stem.top : stem.bottom,
+    },
+    se: {
+      x: leftOfStemArr[leftOfStemArr.length - 1],
+      y:
+        stemDirection === "up" ? stem.top + beamWidth : stem.bottom + beamWidth,
+    },
+    sw: {
+      x: leftOfStemArr[0],
+      y:
+        stemDirection === "up" ? stem.top + beamWidth : stem.bottom + beamWidth,
+    },
+  };
 
   // declare linear function of beam line
   // stemのflag側の端っこの座標を求める1次関数を定義する
   // 傾きを求める
   let 傾き = 0;
-  if (beamStartY !== beamEndY) {
-    傾き = Math.abs(beamEndY - beamStartY) / (beamEndX - beamStartX);
-    if (beamStartY - beamEndY > 0) {
+  if (beam.nw.y !== beam.ne.y) {
+    傾き = Math.abs(beam.ne.y - beam.nw.y) / (beam.ne.x - beam.nw.x);
+    if (beam.nw.y - beam.ne.y > 0) {
       傾き *= -1;
     }
   }
-  const 切片 = beamStartY - beamStartX * 傾き;
+  const 切片 =
+    (stemDirection === "up" ? beam.nw.y : beam.sw.y) - beam.sw.x * 傾き;
   const stemEdge = (stemX: number) => {
     return stemX * 傾き + 切片;
   };
@@ -482,11 +501,10 @@ const drawBeamedNotes = function* ({
   // とりあえずdnpのduration使っておくか。
   ctx.save();
   ctx.beginPath();
-  ctx.moveTo(beamStartX, beamStartY); // NW
-  ctx.lineTo(beamStartX, beamStartY + (UNIT / 2) * scale); // SW
-  ctx.lineTo(beamEndX, beamEndY + (UNIT / 2) * scale); // SE
-  ctx.lineTo(beamEndX, beamEndY); // NE
-  ctx.lineTo(beamStartX, beamStartY);
+  ctx.moveTo(beam.nw.x, beam.nw.y);
+  ctx.lineTo(beam.sw.x, beam.sw.y);
+  ctx.lineTo(beam.se.x, beam.se.y);
+  ctx.lineTo(beam.ne.x, beam.ne.y);
   ctx.closePath();
   ctx.fillStyle = "#000";
   ctx.fill();

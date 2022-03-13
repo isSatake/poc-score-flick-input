@@ -51,13 +51,30 @@ window.onload = () => {
     {
       type: "note",
       duration: 8,
-      notes: [{ pitch: 7 }],
+      notes: [{ pitch: 0 }],
+      beam: "end",
+    },
+    {
+      type: "note",
+      duration: 4,
+      notes: [{ pitch: 0 }],
+    },
+    {
+      type: "note",
+      duration: 8,
+      notes: [{ pitch: 0 }],
+      beam: "begin",
+    },
+    {
+      type: "note",
+      duration: 8,
+      notes: [{ pitch: 6 }],
       beam: "continue",
     },
     {
       type: "note",
       duration: 8,
-      notes: [{ pitch: 7 }],
+      notes: [{ pitch: 6 }],
       beam: "continue",
     },
     {
@@ -69,25 +86,25 @@ window.onload = () => {
     {
       type: "note",
       duration: 4,
-      notes: [{ pitch: 9 }],
+      notes: [{ pitch: 12 }],
       beam: "begin",
     },
     {
       type: "note",
       duration: 8,
-      notes: [{ pitch: 5 }],
+      notes: [{ pitch: 6 }],
       beam: "continue",
     },
     {
       type: "note",
       duration: 8,
-      notes: [{ pitch: 5 }],
+      notes: [{ pitch: 6 }],
       beam: "continue",
     },
     {
       type: "note",
       duration: 8,
-      notes: [{ pitch: 8 }],
+      notes: [{ pitch: 12 }],
       beam: "end",
     },
     {
