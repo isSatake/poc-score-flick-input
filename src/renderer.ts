@@ -713,7 +713,8 @@ export const drawElements = ({
           while (
             nextIdx < elements.length &&
             next.type === "note" &&
-            next.beam
+            next.beam &&
+            next.beam !== "begin"
           ) {
             beamedNotes.push(next);
             next = elements[++nextIdx];
