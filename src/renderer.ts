@@ -412,15 +412,21 @@ const drawBeamedNotes = function* ({
     left = section.end + elementGap;
     leftOfStemArr.push(leftOfStem);
   }
-  const center = centerOfNotes(pitches);
+  let pitchForStem; // symmetry only
+  let extension: number;
+  if (stemDirection === "up") {
+    pitchForStem = Math.max(...pitches);
+    extension = pitchForStem >= 6 ? -(UNIT * scale) / 4 : 0;
+  } else {
+    pitchForStem = Math.min(...pitches);
+    extension = pitchForStem <= 6 ? -(UNIT * scale) / 4 : 0;
+  }
   const stem = calcStemShape({
     dnp,
     direction: stemDirection,
-    lowest: { pitch: center },
-    highest: { pitch: center },
-    // TODO Beamed notes are not always need extension
-    //   e.g c4-c4
-    extension: UNIT * scale,
+    lowest: { pitch: pitchForStem },
+    highest: { pitch: pitchForStem },
+    extension,
   });
 
   // calc beam start/end coords
@@ -443,21 +449,19 @@ const drawBeamedNotes = function* ({
   const beam = {
     nw: {
       x: leftOfStemArr[0],
-      y: stemDirection === "up" ? stem.top : stem.bottom,
+      y: stemDirection === "up" ? stem.top : stem.bottom - beamWidth,
     },
     ne: {
       x: leftOfStemArr[leftOfStemArr.length - 1],
-      y: stemDirection === "up" ? stem.top : stem.bottom,
+      y: stemDirection === "up" ? stem.top : stem.bottom - beamWidth,
     },
     se: {
       x: leftOfStemArr[leftOfStemArr.length - 1],
-      y:
-        stemDirection === "up" ? stem.top + beamWidth : stem.bottom + beamWidth,
+      y: stemDirection === "up" ? stem.top + beamWidth : stem.bottom,
     },
     sw: {
       x: leftOfStemArr[0],
-      y:
-        stemDirection === "up" ? stem.top + beamWidth : stem.bottom + beamWidth,
+      y: stemDirection === "up" ? stem.top + beamWidth : stem.bottom,
     },
   };
 

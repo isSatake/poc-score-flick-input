@@ -45,24 +45,31 @@ window.onload = () => {
     {
       type: "note",
       duration: 8,
-      notes: [{ pitch: 0 }],
+      notes: [{ pitch: 12 }],
       beam: "begin",
     },
     {
       type: "note",
       duration: 8,
-      notes: [{ pitch: 0 }],
-      beam: "end",
-    },
-    {
-      type: "note",
-      duration: 4,
-      notes: [{ pitch: 0 }],
+      notes: [{ pitch: 7 }],
+      beam: "continue",
     },
     {
       type: "note",
       duration: 8,
-      notes: [{ pitch: 0 }],
+      notes: [{ pitch: 7 }],
+      beam: "continue",
+    },
+    {
+      type: "note",
+      duration: 8,
+      notes: [{ pitch: 12 }],
+      beam: "end",
+    },
+    {
+      type: "note",
+      duration: 8,
+      notes: [{ pitch: 12 }],
       beam: "begin",
     },
     {
@@ -75,6 +82,64 @@ window.onload = () => {
       type: "note",
       duration: 8,
       notes: [{ pitch: 6 }],
+      beam: "continue",
+    },
+    {
+      type: "note",
+      duration: 8,
+      notes: [{ pitch: 12 }],
+      beam: "end",
+    },
+    {
+      type: "note",
+      duration: 8,
+      notes: [{ pitch: 12 }],
+      beam: "begin",
+    },
+    {
+      type: "note",
+      duration: 8,
+      notes: [{ pitch: 5 }],
+      beam: "continue",
+    },
+    {
+      type: "note",
+      duration: 8,
+      notes: [{ pitch: 5 }],
+      beam: "continue",
+    },
+    {
+      type: "note",
+      duration: 8,
+      notes: [{ pitch: 12 }],
+      beam: "end",
+    },
+    {
+      type: "note",
+      duration: 8,
+      notes: [{ pitch: 5 }],
+    },
+    {
+      type: "note",
+      duration: 8,
+      notes: [{ pitch: 7 }],
+    },
+    {
+      type: "note",
+      duration: 8,
+      notes: [{ pitch: 0 }],
+      beam: "begin",
+    },
+    {
+      type: "note",
+      duration: 8,
+      notes: [{ pitch: 7 }],
+      beam: "continue",
+    },
+    {
+      type: "note",
+      duration: 8,
+      notes: [{ pitch: 7 }],
       beam: "continue",
     },
     {
@@ -92,13 +157,13 @@ window.onload = () => {
     {
       type: "note",
       duration: 8,
-      notes: [{ pitch: 6 }],
+      notes: [{ pitch: 5 }],
       beam: "continue",
     },
     {
       type: "note",
       duration: 8,
-      notes: [{ pitch: 6 }],
+      notes: [{ pitch: 5 }],
       beam: "continue",
     },
     {
