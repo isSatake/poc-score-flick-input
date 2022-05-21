@@ -26,7 +26,6 @@ import {
   restPathMap,
   upFlagMap,
 } from "./notation/notation";
-import { Point } from "./geometry";
 
 export const initCanvas = (
   leftPx: number,
@@ -397,8 +396,8 @@ const drawBeamedNotes = function* ({
   startIdx: number;
 }): IterableIterator<{ elIdx: number; elEnd: number; elLeft: number }> {
   const { ctx, scale, left: startLeft } = dnp;
-  const pitches = els.flatMap((n) => n.notes).map((p) => p.pitch);
-  const stemDirection = calcStemDirection(pitches);
+  const allBeamedPitches = els.flatMap((n) => n.notes).map((p) => p.pitch);
+  const stemDirection = calcStemDirection(allBeamedPitches);
   const leftOfStemArr: number[] = [];
   let left = startLeft;
   for (let { notes } of els) {
@@ -412,13 +411,55 @@ const drawBeamedNotes = function* ({
     left = section.end + elementGap;
     leftOfStemArr.push(leftOfStem);
   }
+
+  // beam angle
+  const firstEl = els[0];
+  const lastEl = els[els.length - 1];
+  const yDistance4th = (UNIT / 2) * 3 * scale;
+  let beamAngle;
+  if (stemDirection === "up") {
+    const pitchFirst = Math.max(...firstEl.notes.map((n) => n.pitch));
+    const pitchLast = Math.max(...lastEl.notes.map((n) => n.pitch));
+    if (pitchFirst === pitchLast) {
+      beamAngle = 0;
+    } else {
+      const yFirst = pitchToY(dnp.topOfStaff, pitchFirst, dnp.scale);
+      const yLast = pitchToY(dnp.topOfStaff, pitchLast, dnp.scale);
+      const yDistance = yLast - yFirst;
+      const xDistance =
+        leftOfStemArr[leftOfStemArr.length - 1] - leftOfStemArr[0];
+      if (Math.abs(pitchLast - pitchFirst) < 4) {
+        beamAngle = yDistance / xDistance;
+      } else {
+        beamAngle = yDistance4th / xDistance;
+      }
+    }
+  } else {
+    const pitchFirst = Math.min(...firstEl.notes.map((n) => n.pitch));
+    const pitchLast = Math.min(...lastEl.notes.map((n) => n.pitch));
+    if (pitchFirst === pitchLast) {
+      beamAngle = 0;
+    } else {
+      const yFirst = pitchToY(dnp.topOfStaff, pitchFirst, dnp.scale);
+      const yLast = pitchToY(dnp.topOfStaff, pitchLast, dnp.scale);
+      const yDistance = yLast - yFirst;
+      const xDistance =
+        leftOfStemArr[leftOfStemArr.length - 1] - leftOfStemArr[0];
+      if (yDistance < yDistance4th) {
+        beamAngle = yDistance / xDistance;
+      } else {
+        beamAngle = yDistance4th / xDistance;
+      }
+    }
+  }
+
   let pitchForStem; // symmetry only
   let extension: number;
   if (stemDirection === "up") {
-    pitchForStem = Math.max(...pitches);
+    pitchForStem = Math.max(...allBeamedPitches);
     extension = pitchForStem >= 6 ? -(UNIT * scale) / 4 : 0;
   } else {
-    pitchForStem = Math.min(...pitches);
+    pitchForStem = Math.min(...allBeamedPitches);
     extension = pitchForStem <= 6 ? -(UNIT * scale) / 4 : 0;
   }
   const stem = calcStemShape({
