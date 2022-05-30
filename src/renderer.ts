@@ -26,6 +26,7 @@ import {
   restPathMap,
   upFlagMap,
 } from "./notation/notation";
+import { Point } from "./geometry";
 
 export const initCanvas = (
   leftPx: number,
@@ -370,7 +371,7 @@ const centerOfNotes = (pitches: Pitch[]): Pitch => {
   return Math.round(average);
 };
 
-const calcStemDirection = (pitches: Pitch[]): "up" | "down" => {
+const getStemDirection = (pitches: Pitch[]): "up" | "down" => {
   // B4から最も遠い音程を計算する
   // B4未満 -> 上向き (楽譜の書き方p17)
   const lowestToB4 = 6 - Math.min(...pitches);
@@ -382,6 +383,170 @@ const calcStemDirection = (pitches: Pitch[]): "up" | "down" => {
   }
   // calc direction by center of pitches if lowest and highest are same
   return centerOfNotes(pitches) < 6 ? "up" : "down";
+};
+
+const getStemLinearFunc = ({
+  dnp,
+  stemDirection,
+  beamed,
+  firstStemLeft,
+  lastStemLeft,
+}: {
+  dnp: DrawNoteParams;
+  stemDirection: "up" | "down";
+  beamed: Note[];
+  firstStemLeft: number;
+  lastStemLeft: number;
+}): ((x: number) => number) => {
+  const firstEl = beamed[0];
+  const lastEl = beamed[beamed.length - 1];
+  const yDistance4th = -(UNIT / 2) * 3 * dnp.scale; // canvas座標系に合わせ負にしておく
+  const pitchFirstLo = firstEl.pitches[0].pitch;
+  const pitchFirstHi = firstEl.pitches[firstEl.pitches.length - 1].pitch;
+  const pitchLastLo = lastEl.pitches[0].pitch;
+  const pitchLastHi = lastEl.pitches[lastEl.pitches.length - 1].pitch;
+  let beamAngle: number;
+  let 最短stemとbeamの交点y: Point;
+  if (stemDirection === "up") {
+    if (pitchFirstHi === pitchLastHi) {
+      beamAngle = 0;
+      最短stemとbeamの交点y = {
+        x: firstStemLeft,
+        y: calcStemShape({
+          dnp,
+          direction: stemDirection,
+          lowest: { pitch: pitchFirstLo },
+          highest: { pitch: pitchFirstHi },
+        }).top,
+      };
+    } else {
+      const yFirst = pitchToY(dnp.topOfStaff, pitchFirstHi, dnp.scale);
+      const yLast = pitchToY(dnp.topOfStaff, pitchLastHi, dnp.scale);
+      const yDistance = yLast - yFirst;
+      const xDistance = lastStemLeft - firstStemLeft;
+      if (pitchFirstHi > pitchLastHi) {
+        // 右肩下がり→stem lengthはfirst基準
+        const x = firstStemLeft;
+        const y = calcStemShape({
+          dnp,
+          direction: stemDirection,
+          lowest: { pitch: pitchFirstLo },
+          highest: { pitch: pitchFirstHi },
+        }).top;
+        if (pitchFirstHi - pitchLastHi >= 4) {
+          beamAngle = -yDistance4th / xDistance;
+        } else {
+          beamAngle = yDistance / xDistance;
+        }
+        最短stemとbeamの交点y = { x, y };
+      } else {
+        // 右肩上がり→stem lengthはlast基準
+        const x = lastStemLeft;
+        const y = calcStemShape({
+          dnp,
+          direction: stemDirection,
+          lowest: { pitch: pitchLastLo },
+          highest: { pitch: pitchLastHi },
+        }).top;
+        if (pitchLastHi - pitchFirstHi >= 4) {
+          beamAngle = yDistance4th / xDistance;
+        } else {
+          beamAngle = yDistance / xDistance;
+        }
+        最短stemとbeamの交点y = { x, y };
+      }
+    }
+  } else {
+    if (pitchFirstLo === pitchLastLo) {
+      beamAngle = 0;
+      最短stemとbeamの交点y = {
+        x: firstStemLeft,
+        y: calcStemShape({
+          dnp,
+          direction: stemDirection,
+          lowest: { pitch: pitchFirstLo },
+          highest: { pitch: pitchFirstHi },
+        }).bottom,
+      };
+    } else {
+      const yFirst = pitchToY(dnp.topOfStaff, pitchFirstLo, dnp.scale);
+      const yLast = pitchToY(dnp.topOfStaff, pitchLastLo, dnp.scale);
+      const yDistance = yLast - yFirst;
+      const xDistance = lastStemLeft - firstStemLeft;
+      if (pitchFirstLo > pitchLastLo) {
+        // 右肩下がり→stem lengthはlast基準
+        const x = lastStemLeft;
+        const y = calcStemShape({
+          dnp,
+          direction: stemDirection,
+          lowest: { pitch: pitchLastLo },
+          highest: { pitch: pitchLastHi },
+        }).bottom;
+        if (pitchFirstLo - pitchLastLo >= 4) {
+          beamAngle = -yDistance4th / xDistance;
+        } else {
+          beamAngle = yDistance / xDistance;
+        }
+        最短stemとbeamの交点y = { x, y };
+      } else {
+        // 右肩上がり→stem lengthはfirst基準
+        const x = firstStemLeft;
+        const y = calcStemShape({
+          dnp,
+          direction: stemDirection,
+          lowest: { pitch: pitchFirstLo },
+          highest: { pitch: pitchFirstHi },
+        }).bottom;
+        if (pitchLastLo - pitchFirstLo >= 4) {
+          beamAngle = yDistance4th / xDistance;
+        } else {
+          beamAngle = yDistance / xDistance;
+        }
+        最短stemとbeamの交点y = { x, y };
+      }
+    }
+  }
+
+  const { x, y } = 最短stemとbeamの交点y;
+  const 切片 = -x * beamAngle + y;
+  return (stemX: number) => stemX * beamAngle + 切片;
+};
+
+const getBeamShape = ({
+  scale,
+  stemDirection,
+  firstStemLeft,
+  lastStemLeft,
+  stemLinearFunc,
+}: {
+  scale: number;
+  stemDirection: "up" | "down";
+  firstStemLeft: number;
+  lastStemLeft: number;
+  stemLinearFunc: (stemX: number) => number;
+}): { nw: Point; ne: Point; sw: Point; se: Point } => {
+  const beamWidth = (UNIT / 2) * scale;
+  // first note
+  const firstStemEdge = stemLinearFunc(firstStemLeft);
+  const nw = {
+    x: firstStemLeft,
+    y: stemDirection === "up" ? firstStemEdge : firstStemEdge - beamWidth,
+  };
+  const sw = {
+    x: firstStemLeft,
+    y: stemDirection === "up" ? firstStemEdge + beamWidth : firstStemEdge,
+  };
+  // last note
+  const lastStemEdge = stemLinearFunc(lastStemLeft);
+  const ne = {
+    x: lastStemLeft,
+    y: stemDirection === "up" ? lastStemEdge : lastStemEdge - beamWidth,
+  };
+  const se = {
+    x: lastStemLeft,
+    y: stemDirection === "up" ? lastStemEdge + beamWidth : lastStemEdge,
+  };
+  return { nw, ne, se, sw };
 };
 
 const drawBeamedNotes = function* ({
@@ -396,14 +561,14 @@ const drawBeamedNotes = function* ({
   startIdx: number;
 }): IterableIterator<{ elIdx: number; elEnd: number; elLeft: number }> {
   const { ctx, scale, left: startLeft } = dnp;
-  const allBeamedPitches = els.flatMap((n) => n.notes).map((p) => p.pitch);
-  const stemDirection = calcStemDirection(allBeamedPitches);
+  const allBeamedPitches = els.flatMap((n) => n.pitches).map((p) => p.pitch);
+  const stemDirection = getStemDirection(allBeamedPitches);
   const leftOfStemArr: number[] = [];
   let left = startLeft;
-  for (let { notes } of els) {
+  for (let { pitches } of els) {
     const { leftOfStem, section } = drawNote({
       dnp: { ...dnp, left },
-      pas: notes,
+      pas: pitches,
       stemDirection,
       beamed: true,
     });
@@ -411,139 +576,39 @@ const drawBeamedNotes = function* ({
     left = section.end + elementGap;
     leftOfStemArr.push(leftOfStem);
   }
-
-  // beam angle
-  const firstEl = els[0];
-  const lastEl = els[els.length - 1];
-  const yDistance4th = (UNIT / 2) * 3 * scale;
-  let beamAngle;
-  if (stemDirection === "up") {
-    const pitchFirst = Math.max(...firstEl.notes.map((n) => n.pitch));
-    const pitchLast = Math.max(...lastEl.notes.map((n) => n.pitch));
-    if (pitchFirst === pitchLast) {
-      beamAngle = 0;
-    } else {
-      const yFirst = pitchToY(dnp.topOfStaff, pitchFirst, dnp.scale);
-      const yLast = pitchToY(dnp.topOfStaff, pitchLast, dnp.scale);
-      const yDistance = yLast - yFirst;
-      const xDistance =
-        leftOfStemArr[leftOfStemArr.length - 1] - leftOfStemArr[0];
-      if (Math.abs(pitchLast - pitchFirst) < 4) {
-        beamAngle = yDistance / xDistance;
-      } else {
-        beamAngle = yDistance4th / xDistance;
-      }
-    }
-  } else {
-    const pitchFirst = Math.min(...firstEl.notes.map((n) => n.pitch));
-    const pitchLast = Math.min(...lastEl.notes.map((n) => n.pitch));
-    if (pitchFirst === pitchLast) {
-      beamAngle = 0;
-    } else {
-      const yFirst = pitchToY(dnp.topOfStaff, pitchFirst, dnp.scale);
-      const yLast = pitchToY(dnp.topOfStaff, pitchLast, dnp.scale);
-      const yDistance = yLast - yFirst;
-      const xDistance =
-        leftOfStemArr[leftOfStemArr.length - 1] - leftOfStemArr[0];
-      if (yDistance < yDistance4th) {
-        beamAngle = yDistance / xDistance;
-      } else {
-        beamAngle = yDistance4th / xDistance;
-      }
-    }
-  }
-
-  let pitchForStem; // symmetry only
-  let extension: number;
-  if (stemDirection === "up") {
-    pitchForStem = Math.max(...allBeamedPitches);
-    extension = pitchForStem >= 6 ? -(UNIT * scale) / 4 : 0;
-  } else {
-    pitchForStem = Math.min(...allBeamedPitches);
-    extension = pitchForStem <= 6 ? -(UNIT * scale) / 4 : 0;
-  }
-  const stem = calcStemShape({
+  const firstStemLeft = leftOfStemArr[0];
+  const lastStemLeft = leftOfStemArr[leftOfStemArr.length - 1];
+  const stemLinearFunc = getStemLinearFunc({
     dnp,
-    direction: stemDirection,
-    lowest: { pitch: pitchForStem },
-    highest: { pitch: pitchForStem },
-    extension,
+    stemDirection,
+    beamed: els,
+    firstStemLeft,
+    lastStemLeft,
   });
-
-  // calc beam start/end coords
-  // const firstAsc = sortPitch(els[0].notes, "asc");
-  // const lastAsc = sortPitch(els[els.length - 1].notes, "asc");
-  // const stemFirst = calcStemShape({
-  //   dnp,
-  //   direction: stemDirection,
-  //   lowest: firstAsc[0],
-  //   highest: firstAsc[firstAsc.length - 1],
-  // });
-  // const stemLast = calcStemShape({
-  //   dnp,
-  //   direction: stemDirection,
-  //   lowest: lastAsc[0],
-  //   highest: lastAsc[lastAsc.length - 1],
-  // });
-
-  const beamWidth = (UNIT / 2) * scale;
-  const beam = {
-    nw: {
-      x: leftOfStemArr[0],
-      y: stemDirection === "up" ? stem.top : stem.bottom - beamWidth,
-    },
-    ne: {
-      x: leftOfStemArr[leftOfStemArr.length - 1],
-      y: stemDirection === "up" ? stem.top : stem.bottom - beamWidth,
-    },
-    se: {
-      x: leftOfStemArr[leftOfStemArr.length - 1],
-      y: stemDirection === "up" ? stem.top + beamWidth : stem.bottom,
-    },
-    sw: {
-      x: leftOfStemArr[0],
-      y: stemDirection === "up" ? stem.top + beamWidth : stem.bottom,
-    },
-  };
-
-  // declare linear function of beam line
-  // stemのflag側の端っこの座標を求める1次関数を定義する
-  // 傾きを求める
-  let 傾き = 0;
-  if (beam.nw.y !== beam.ne.y) {
-    傾き = Math.abs(beam.ne.y - beam.nw.y) / (beam.ne.x - beam.nw.x);
-    if (beam.nw.y - beam.ne.y > 0) {
-      傾き *= -1;
-    }
-  }
-  const 切片 =
-    (stemDirection === "up" ? beam.nw.y : beam.sw.y) - beam.sw.x * 傾き;
-  const stemEdge = (stemX: number) => {
-    return stemX * 傾き + 切片;
-  };
-
-  // draw stem
-  els.forEach(({ notes }, idx) => {
+  const beam = getBeamShape({
+    scale,
+    stemDirection,
+    firstStemLeft,
+    lastStemLeft,
+    stemLinearFunc,
+  });
+  els.forEach(({ pitches }, idx) => {
     const left = leftOfStemArr[idx];
-    const edge = stemEdge(left);
+    const edge = stemLinearFunc(left);
     let beamed;
     if (stemDirection === "up") {
       beamed = { top: edge };
     } else {
       beamed = { bottom: edge };
     }
-    const pitchesAsc = sortPitch(notes, "asc");
     drawStemFlag({
       dnp: { ...dnp, left },
       direction: stemDirection,
-      lowest: pitchesAsc[0],
-      highest: pitchesAsc[pitchesAsc.length - 1],
+      lowest: pitches[0],
+      highest: pitches[pitches.length - 1],
       beamed,
     });
   });
-
-  // beamの描画どうしよう。1本ずつrectを書くのか？そしたら途中で音価が変わるとどうなるんだ？
-  // とりあえずdnpのduration使っておくか。
   ctx.save();
   ctx.beginPath();
   ctx.moveTo(beam.nw.x, beam.nw.y);
@@ -608,7 +673,7 @@ const drawNote = ({
 
   // stemの左右どちらに音符を描画するか
   if (!stemDirection) {
-    stemDirection = calcStemDirection(pas.map((pa) => pa.pitch));
+    stemDirection = getStemDirection(pas.map((pa) => pa.pitch));
   }
   const notesLeftOfStem: PitchAcc[] = [];
   const notesRightOfStem: PitchAcc[] = [];
@@ -823,7 +888,7 @@ export const drawElements = ({
               duration: el.duration,
               scale,
             },
-            pas: el.notes,
+            pas: el.pitches,
           }).section;
           elementIdxToX.push({
             x: left,
