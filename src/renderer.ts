@@ -93,7 +93,6 @@ const drawStaff = (
 };
 
 const pitchToY = (topOfStaff: number, pitch: Pitch, scale: number): number => {
-  // ギターの音域に合わせ最低音をE2(=index:0)としている
   // middleC(C4)=0とする
   // y原点は符頭の中心(音程を示す高さ)
   const halfOfNoteHeadHeight = (bStaffHeight * scale) / 8;
@@ -385,126 +384,95 @@ const getStemDirection = (pitches: Pitch[]): "up" | "down" => {
   return centerOfNotes(pitches) < 6 ? "up" : "down";
 };
 
-const getStemLinearFunc = ({
+const getBeamLinearFunc = ({
   dnp,
   stemDirection,
   beamed,
-  firstStemLeft,
-  lastStemLeft,
+  beamedLeftOfStem,
 }: {
   dnp: DrawNoteParams;
   stemDirection: "up" | "down";
   beamed: Note[];
-  firstStemLeft: number;
-  lastStemLeft: number;
+  beamedLeftOfStem: number[];
 }): ((x: number) => number) => {
   const firstEl = beamed[0];
   const lastEl = beamed[beamed.length - 1];
-  const yDistance4th = -(UNIT / 2) * 3 * dnp.scale; // canvas座標系に合わせ負にしておく
-  const pitchFirstLo = firstEl.pitches[0].pitch;
-  const pitchFirstHi = firstEl.pitches[firstEl.pitches.length - 1].pitch;
-  const pitchLastLo = lastEl.pitches[0].pitch;
-  const pitchLastHi = lastEl.pitches[lastEl.pitches.length - 1].pitch;
+  const yDistance4th = (UNIT / 2) * 3 * dnp.scale;
   let beamAngle: number;
   let 最短stemとbeamの交点y: Point;
   if (stemDirection === "up") {
-    if (pitchFirstHi === pitchLastHi) {
-      beamAngle = 0;
-      最短stemとbeamの交点y = {
-        x: firstStemLeft,
-        y: calcStemShape({
-          dnp,
-          direction: stemDirection,
-          lowest: { pitch: pitchFirstLo },
-          highest: { pitch: pitchFirstHi },
-        }).top,
-      };
+    // angle
+    const pitchFirstHi = firstEl.pitches[firstEl.pitches.length - 1].pitch;
+    const pitchLastHi = lastEl.pitches[lastEl.pitches.length - 1].pitch;
+    const yFirst = pitchToY(dnp.topOfStaff, pitchFirstHi, dnp.scale);
+    const yLast = pitchToY(dnp.topOfStaff, pitchLastHi, dnp.scale);
+    const yDistance = yLast - yFirst;
+    const xDistance =
+      beamedLeftOfStem[beamedLeftOfStem.length - 1] - beamedLeftOfStem[0];
+    if (pitchFirstHi > pitchLastHi) {
+      // 右肩下がり
+      beamAngle =
+        (yDistance >= yDistance4th ? yDistance4th : yDistance) / xDistance;
     } else {
-      const yFirst = pitchToY(dnp.topOfStaff, pitchFirstHi, dnp.scale);
-      const yLast = pitchToY(dnp.topOfStaff, pitchLastHi, dnp.scale);
-      const yDistance = yLast - yFirst;
-      const xDistance = lastStemLeft - firstStemLeft;
-      if (pitchFirstHi > pitchLastHi) {
-        // 右肩下がり→stem lengthはfirst基準
-        const x = firstStemLeft;
-        const y = calcStemShape({
-          dnp,
-          direction: stemDirection,
-          lowest: { pitch: pitchFirstLo },
-          highest: { pitch: pitchFirstHi },
-        }).top;
-        if (pitchFirstHi - pitchLastHi >= 4) {
-          beamAngle = -yDistance4th / xDistance;
-        } else {
-          beamAngle = yDistance / xDistance;
-        }
-        最短stemとbeamの交点y = { x, y };
-      } else {
-        // 右肩上がり→stem lengthはlast基準
-        const x = lastStemLeft;
-        const y = calcStemShape({
-          dnp,
-          direction: stemDirection,
-          lowest: { pitch: pitchLastLo },
-          highest: { pitch: pitchLastHi },
-        }).top;
-        if (pitchLastHi - pitchFirstHi >= 4) {
-          beamAngle = yDistance4th / xDistance;
-        } else {
-          beamAngle = yDistance / xDistance;
-        }
-        最短stemとbeamの交点y = { x, y };
-      }
+      // 右肩上がり
+      beamAngle =
+        (-yDistance >= yDistance4th ? -yDistance4th : yDistance) / xDistance;
     }
+    // 交点
+    const beamedAndLeftOfStem = beamed.map((note, i) => ({
+      note,
+      leftOfStem: beamedLeftOfStem[i],
+    }));
+    const highest = beamedAndLeftOfStem.sort(
+      (a, b) =>
+        b.note.pitches[b.note.pitches.length - 1].pitch -
+        a.note.pitches[a.note.pitches.length - 1].pitch
+    )[0];
+    const x = highest.leftOfStem;
+    const y = calcStemShape({
+      dnp,
+      direction: stemDirection,
+      lowest: { pitch: highest.note.pitches[0].pitch },
+      highest: {
+        pitch: highest.note.pitches[highest.note.pitches.length - 1].pitch,
+      },
+    }).top;
+    最短stemとbeamの交点y = { x, y };
   } else {
-    if (pitchFirstLo === pitchLastLo) {
-      beamAngle = 0;
-      最短stemとbeamの交点y = {
-        x: firstStemLeft,
-        y: calcStemShape({
-          dnp,
-          direction: stemDirection,
-          lowest: { pitch: pitchFirstLo },
-          highest: { pitch: pitchFirstHi },
-        }).bottom,
-      };
+    const pitchFirstLo = firstEl.pitches[0].pitch;
+    const pitchLastLo = lastEl.pitches[0].pitch;
+    const yFirst = pitchToY(dnp.topOfStaff, pitchFirstLo, dnp.scale);
+    const yLast = pitchToY(dnp.topOfStaff, pitchLastLo, dnp.scale);
+    const yDistance = yLast - yFirst;
+    const xDistance =
+      beamedLeftOfStem[beamedLeftOfStem.length - 1] - beamedLeftOfStem[0];
+    if (pitchFirstLo > pitchLastLo) {
+      // 右肩下がり
+      beamAngle =
+        (yDistance >= yDistance4th ? yDistance4th : yDistance) / xDistance;
     } else {
-      const yFirst = pitchToY(dnp.topOfStaff, pitchFirstLo, dnp.scale);
-      const yLast = pitchToY(dnp.topOfStaff, pitchLastLo, dnp.scale);
-      const yDistance = yLast - yFirst;
-      const xDistance = lastStemLeft - firstStemLeft;
-      if (pitchFirstLo > pitchLastLo) {
-        // 右肩下がり→stem lengthはlast基準
-        const x = lastStemLeft;
-        const y = calcStemShape({
-          dnp,
-          direction: stemDirection,
-          lowest: { pitch: pitchLastLo },
-          highest: { pitch: pitchLastHi },
-        }).bottom;
-        if (pitchFirstLo - pitchLastLo >= 4) {
-          beamAngle = -yDistance4th / xDistance;
-        } else {
-          beamAngle = yDistance / xDistance;
-        }
-        最短stemとbeamの交点y = { x, y };
-      } else {
-        // 右肩上がり→stem lengthはfirst基準
-        const x = firstStemLeft;
-        const y = calcStemShape({
-          dnp,
-          direction: stemDirection,
-          lowest: { pitch: pitchFirstLo },
-          highest: { pitch: pitchFirstHi },
-        }).bottom;
-        if (pitchLastLo - pitchFirstLo >= 4) {
-          beamAngle = yDistance4th / xDistance;
-        } else {
-          beamAngle = yDistance / xDistance;
-        }
-        最短stemとbeamの交点y = { x, y };
-      }
+      // 右肩上がり
+      beamAngle =
+        (-yDistance >= yDistance4th ? -yDistance4th : yDistance) / xDistance;
     }
+    // 交点
+    const beamedAndLeftOfStem = beamed.map((note, i) => ({
+      note,
+      leftOfStem: beamedLeftOfStem[i],
+    }));
+    const lowest = beamedAndLeftOfStem.sort(
+      (a, b) => a.note.pitches[0].pitch - b.note.pitches[0].pitch
+    )[0];
+    const x = lowest.leftOfStem;
+    const y = calcStemShape({
+      dnp,
+      direction: stemDirection,
+      lowest: { pitch: lowest.note.pitches[0].pitch },
+      highest: {
+        pitch: lowest.note.pitches[lowest.note.pitches.length - 1].pitch,
+      },
+    }).bottom;
+    最短stemとbeamの交点y = { x, y };
   }
 
   const { x, y } = 最短stemとbeamの交点y;
@@ -578,12 +546,11 @@ const drawBeamedNotes = function* ({
   }
   const firstStemLeft = leftOfStemArr[0];
   const lastStemLeft = leftOfStemArr[leftOfStemArr.length - 1];
-  const stemLinearFunc = getStemLinearFunc({
+  const stemLinearFunc = getBeamLinearFunc({
     dnp,
     stemDirection,
     beamed: els,
-    firstStemLeft,
-    lastStemLeft,
+    beamedLeftOfStem: leftOfStemArr,
   });
   const beam = getBeamShape({
     scale,
