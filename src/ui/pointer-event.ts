@@ -27,6 +27,7 @@ export class PointerEventListener {
     switch (ev.type) {
       case "pointerdown":
         if (
+          this.targetClassNames.length > 0 &&
           !this.targetClassNames.some((target) => className.includes(target))
         ) {
           return;

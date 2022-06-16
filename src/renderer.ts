@@ -780,7 +780,7 @@ export const drawElements = ({
   let left = leftOfStaff + elementGap;
   left = drawGClef(ctx, left, topOfStaff, scale).end;
   if (elements.length === 0) {
-    return [{ x: left + elementGap, y: topOfStaff, width: 1, elIdx: -1 }];
+    return [{ x: left + elementGap, y: topOfStaff, width: 5, elIdx: -1 }];
   }
   const elementIdxToX: Caret[] = [];
   let elIdx = 0;
@@ -790,7 +790,7 @@ export const drawElements = ({
     elementIdxToX.push({
       x: left,
       y: topOfStaff,
-      width: 1,
+      width: 5,
       elIdx: elIdx - 1,
     });
     switch (el.type) {
@@ -839,7 +839,7 @@ export const drawElements = ({
               elementIdxToX.push({
                 x: elEnd + elementGap,
                 y: topOfStaff,
-                width: 1,
+                width: 5,
                 elIdx,
               });
             }
@@ -868,13 +868,19 @@ export const drawElements = ({
         }
         break;
       case "rest":
-        left = drawRest(ctx, topOfStaff, left, el, scale).end;
-        elementIdxToX.push({ x: left, y: topOfStaff, width: 1, elIdx });
+        const { end } = drawRest(ctx, topOfStaff, left, el, scale);
+        elementIdxToX.push({
+          x: left,
+          y: topOfStaff,
+          width: end - left,
+          elIdx,
+        });
+        left = end;
         elIdx++;
         break;
       case "bar":
         left = drawBarline(ctx, topOfStaff, left, scale).end;
-        elementIdxToX.push({ x: left, y: topOfStaff, width: 1, elIdx });
+        elementIdxToX.push({ x: left, y: topOfStaff, width: 5, elIdx });
         elIdx++;
         break;
     }
@@ -883,10 +889,9 @@ export const drawElements = ({
   elementIdxToX.push({
     x: lastX + elementGap,
     y: topOfStaff,
-    width: 1,
+    width: 5,
     elIdx: elements.length - 1,
   });
-  console.log(elementIdxToX);
   return elementIdxToX;
 };
 

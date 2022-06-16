@@ -10,6 +10,7 @@ import {
 import {
   ArrowHandler,
   ChangeNoteRestHandler,
+  GrayPointerHandler,
   KeyboardDragHandler,
   KeyPressHandler,
   NoteInputHandler,
@@ -21,18 +22,20 @@ import {
   ChangeNoteRestCallback,
   NoteInputCallback,
 } from "./ui/callbacks";
+import { sortPitches } from "./pitch";
 
-const scale = 0.08;
+const scale = 0.12;
+const previewScale = 0.19;
 const leftOfStaff = 20;
-const topOfStaff = 2000 * scale;
+const topOfStaff = 4000 * scale;
 const elementGap = UNIT * 2 * scale;
 let isNoteInputMode = true;
 
 window.onload = () => {
   const mainWidth = window.innerWidth;
   const mainHeight = window.innerHeight;
-  const previewWidth = 300;
-  const previewHeight = 600;
+  const previewWidth = 450;
+  const previewHeight = 700;
   const mainCanvas = document.getElementById("mainCanvas") as HTMLCanvasElement;
   const previewCanvas = document.getElementById(
     "previewCanvas"
@@ -41,164 +44,7 @@ window.onload = () => {
   const previewCtx = previewCanvas.getContext("2d")!;
   const noteKeyEls = Array.from(document.getElementsByClassName("note"));
   const mainElements: Element[] = [];
-  const elements: Element[] = [
-    {
-      type: "note",
-      duration: 8,
-      pitches: [{ pitch: 0 }],
-      beam: "begin",
-    },
-    {
-      type: "note",
-      duration: 8,
-      pitches: [{ pitch: 5 }],
-      beam: "continue",
-    },
-    {
-      type: "note",
-      duration: 8,
-      pitches: [{ pitch: 0 }],
-      beam: "end",
-    },
-    {
-      type: "note",
-      duration: 8,
-      pitches: [{ pitch: 5 }],
-      beam: "begin",
-    },
-    {
-      type: "note",
-      duration: 8,
-      pitches: [{ pitch: 0 }],
-      beam: "continue",
-    },
-    {
-      type: "note",
-      duration: 8,
-      pitches: [{ pitch: 5 }],
-      beam: "end",
-    },
-    {
-      type: "note",
-      duration: 8,
-      pitches: [{ pitch: 1 }],
-      beam: "begin",
-    },
-    {
-      type: "note",
-      duration: 8,
-      pitches: [{ pitch: 5 }],
-      beam: "continue",
-    },
-    {
-      type: "note",
-      duration: 8,
-      pitches: [{ pitch: 0 }],
-      beam: "end",
-    },
-    {
-      type: "note",
-      duration: 8,
-      pitches: [{ pitch: 4 }],
-      beam: "begin",
-    },
-    {
-      type: "note",
-      duration: 8,
-      pitches: [{ pitch: 5 }],
-      beam: "continue",
-    },
-    {
-      type: "note",
-      duration: 8,
-      pitches: [{ pitch: 0 }],
-      beam: "end",
-    },
-    {
-      type: "note",
-      duration: 8,
-      pitches: [{ pitch: 7 }],
-      beam: "begin",
-    },
-    {
-      type: "note",
-      duration: 8,
-      pitches: [{ pitch: 5 }],
-      beam: "continue",
-    },
-    {
-      type: "note",
-      duration: 8,
-      pitches: [{ pitch: 0 }],
-      beam: "end",
-    },
-    {
-      type: "note",
-      duration: 8,
-      pitches: [{ pitch: 9 }],
-      beam: "begin",
-    },
-    {
-      type: "note",
-      duration: 8,
-      pitches: [{ pitch: 5 }],
-      beam: "continue",
-    },
-    {
-      type: "note",
-      duration: 8,
-      pitches: [{ pitch: 0 }],
-      beam: "end",
-    },
-    {
-      type: "note",
-      duration: 8,
-      pitches: [{ pitch: 1 }],
-      beam: "begin",
-    },
-    {
-      type: "note",
-      duration: 8,
-      pitches: [{ pitch: 0 }],
-      beam: "end",
-    },
-    {
-      type: "note",
-      duration: 8,
-      pitches: [{ pitch: 7 }],
-      beam: "begin",
-    },
-    {
-      type: "note",
-      duration: 8,
-      pitches: [{ pitch: 6 }],
-      beam: "end",
-    },
-    {
-      type: "note",
-      duration: 8,
-      pitches: [{ pitch: 9 }],
-      beam: "begin",
-    },
-    {
-      type: "note",
-      duration: 8,
-      pitches: [{ pitch: 6 }],
-      beam: "end",
-    },
-    {
-      type: "note",
-      duration: 8,
-      pitches: [{ pitch: 13 }],
-      beam: "begin",
-    },
-    {
-      type: "note",
-      duration: 8,
-      pitches: [{ pitch: 6 }],
-      beam: "end",
-    },
-  ];
+  const elements: Element[] = [];
   let caretPositions: Caret[] = [];
   let caretIndex = 0;
   const updateMain = () => {
@@ -215,7 +61,7 @@ window.onload = () => {
       leftOfStaff,
       topOfStaff,
       elementGap,
-      elements,
+      elements: mainElements,
     });
     drawCaret({
       ctx: mainCtx,
@@ -234,11 +80,11 @@ window.onload = () => {
       return;
     }
     // B4がcanvasのvertical centerにくるように
-    const _topOfStaff = previewHeight / 2 - (bStaffHeight * scale) / 2;
+    const _topOfStaff = previewHeight / 2 - (bStaffHeight * previewScale) / 2;
     drawElements({
       ctx: previewCtx,
       canvasWidth: previewWidth,
-      scale,
+      scale: previewScale,
       leftOfStaff,
       topOfStaff: _topOfStaff,
       elementGap,
@@ -265,28 +111,87 @@ window.onload = () => {
       const left = downX - previewWidth / 2;
       const top = downY - previewHeight / 2;
       initCanvas(left, top, previewWidth, previewHeight, previewCanvas);
-      updatePreview({
-        type: isNoteInputMode ? "note" : "rest",
-        duration,
-        pitch: pitchByDistance(scale, 0, 6),
-      });
+      const element: Element = isNoteInputMode
+        ? {
+            type: "note",
+            duration,
+            pitches: [{ pitch: pitchByDistance(previewScale, 0, 6) }],
+          }
+        : {
+            type: "rest",
+            duration,
+          };
+      if (caretIndex > 0 && caretIndex % 2 !== 0) {
+        const oldIdx = caretIndex === 1 ? 0 : (caretIndex - 1) / 2;
+        const oldEl = mainElements[oldIdx];
+        if (
+          element.type === "note" &&
+          oldEl.type === "note" &&
+          element.duration === oldEl.duration
+        ) {
+          element.pitches = sortPitches([...oldEl.pitches, ...element.pitches]);
+        }
+      }
+      updatePreview(element);
       previewCanvas.style.visibility = "visible";
     },
     updatePreview(duration: Duration, dy: number) {
-      updatePreview({
-        type: isNoteInputMode ? "note" : "rest",
-        duration,
-        pitch: pitchByDistance(scale, dy, 6),
-      });
+      const element: Element = isNoteInputMode
+        ? {
+            type: "note",
+            duration,
+            pitches: [{ pitch: pitchByDistance(previewScale, dy, 6) }],
+          }
+        : {
+            type: "rest",
+            duration,
+          };
+      if (caretIndex > 0 && caretIndex % 2 !== 0) {
+        const oldIdx = caretIndex === 1 ? 0 : (caretIndex - 1) / 2;
+        const oldEl = mainElements[oldIdx];
+        if (
+          element.type === "note" &&
+          oldEl.type === "note" &&
+          element.duration === oldEl.duration
+        ) {
+          element.pitches = sortPitches([...oldEl.pitches, ...element.pitches]);
+        }
+      }
+      updatePreview(element);
     },
     commit(duration: Duration, dy?: number) {
-      const pitch = pitchByDistance(scale, dy ?? 0, 6);
-      console.log(isNoteInputMode);
-      mainElements.push({
-        type: isNoteInputMode ? "note" : "rest",
-        duration,
-        pitch,
-      });
+      const newEl: Element = isNoteInputMode
+        ? {
+            type: "note",
+            duration,
+            pitches: [{ pitch: pitchByDistance(previewScale, dy ?? 0, 6) }],
+          }
+        : {
+            type: "rest",
+            duration,
+          };
+      if (caretIndex > 0) {
+        if (caretIndex % 2 === 0) {
+          // 挿入
+          mainElements.splice(caretIndex / 2, 0, newEl);
+          caretIndex += 2;
+        } else {
+          // 上書き
+          const oldIdx = caretIndex === 1 ? 0 : (caretIndex - 1) / 2;
+          const oldEl = mainElements[oldIdx];
+          if (
+            newEl.type === "note" &&
+            oldEl.type === "note" &&
+            newEl.duration === oldEl.duration
+          ) {
+            newEl.pitches = sortPitches([...oldEl.pitches, ...newEl.pitches]);
+          }
+          mainElements.splice(oldIdx, 1, newEl);
+        }
+      } else {
+        mainElements.splice(caretIndex, 0, newEl);
+        caretIndex += 2;
+      }
       updateMain();
     },
     backspace() {
@@ -328,10 +233,11 @@ window.onload = () => {
     },
   };
 
-  registerPointerHandlers(
-    ["keyboardBottom", "keyboardHandle"],
-    [new KeyboardDragHandler()]
-  );
+  // for tablet
+  // registerPointerHandlers(
+  //   ["keyboardBottom", "keyboardHandle"],
+  //   [new KeyboardDragHandler()]
+  // );
   registerPointerHandlers(
     ["changeNoteRest"],
     [new ChangeNoteRestHandler(changeNoteRestCallback)]
@@ -345,6 +251,7 @@ window.onload = () => {
     ["toLeft", "toRight"],
     [new ArrowHandler(caretMoveCallback)]
   );
+  registerPointerHandlers([], [new GrayPointerHandler()]);
 
   initCanvas(0, 0, window.innerWidth, window.innerHeight, mainCanvas);
   initCanvas(0, 0, previewWidth, previewHeight, previewCanvas);

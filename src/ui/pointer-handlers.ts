@@ -76,6 +76,33 @@ export class KeyboardDragHandler extends EmptyPointerHandler {
   }
 }
 
+export class GrayPointerHandler extends EmptyPointerHandler {
+  private readonly translated: Point = { x: 0, y: 0 };
+
+  private readonly pointerEl = document.getElementById(
+    "pointer"
+  ) as HTMLDivElement;
+
+  constructor() {
+    super();
+  }
+
+  onDown(ev: PointerEvent) {
+    this.pointerEl.style.opacity = "0.8";
+    this.pointerEl.style.top = `${ev.y - 50 / 2}px`;
+    this.pointerEl.style.left = `${ev.x - 50 / 2}px`;
+  }
+
+  onUp(ev: PointerEvent, down: Point) {
+    this.pointerEl.style.opacity = "0";
+  }
+
+  onDrag(ev: PointerEvent, down: Point) {
+    this.pointerEl.style.top = `${ev.y - 50 / 2}px`;
+    this.pointerEl.style.left = `${ev.x - 50 / 2}px`;
+  }
+}
+
 export class ChangeNoteRestHandler extends EmptyPointerHandler {
   private changeButton = document.getElementsByClassName("changeNoteRest")[0];
 
