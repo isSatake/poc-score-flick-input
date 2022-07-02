@@ -15,7 +15,7 @@ export type Note = {
   type: "note";
   duration: Duration;
   pitches: PitchAcc[]; // sort pitch by asc
-  beam?: "begin" | "continue" | "end";
+  beam?: boolean;
 };
 
 export type Rest = {

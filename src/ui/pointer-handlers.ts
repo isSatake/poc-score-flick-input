@@ -2,10 +2,12 @@ import { PointerHandler } from "./pointer-event";
 import { Point } from "../geometry";
 import {
   CaretCallback,
+  ChangeBeamCallback,
   ChangeNoteRestCallback,
   NoteInputCallback,
 } from "./callbacks";
 import { Duration } from "../notation/types";
+import { BeamModes } from "../entrypoint";
 
 export class N1Handler implements PointerHandler {
   // ポインタハンドラがクラスになってるので、状態を持てる
@@ -76,6 +78,7 @@ export class KeyboardDragHandler extends EmptyPointerHandler {
   }
 }
 
+// for screen capture
 export class GrayPointerHandler extends EmptyPointerHandler {
   private readonly translated: Point = { x: 0, y: 0 };
 
@@ -111,11 +114,31 @@ export class ChangeNoteRestHandler extends EmptyPointerHandler {
   }
 
   onUp() {
+    const isNote = this.callback.isNoteInputMode();
+    const next = isNote ? "rest" : "note";
     this.changeButton.className = this.changeButton.className.replace(
-      this.callback.isNoteInputMode() ? "rest" : "note",
-      this.callback.isNoteInputMode() ? "note" : "rest"
+      isNote ? "note" : "rest",
+      next
     );
     this.callback.change();
+  }
+}
+
+export class ChangeBeamHandler extends EmptyPointerHandler {
+  private changeButton = document.getElementsByClassName("changeBeam")[0];
+
+  constructor(private callback: ChangeBeamCallback) {
+    super();
+  }
+
+  onUp() {
+    const mode = this.callback.getMode();
+    const next = mode === "nobeam" ? "beam" : "nobeam";
+    this.changeButton.className = this.changeButton.className.replace(
+      mode,
+      next
+    );
+    this.callback.change(next);
   }
 }
 

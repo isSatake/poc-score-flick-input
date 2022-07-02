@@ -9,6 +9,7 @@ import {
 } from "./renderer";
 import {
   ArrowHandler,
+  ChangeBeamHandler,
   ChangeNoteRestHandler,
   GrayPointerHandler,
   KeyboardDragHandler,
@@ -19,17 +20,19 @@ import { bStaffHeight, UNIT } from "./bravura";
 import { Duration, Element } from "./notation/types";
 import {
   CaretCallback,
+  ChangeBeamCallback,
   ChangeNoteRestCallback,
   NoteInputCallback,
 } from "./ui/callbacks";
 import { sortPitches } from "./pitch";
+
+export type BeamModes = "beam" | "lock" | "nobeam";
 
 const scale = 0.08;
 const previewScale = 0.08;
 const leftOfStaff = 20;
 const topOfStaff = 2000 * scale;
 const elementGap = UNIT * 2 * scale;
-let isNoteInputMode = true;
 
 window.onload = () => {
   const mainWidth = window.innerWidth;
@@ -47,6 +50,8 @@ window.onload = () => {
   const elements: Element[] = [];
   let caretPositions: Caret[] = [];
   let caretIndex = 0;
+  let isNoteInputMode = true;
+  let beamMode: BeamModes = "nobeam";
   const updateMain = () => {
     resetCanvas({
       ctx: mainCtx,
@@ -104,6 +109,14 @@ window.onload = () => {
         );
       });
       isNoteInputMode = !isNoteInputMode;
+    },
+  };
+  const changeBeamCallback: ChangeBeamCallback = {
+    getMode() {
+      return beamMode;
+    },
+    change(mode) {
+      beamMode = mode;
     },
   };
   const noteInputCallback: NoteInputCallback = {
@@ -165,6 +178,7 @@ window.onload = () => {
             type: "note",
             duration,
             pitches: [{ pitch: pitchByDistance(previewScale, dy ?? 0, 6) }],
+            beam: beamMode !== "nobeam",
           }
         : {
             type: "rest",
@@ -242,6 +256,10 @@ window.onload = () => {
     ["changeNoteRest"],
     [new ChangeNoteRestHandler(changeNoteRestCallback)]
   );
+  registerPointerHandlers(
+    ["changeBeam"],
+    [new ChangeBeamHandler(changeBeamCallback)]
+  );
   registerPointerHandlers(["grayKey", "whiteKey"], [new KeyPressHandler()]);
   registerPointerHandlers(
     ["note", "rest", "backspace"],
@@ -251,6 +269,7 @@ window.onload = () => {
     ["toLeft", "toRight"],
     [new ArrowHandler(caretMoveCallback)]
   );
+  // for screen capture
   registerPointerHandlers([], [new GrayPointerHandler()]);
 
   initCanvas(0, 0, window.innerWidth, window.innerHeight, mainCanvas);

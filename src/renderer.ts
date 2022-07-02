@@ -784,6 +784,7 @@ export const drawElements = ({
   }
   const elementIdxToX: Caret[] = [];
   let elIdx = 0;
+  console.log(elements);
   while (elIdx < elements.length) {
     const el = elements[elIdx];
     left += elementGap;
@@ -795,7 +796,8 @@ export const drawElements = ({
     });
     switch (el.type) {
       case "note":
-        if (el.beam) {
+        const nextEl = elements[elIdx + 1];
+        if (el.beam && nextEl?.type === "note" && nextEl.beam) {
           // 連桁
           const startIdx = elIdx;
           let beamedNotes: Note[] = [el];
@@ -803,16 +805,15 @@ export const drawElements = ({
           if (nextIdx === elements.length) {
             break;
           }
-          let next = elements[nextIdx];
+          let nextBeam = elements[nextIdx];
           // beamed noteが2個以上並ぶことを期待する
           while (
             nextIdx < elements.length &&
-            next.type === "note" &&
-            next.beam &&
-            next.beam !== "begin"
+            nextBeam.type === "note" &&
+            nextBeam.beam
           ) {
-            beamedNotes.push(next);
-            next = elements[++nextIdx];
+            beamedNotes.push(nextBeam);
+            nextBeam = elements[++nextIdx];
           }
           const beams = drawBeamedNotes({
             dnp: {

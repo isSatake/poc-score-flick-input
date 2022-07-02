@@ -164,8 +164,30 @@ html, body {
     background-image: url(img/r32.png);
 }
 
-.beam {
+.changeBeam {
     font-size: 1em;
+}
+
+.changeBeam.nobeam {
+    background-image: url("./img/nobeam.png");
+    background-position: center;
+    background-repeat: no-repeat;
+    background-size: 37%;
+    background-position-x: 57%
+}
+
+.changeBeam.beam {
+    background-image: url("./img/beam.png");
+    background-position: center;
+    background-repeat: no-repeat;
+    background-size: 30%;
+}
+
+.changeBeam.beamLocked {
+    background-image: url("./img/beam_locked.png");
+    background-position: center;
+    background-repeat: no-repeat;
+    background-size: 30%;
 }
 
 .backspace {
@@ -237,17 +259,17 @@ html, body {
 }
 
 .slur {
-    background-image:url("./img/slur.svg");
+    background-image: url("./img/slur.svg");
     background-size: 35%;
 }
 
 .accent {
-    background-image:url("./img/accent.svg");
+    background-image: url("./img/accent.svg");
     background-size: 30%;
 }
 
 .fermata {
-    background-image:url("./img/fermata.svg");
+    background-image: url("./img/fermata.svg");
     background-size: 25%;
 }
 

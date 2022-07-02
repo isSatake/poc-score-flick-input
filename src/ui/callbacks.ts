@@ -1,9 +1,16 @@
 import { Duration } from "../notation/types";
+import { BeamModes } from "../entrypoint";
 
 export interface ChangeNoteRestCallback {
   isNoteInputMode(): boolean;
 
   change(): void;
+}
+
+export interface ChangeBeamCallback {
+  getMode(): BeamModes;
+
+  change(mode: BeamModes): void;
 }
 
 // このコールバックはキーハンドラだけじゃなくてMIDIキーとか普通のキーボードとかからも使う想定
