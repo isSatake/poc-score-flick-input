@@ -160,19 +160,19 @@ const drawLedgerLine = ({
 
 /**
  * 構成音に対して必要なledger lineをすべて描画する
- * @returns Section of ledger line
+ * @returns Section of ledger line. undefined if no ledger line.
  * @param dnp DrawNoteParams
  * @param pas PitchAcc array of pitches
  */
 const drawLedgerLines = (
   dnp: DrawNoteParams,
   pas: PitchAcc[]
-): DrawnSection => {
+): DrawnSection | undefined => {
   const { scale, topOfStaff, left } = dnp;
   const pitches = pas.map((pa) => pa.pitch);
   const minPitch = Math.min(...pitches);
   const maxPitch = Math.max(...pitches);
-  let section = createSection(left);
+  let section;
 
   // min<=0 && max<=0 : minのみ描画
   // min>=12 && max>=12 : maxのみ描画
@@ -326,17 +326,20 @@ const drawStemFlag = ({
 
 /**
  * 構成音すべてのAccidentalを描画
- * @return すべてのAccidentalを内包するDrawnSection
+ * @return すべてのAccidentalを内包するDrawnSection. Accidentalが存在しなければundefined
  * @param dnp DrawNoteParams
  * @param pas PitchAcc array of pitches
  */
-const drawAccidental = (dnp: DrawNoteParams, pas: PitchAcc[]): DrawnSection => {
+const drawAccidental = (
+  dnp: DrawNoteParams,
+  pas: PitchAcc[]
+): DrawnSection | undefined => {
   const { ctx, left, topOfStaff, scale } = dnp;
   const sections: DrawnSection[] = [];
   // TODO 7度未満の音程に複数のAccidentalが付く場合 (楽譜の書き方p75)
   for (const pa of pas) {
     if (!pa.accidental) {
-      return createSection(left);
+      return;
     }
     const { pitch, accidental } = pa;
     const top = pitchToY(topOfStaff, pitch, scale);
@@ -621,19 +624,28 @@ const drawNote = ({
   const { scale, left } = dnp;
   const sections: DrawnSection[] = [];
 
-  sections.push(drawAccidental(dnp, pas));
+  const accSection = drawAccidental(dnp, pas);
+  if (accSection) {
+    sections.push(accSection);
+  }
   let leftOfLedgerLine = left;
-  if (sections[0]?.end) {
+  if (accSection) {
     // Accidentalが描画されていればledger line開始位置を右にずらす
     leftOfLedgerLine = sections[0]?.end + gapWithAccidental(scale);
   }
-  sections.push(drawLedgerLines({ ...dnp, left: leftOfLedgerLine }, pas));
+  const ledgerSection = drawLedgerLines(
+    { ...dnp, left: leftOfLedgerLine },
+    pas
+  );
+  if (ledgerSection) {
+    sections.push();
+  }
 
   let leftOfNoteHead = left;
-  if (sections[1]?.start) {
+  if (ledgerSection) {
     // Ledger lineが描画されていればnote描画位置を右にずらす
     leftOfNoteHead = sections[1].start + ledgerLineExtension(scale);
-  } else if (sections[0]?.end) {
+  } else if (accSection) {
     // Accidentalが描画されていればnote描画位置を右にずらす
     leftOfNoteHead = sections[0]?.end + gapWithAccidental(scale) * 2;
   }
