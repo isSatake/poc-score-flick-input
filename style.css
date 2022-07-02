@@ -14,24 +14,29 @@ html, body {
     box-shadow: #ccc 0 20px 70px -10px;
 }
 
+/*#keyboard {*/
+/*    display: flex;*/
+/*    flex-direction: column;*/
+/*    align-items: center;*/
+/*    position: absolute;*/
+/*    background: #d5d8dd;*/
+/*    width: 100%;*/
+/*    height: 38%;*/
+/*    left: 0;*/
+/*    bottom: 0;*/
+/*    padding-bottom: env(safe-area-inset-bottom, 20px);*/
+/*}*/
+
 #keyboard {
     display: flex;
     flex-direction: column;
     align-items: center;
     position: absolute;
-    background: #d5d8dd;
-    width: 100%;
-    height: 38%;
-    left: 0;
-    bottom: 0;
-    padding-bottom: env(safe-area-inset-bottom, 20px);
-}
-
-#keyboard[data-float="true"] {
     width: 360px;
     height: 312px;
     left: 10px;
     top: 382px;
+    background: #d5d8dd;
     border-radius: 9px;
     border: solid 1px #c9cace;
     box-shadow: #ccc 0 20px 70px -10px;
@@ -41,27 +46,32 @@ html, body {
     height: 125px;
 }
 
-.candidateContainer[data-float="true"] {
+.candidateContainer {
     height: 54px;
 }
+
+/*.keyContainer {*/
+/*    display: grid;*/
+/*    grid-template-columns: repeat(5, 1fr);*/
+/*    grid-template-rows: repeat(4, 1fr);*/
+/*    column-gap: 16px;*/
+/*    row-gap: 16px;*/
+/*    width: 98%;*/
+/*    aspect-ratio: 32/17;*/
+/*}*/
 
 .keyContainer {
     display: grid;
     grid-template-columns: repeat(5, 1fr);
     grid-template-rows: repeat(4, 1fr);
-    column-gap: 16px;
-    row-gap: 16px;
-    width: 98%;
-    aspect-ratio: 32/17;
-}
-
-.keyContainer[data-float="true"] {
+    column-gap: 6px;
+    row-gap: 8px;
     width: 340px;
     height: 224px;
 }
 
 .keyContainer div {
-    border-radius: 12px;
+    border-radius: 5px;
     box-shadow: #8d9095 0 3px;
     display: flex;
     align-items: center;
@@ -155,7 +165,7 @@ html, body {
 }
 
 .beam {
-    font-size: 3em;
+    font-size: 1em;
 }
 
 .backspace {
@@ -257,11 +267,12 @@ html, body {
     border-radius: 2px;
 }
 
-.keyboardHandle[data-float="true"] {
+.keyboardHandle {
     visibility: visible;
 }
 
 #pointer {
+    display: none;
     position: absolute;
     width: 50px;
     height: 50px;

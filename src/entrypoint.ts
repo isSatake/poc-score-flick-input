@@ -24,18 +24,18 @@ import {
 } from "./ui/callbacks";
 import { sortPitches } from "./pitch";
 
-const scale = 0.12;
-const previewScale = 0.19;
+const scale = 0.08;
+const previewScale = 0.08;
 const leftOfStaff = 20;
-const topOfStaff = 4000 * scale;
+const topOfStaff = 2000 * scale;
 const elementGap = UNIT * 2 * scale;
 let isNoteInputMode = true;
 
 window.onload = () => {
   const mainWidth = window.innerWidth;
   const mainHeight = window.innerHeight;
-  const previewWidth = 450;
-  const previewHeight = 700;
+  const previewWidth = 300;
+  const previewHeight = 600;
   const mainCanvas = document.getElementById("mainCanvas") as HTMLCanvasElement;
   const previewCanvas = document.getElementById(
     "previewCanvas"
@@ -234,10 +234,10 @@ window.onload = () => {
   };
 
   // for tablet
-  // registerPointerHandlers(
-  //   ["keyboardBottom", "keyboardHandle"],
-  //   [new KeyboardDragHandler()]
-  // );
+  registerPointerHandlers(
+    ["keyboardBottom", "keyboardHandle"],
+    [new KeyboardDragHandler()]
+  );
   registerPointerHandlers(
     ["changeNoteRest"],
     [new ChangeNoteRestHandler(changeNoteRestCallback)]
