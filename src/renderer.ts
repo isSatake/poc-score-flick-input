@@ -1,6 +1,8 @@
 import {
+  bBeamSpacing,
+  bBeamThickness,
   bClefG,
-  bLedgerLineWidth,
+  bLedgerLineThickness,
   bStaffHeight,
   bStaffLineWidth,
   bStemWidth,
@@ -23,6 +25,7 @@ import {
   downFlagMap,
   noteHeadByDuration,
   noteHeadWidth,
+  numOfBeamsMap,
   restPathMap,
   upFlagMap,
 } from "./notation/notation";
@@ -148,7 +151,7 @@ const drawLedgerLine = ({
     start + noteHeadWidth(duration) * scale + ledgerLineExtension(scale) * 2;
   ctx.save();
   ctx.strokeStyle = "#000";
-  ctx.lineWidth = bLedgerLineWidth * scale;
+  ctx.lineWidth = bLedgerLineThickness * scale;
   ctx.beginPath();
   ctx.moveTo(start, top);
   ctx.lineTo(end, top);
@@ -229,7 +232,7 @@ const calcStemShape = ({
     } else {
       // stemの長さは基本1オクターブ分 (楽譜の書き方p17)
       // 32分以降は1間ずつ長くする (楽譜の書き方p53)
-      const index = duration <= 32 ? highest.pitch + 7 : highest.pitch + 8;
+      const index = duration < 32 ? highest.pitch + 7 : highest.pitch + 8;
       top = pitchToY(topOfStaff, index, scale);
     }
     top -= extension;
@@ -401,7 +404,7 @@ const getBeamLinearFunc = ({
   let beamAngle: number;
   let 最短stemとbeamの交点y: Point;
   if (stemDirection === "up") {
-    // angle
+    // calc beam angle
     const pitchFirstHi = firstEl.pitches[firstEl.pitches.length - 1].pitch;
     const pitchLastHi = lastEl.pitches[lastEl.pitches.length - 1].pitch;
     const yFirst = pitchToY(dnp.topOfStaff, pitchFirstHi, dnp.scale);
@@ -418,7 +421,7 @@ const getBeamLinearFunc = ({
       beamAngle =
         (-yDistance >= yDistance4th ? -yDistance4th : yDistance) / xDistance;
     }
-    // 交点
+    // calc 交点
     const beamedAndLeftOfStem = beamed.map((note, i) => ({
       note,
       leftOfStem: beamedLeftOfStem[i],
@@ -439,6 +442,7 @@ const getBeamLinearFunc = ({
     }).top;
     最短stemとbeamの交点y = { x, y };
   } else {
+    // calc beam angle
     const pitchFirstLo = firstEl.pitches[0].pitch;
     const pitchLastLo = lastEl.pitches[0].pitch;
     const yFirst = pitchToY(dnp.topOfStaff, pitchFirstLo, dnp.scale);
@@ -455,7 +459,7 @@ const getBeamLinearFunc = ({
       beamAngle =
         (-yDistance >= yDistance4th ? -yDistance4th : yDistance) / xDistance;
     }
-    // 交点
+    // calc 交点
     const beamedAndLeftOfStem = beamed.map((note, i) => ({
       note,
       leftOfStem: beamedLeftOfStem[i],
@@ -486,33 +490,39 @@ const getBeamShape = ({
   firstStemLeft,
   lastStemLeft,
   stemLinearFunc,
+  offsetY = 0,
 }: {
   scale: number;
   stemDirection: "up" | "down";
   firstStemLeft: number;
   lastStemLeft: number;
   stemLinearFunc: (stemX: number) => number;
+  offsetY?: number;
 }): { nw: Point; ne: Point; sw: Point; se: Point } => {
-  const beamWidth = (UNIT / 2) * scale;
+  const beamHeight = UNIT * bBeamThickness * scale;
   // first note
-  const firstStemEdge = stemLinearFunc(firstStemLeft);
+  const firstStemEdge =
+    stemLinearFunc(firstStemLeft) +
+    (stemDirection === "up" ? offsetY : -offsetY);
   const nw = {
     x: firstStemLeft,
-    y: stemDirection === "up" ? firstStemEdge : firstStemEdge - beamWidth,
+    y: stemDirection === "up" ? firstStemEdge : firstStemEdge - beamHeight,
   };
   const sw = {
     x: firstStemLeft,
-    y: stemDirection === "up" ? firstStemEdge + beamWidth : firstStemEdge,
+    y: stemDirection === "up" ? firstStemEdge + beamHeight : firstStemEdge,
   };
   // last note
-  const lastStemEdge = stemLinearFunc(lastStemLeft);
+  const lastStemEdge =
+    stemLinearFunc(lastStemLeft) +
+    (stemDirection === "up" ? offsetY : -offsetY);
   const ne = {
     x: lastStemLeft,
-    y: stemDirection === "up" ? lastStemEdge : lastStemEdge - beamWidth,
+    y: stemDirection === "up" ? lastStemEdge : lastStemEdge - beamHeight,
   };
   const se = {
     x: lastStemLeft,
-    y: stemDirection === "up" ? lastStemEdge + beamWidth : lastStemEdge,
+    y: stemDirection === "up" ? lastStemEdge + beamHeight : lastStemEdge,
   };
   return { nw, ne, se, sw };
 };
@@ -523,12 +533,13 @@ const drawBeamedNotes = function* ({
   els,
   startIdx,
 }: {
-  dnp: DrawNoteParams; // duration in dnp is not used here
+  dnp: DrawNoteParams;
   elementGap: number;
   els: Note[];
   startIdx: number;
 }): IterableIterator<{ elIdx: number; elEnd: number; elLeft: number }> {
-  const { ctx, scale, left: startLeft } = dnp;
+  // drawing mixed duration beamed notes is not implemented yet
+  const { ctx, scale, duration, left: startLeft } = dnp;
   const allBeamedPitches = els.flatMap((n) => n.pitches).map((p) => p.pitch);
   const stemDirection = getStemDirection(allBeamedPitches);
   const leftOfStemArr: number[] = [];
@@ -552,13 +563,20 @@ const drawBeamedNotes = function* ({
     beamed: els,
     beamedLeftOfStem: leftOfStemArr,
   });
-  const beam = getBeamShape({
-    scale,
-    stemDirection,
-    firstStemLeft,
-    lastStemLeft,
-    stemLinearFunc,
-  });
+  const beams = [];
+  for (let i = 0; i < (numOfBeamsMap.get(duration) ?? 0); i++) {
+    const offsetY = (UNIT * bBeamThickness + UNIT * bBeamSpacing) * i * scale;
+    beams.push(
+      getBeamShape({
+        scale,
+        stemDirection,
+        firstStemLeft,
+        lastStemLeft,
+        stemLinearFunc,
+        offsetY,
+      })
+    );
+  }
   els.forEach(({ pitches }, idx) => {
     const left = leftOfStemArr[idx];
     const edge = stemLinearFunc(left);
@@ -577,14 +595,16 @@ const drawBeamedNotes = function* ({
     });
   });
   ctx.save();
-  ctx.beginPath();
-  ctx.moveTo(beam.nw.x, beam.nw.y);
-  ctx.lineTo(beam.sw.x, beam.sw.y);
-  ctx.lineTo(beam.se.x, beam.se.y);
-  ctx.lineTo(beam.ne.x, beam.ne.y);
-  ctx.closePath();
-  ctx.fillStyle = "#000";
-  ctx.fill();
+  for (const beam of beams) {
+    ctx.beginPath();
+    ctx.moveTo(beam.nw.x, beam.nw.y);
+    ctx.lineTo(beam.sw.x, beam.sw.y);
+    ctx.lineTo(beam.se.x, beam.se.y);
+    ctx.lineTo(beam.ne.x, beam.ne.y);
+    ctx.closePath();
+    ctx.fillStyle = "#000";
+    ctx.fill();
+  }
   ctx.restore();
 };
 

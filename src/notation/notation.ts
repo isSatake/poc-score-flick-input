@@ -53,6 +53,12 @@ export const accidentalPathMap = new Map<Accidental, Path>([
   ["flat", bAccidentalFlat],
 ]);
 
+export const numOfBeamsMap = new Map<Duration, number>([
+  [8, 1],
+  [16, 2],
+  [32, 3],
+]);
+
 export const noteHeadByDuration = (duration: Duration): Path => {
   switch (duration) {
     case 1:

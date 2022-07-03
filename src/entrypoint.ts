@@ -187,20 +187,36 @@ window.onload = () => {
       if (caretIndex > 0) {
         if (caretIndex % 2 === 0) {
           // 挿入
-          mainElements.splice(caretIndex / 2, 0, newEl);
+          const insertIdx = caretIndex / 2;
+          mainElements.splice(insertIdx, 0, newEl);
           caretIndex += 2;
+          if (beamMode !== "nobeam" && newEl.duration > 4) {
+            const lastEl = mainElements[insertIdx - 1];
+            if (lastEl.type === "note" && lastEl.duration > 4) {
+              lastEl.beam = true;
+            }
+          }
         } else {
           // 上書き
-          const oldIdx = caretIndex === 1 ? 0 : (caretIndex - 1) / 2;
-          const oldEl = mainElements[oldIdx];
+          const overrideIdx = caretIndex === 1 ? 0 : (caretIndex - 1) / 2;
+          const overrideEl = mainElements[overrideIdx];
           if (
             newEl.type === "note" &&
-            oldEl.type === "note" &&
-            newEl.duration === oldEl.duration
+            overrideEl.type === "note" &&
+            newEl.duration === overrideEl.duration
           ) {
-            newEl.pitches = sortPitches([...oldEl.pitches, ...newEl.pitches]);
+            newEl.pitches = sortPitches([
+              ...overrideEl.pitches,
+              ...newEl.pitches,
+            ]);
           }
-          mainElements.splice(oldIdx, 1, newEl);
+          mainElements.splice(overrideIdx, 1, newEl);
+          if (beamMode !== "nobeam" && newEl.duration > 4) {
+            const lastEl = mainElements[overrideIdx - 1];
+            if (lastEl.type === "note" && lastEl.duration > 4) {
+              lastEl.beam = true;
+            }
+          }
         }
       } else {
         mainElements.splice(caretIndex, 0, newEl);
