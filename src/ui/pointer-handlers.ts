@@ -7,7 +7,7 @@ import {
   NoteInputCallback,
 } from "./callbacks";
 import { Duration } from "../notation/types";
-import { BeamModes } from "../entrypoint";
+import { BeamModes } from "../index";
 
 export class N1Handler implements PointerHandler {
   // ポインタハンドラがクラスになってるので、状態を持てる
