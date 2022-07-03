@@ -1,11 +1,41 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>score-flick-input</title>
-  <link href="style.css" rel="stylesheet">
+    <meta charset="UTF-8">
+    <title>score-flick-input</title>
+    <link href="style.css" rel="stylesheet">
 </head>
 <body>
 <script src="out.js"></script>
+<canvas id="mainCanvas"></canvas>
+<div id="keyboard">
+    <div class="candidateContainer"></div>
+    <div class="keyContainer">
+        <div class="grayKey k11 changeNoteRest rest"></div>
+        <div class="whiteKey k12 note"></div>
+        <div class="whiteKey k13 note"></div>
+        <div class="whiteKey k14 note"></div>
+        <div class="grayKey k15 backspace"></div>
+        <div class="grayKey k21 toLeft"></div>
+        <div class="whiteKey k22 note"></div>
+        <div class="whiteKey k23 note"></div>
+        <div class="whiteKey k24 note"></div>
+        <div class="grayKey k25 toRight"></div>
+        <div class="grayKey k31 changeBeam nobeam"></div>
+        <div class="whiteKey k32 accidentals"></div>
+        <div class="whiteKey k33 dynamics"></div>
+        <div class="whiteKey k34 bars"></div>
+        <div class="grayKey k35 changeUi"></div>
+        <div class="whiteKey k41 slur"></div>
+        <div class="whiteKey k42 accent"></div>
+        <div class="whiteKey k43 fermata"></div>
+        <div class="grayKey k44 returnKey"></div>
+    </div>
+    <div class="keyboardBottom">
+        <div class="keyboardHandle"></div>
+    </div>
+</div>
+<canvas id="previewCanvas"></canvas>
+<div id="pointer"></div>
 </body>
 </html>

@@ -1,16 +1,18 @@
 /**
- * Bravura固有の情報
+ * Bravura specific geometries
  * @see https://raw.githubusercontent.com/steinbergmedia/bravura/master/redist/bravura_metadata.json
  */
 export const bStaffHeight = 1000; // 五線の高さ, bravuraのunits-per-em
 export const UNIT = bStaffHeight / 4; // 五線1間の高さ
 export const bStaffLineWidth = 32.5; // 1000 / 4 * 0.13
-export const bLedgerLineWidth = 40; // 1000 / 4 * 0.16
+export const bLedgerLineThickness = 40; // 1000 / 4 * 0.16
 export const bStemWidth = 30; // 1000 / 4 * 0.12
 export const WIDTH_NOTE_HEAD_BLACK = 295; // 1000 / 4 * 1.18
 export const WIDTH_NOTE_HEAD_WHOLE = 422; // 1000 / 4 * 1.688
 export const EXTENSION_LEDGER_LINE = 0.2;
 export const bThinBarlineThickness = 0.16; // e.g. a normal barline, or each of the lines of a double barline
+export const bBeamThickness = 0.5;
+export const bBeamSpacing = 0.25;
 
 // 1 = UNIT
 type Point = {
