@@ -1,5 +1,5 @@
 import { Duration } from "../notation/types";
-import { BeamModes } from "../entrypoint";
+import { BeamModes } from "../index";
 
 export interface ChangeNoteRestCallback {
   isNoteInputMode(): boolean;
