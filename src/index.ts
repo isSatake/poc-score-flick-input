@@ -116,6 +116,12 @@ window.onload = () => {
       return beamMode;
     },
     change(mode) {
+      noteKeyEls.forEach((el) => {
+        el.className = el.className.replace(
+          mode === "nobeam" ? "beamed" : "nobeam",
+          mode === "nobeam" ? "nobeam" : "beamed"
+        );
+      });
       beamMode = mode;
     },
   };
