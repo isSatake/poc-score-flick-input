@@ -17,7 +17,7 @@ import {
   NoteInputHandler,
 } from "./ui/pointer-handlers";
 import { bStaffHeight, UNIT } from "./bravura";
-import { Duration, Element } from "./notation/types";
+import { Duration, Element, Note, Rest } from "./notation/types";
 import {
   CaretCallback,
   ChangeBeamCallback,
@@ -46,8 +46,8 @@ window.onload = () => {
   const mainCtx = mainCanvas.getContext("2d")!;
   const previewCtx = previewCanvas.getContext("2d")!;
   const noteKeyEls = Array.from(document.getElementsByClassName("note"));
-  const mainElements: Element[] = [];
-  const elements: Element[] = [];
+  const mainElements: (Note | Rest)[] = [];
+  // const elements: Element[] = [];
   let caretPositions: Caret[] = [];
   let caretIndex = 0;
   let isNoteInputMode = true;
@@ -179,29 +179,35 @@ window.onload = () => {
       updatePreview(element);
     },
     commit(duration: Duration, dy?: number) {
-      const newEl: Element = isNoteInputMode
-        ? {
-            type: "note",
-            duration,
-            pitches: [{ pitch: pitchByDistance(previewScale, dy ?? 0, 6) }],
-            beam: beamMode !== "nobeam",
-          }
-        : {
-            type: "rest",
-            duration,
-          };
-      if (caretIndex > 0) {
+      let newEl: Element;
+      if (isNoteInputMode) {
+        newEl = {
+          type: "note",
+          duration,
+          pitches: [{ pitch: pitchByDistance(previewScale, dy ?? 0, 6) }],
+        };
+      } else {
+        newEl = {
+          type: "rest",
+          duration,
+        };
+      }
+      // 先頭
+      if (caretIndex === 0) {
+        const right = mainElements[caretIndex]; // まだ挿入してないのでcaretIdxと同じ
+        applyBeam(beamMode, newEl, undefined, right);
+        mainElements.splice(caretIndex, 0, newEl);
+        caretIndex += 2;
+      } else {
         if (caretIndex % 2 === 0) {
           // 挿入
           const insertIdx = caretIndex / 2;
+          const left = mainElements[insertIdx - 1];
+          const right = mainElements[insertIdx]; // まだ挿入してないのでinsertIdxと同じ
+          console.log("insertIdx", insertIdx, "left", left, "right", right);
+          applyBeam(beamMode, newEl, left, right);
           mainElements.splice(insertIdx, 0, newEl);
           caretIndex += 2;
-          if (beamMode !== "nobeam" && newEl.duration > 4) {
-            const lastEl = mainElements[insertIdx - 1];
-            if (lastEl.type === "note" && lastEl.duration > 4) {
-              lastEl.beam = true;
-            }
-          }
         } else {
           // 上書き
           const overrideIdx = caretIndex === 1 ? 0 : (caretIndex - 1) / 2;
@@ -216,17 +222,11 @@ window.onload = () => {
               ...newEl.pitches,
             ]);
           }
+          const left = mainElements[overrideIdx - 1];
+          const right = mainElements[overrideIdx + 1];
+          applyBeam(beamMode, newEl, left, right);
           mainElements.splice(overrideIdx, 1, newEl);
-          if (beamMode !== "nobeam" && newEl.duration > 4) {
-            const lastEl = mainElements[overrideIdx - 1];
-            if (lastEl.type === "note" && lastEl.duration > 4) {
-              lastEl.beam = true;
-            }
-          }
         }
-      } else {
-        mainElements.splice(caretIndex, 0, newEl);
-        caretIndex += 2;
       }
       updateMain();
     },
@@ -298,3 +298,70 @@ window.onload = () => {
   initCanvas(0, 0, previewWidth, previewHeight, previewCanvas);
   updateMain();
 };
+
+/**
+ * algorithm: https://gyazo.com/09cdc43aa31b8dc2cb487556dac039c2
+ * @param beamMode
+ * @param insert
+ * @param left
+ * @param right
+ */
+function applyBeam(
+  beamMode: BeamModes,
+  insert: Note | Rest,
+  left: Note | Rest | undefined,
+  right: Note | Rest | undefined
+): void {
+  if (insert.type === "note" && beamMode !== "nobeam") {
+    // beamを挿入
+    if (
+      left?.type === "note" &&
+      right?.type === "note" &&
+      left.beam &&
+      right.beam
+    ) {
+      // beamに囲まれる
+      if (left.beam === "begin") {
+        if (right.beam === "begin") {
+          insert.beam = "continue";
+          right.beam = "continue";
+        } else {
+          insert.beam = "continue";
+        }
+      } else if (left.beam === "continue") {
+        if (right.beam === "begin") {
+          insert.beam = "end";
+        } else {
+          insert.beam = "continue";
+        }
+      }
+    } else {
+      insert.beam = "begin";
+      if (
+        left?.type === "note" &&
+        (left?.beam === "begin" || left?.beam === "continue")
+      ) {
+        insert.beam = "continue";
+      }
+      if (right?.type === "note" && right?.beam === "begin") {
+        right.beam = "continue";
+      }
+    }
+  } else {
+    // no beam or restを挿入
+    if (right?.type === "note") {
+      if (right?.beam === "continue") {
+        right.beam = "begin";
+      } else if (right?.beam === "end") {
+        delete right.beam;
+      }
+    }
+    if (left?.type === "note") {
+      if (left?.beam === "begin") {
+        delete left.beam;
+      } else if (left?.beam === "continue") {
+        left.beam = "continue";
+      }
+    }
+  }
+}

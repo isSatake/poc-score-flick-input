@@ -11,11 +11,13 @@ export type PitchAcc = {
   accidental?: Accidental;
 };
 
+export type Beam = "begin" | "continue" | "end";
+
 export type Note = {
   type: "note";
   duration: Duration;
   pitches: PitchAcc[]; // sort pitch by asc
-  beam?: boolean;
+  beam?: Beam;
 };
 
 export type Rest = {

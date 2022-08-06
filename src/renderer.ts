@@ -817,23 +817,23 @@ export const drawElements = ({
     switch (el.type) {
       case "note":
         const nextEl = elements[elIdx + 1];
-        if (el.beam && nextEl?.type === "note" && nextEl.beam) {
+        // beamed noteが2個連続していたら連続する全てのbeamed notesを描画する
+        if (
+          el.beam === "begin" &&
+          nextEl?.type === "note" &&
+          (nextEl.beam === "continue" || nextEl.beam === "end")
+        ) {
           // 連桁
           const startIdx = elIdx;
-          let beamedNotes: Note[] = [el];
-          let nextIdx = elIdx + 1;
-          if (nextIdx === elements.length) {
-            break;
-          }
-          let nextBeam = elements[nextIdx];
-          // beamed noteが2個以上並ぶことを期待する
+          const beamedNotes: Note[] = [el, nextEl];
+          let _elIdx = elIdx + 2;
+          let _el = elements[_elIdx];
           while (
-            nextIdx < elements.length &&
-            nextBeam.type === "note" &&
-            nextBeam.beam
+            _el?.type === "note" &&
+            (_el.beam === "continue" || _el.beam === "end")
           ) {
-            beamedNotes.push(nextBeam);
-            nextBeam = elements[++nextIdx];
+            beamedNotes.push(_el);
+            _el = elements[++_elIdx];
           }
           const beams = drawBeamedNotes({
             dnp: {
