@@ -52,6 +52,7 @@ window.onload = () => {
   let caretIndex = 0;
   let isNoteInputMode = true;
   let beamMode: BeamModes = "nobeam";
+  let lastEditedIdx: number;
   const updateMain = () => {
     resetCanvas({
       ctx: mainCtx,
@@ -74,7 +75,7 @@ window.onload = () => {
       pos: caretPositions[caretIndex],
     });
   };
-  const updatePreview = (element?: Element) => {
+  const updatePreview = (beamMode: BeamModes, element?: Element) => {
     resetCanvas({
       ctx: previewCtx,
       width: previewWidth,
@@ -83,6 +84,10 @@ window.onload = () => {
     });
     if (!element) {
       return;
+    }
+    const preview: Element = { ...element };
+    if (beamMode !== "nobeam" && preview.type === "note") {
+      preview.beam = "begin";
     }
     // B4がcanvasのvertical centerにくるように
     const _topOfStaff = previewHeight / 2 - (bStaffHeight * previewScale) / 2;
@@ -93,7 +98,7 @@ window.onload = () => {
       leftOfStaff,
       topOfStaff: _topOfStaff,
       elementGap,
-      elements: [element],
+      elements: [preview],
     });
   };
 
@@ -123,6 +128,13 @@ window.onload = () => {
         );
       });
       beamMode = mode;
+      const lastEl = mainElements[lastEditedIdx];
+      if (lastEl) {
+        const left = mainElements[lastEditedIdx - 1];
+        const right = mainElements[lastEditedIdx + 1];
+        applyBeamForLastEdited(lastEl, left, right);
+        updateMain();
+      }
     },
   };
   const noteInputCallback: NoteInputCallback = {
@@ -151,7 +163,7 @@ window.onload = () => {
           element.pitches = sortPitches([...oldEl.pitches, ...element.pitches]);
         }
       }
-      updatePreview(element);
+      updatePreview(beamMode, element);
       previewCanvas.style.visibility = "visible";
     },
     updatePreview(duration: Duration, dy: number) {
@@ -176,7 +188,7 @@ window.onload = () => {
           element.pitches = sortPitches([...oldEl.pitches, ...element.pitches]);
         }
       }
-      updatePreview(element);
+      updatePreview(beamMode, element);
     },
     commit(duration: Duration, dy?: number) {
       let newEl: Element;
@@ -198,6 +210,7 @@ window.onload = () => {
         applyBeam(beamMode, newEl, undefined, right);
         mainElements.splice(caretIndex, 0, newEl);
         caretIndex += 2;
+        lastEditedIdx = 0;
       } else {
         if (caretIndex % 2 === 0) {
           // 挿入
@@ -208,6 +221,7 @@ window.onload = () => {
           applyBeam(beamMode, newEl, left, right);
           mainElements.splice(insertIdx, 0, newEl);
           caretIndex += 2;
+          lastEditedIdx = insertIdx;
         } else {
           // 上書き
           const overrideIdx = caretIndex === 1 ? 0 : (caretIndex - 1) / 2;
@@ -226,6 +240,7 @@ window.onload = () => {
           const right = mainElements[overrideIdx + 1];
           applyBeam(beamMode, newEl, left, right);
           mainElements.splice(overrideIdx, 1, newEl);
+          lastEditedIdx = overrideIdx;
         }
       }
       updateMain();
@@ -260,10 +275,30 @@ window.onload = () => {
 
   const caretMoveCallback: CaretCallback = {
     back() {
+      if (caretIndex % 2 !== 0) {
+        const idx = caretIndex === 1 ? 0 : (caretIndex - 1) / 2;
+        if (idx === lastEditedIdx) {
+          if (idx === lastEditedIdx) {
+            const lastEl = mainElements[lastEditedIdx];
+            const left = mainElements[idx - 1];
+            const right = mainElements[idx + 1];
+            applyBeamForLastEdited(lastEl, left, right);
+          }
+        }
+      }
       caretIndex = Math.max(caretIndex - 1, 0);
       updateMain();
     },
     forward() {
+      if (caretIndex % 2 === 0) {
+        const idx = caretIndex / 2 - 1;
+        if (idx === lastEditedIdx) {
+          const lastEl = mainElements[lastEditedIdx];
+          const left = mainElements[idx - 1];
+          const right = mainElements[idx + 1];
+          applyBeamForLastEdited(lastEl, left, right);
+        }
+      }
       caretIndex = Math.min(caretIndex + 1, caretPositions.length - 1);
       updateMain();
     },
@@ -360,7 +395,33 @@ function applyBeam(
       if (left?.beam === "begin") {
         delete left.beam;
       } else if (left?.beam === "continue") {
-        left.beam = "continue";
+        left.beam = "end";
+      }
+    }
+  }
+}
+
+function applyBeamForLastEdited(
+  last: Element,
+  left?: Element,
+  right?: Element
+) {
+  console.log(last, left, right);
+  if (
+    last.type === "note" &&
+    (last.beam === "begin" || last.beam === "continue")
+  ) {
+    if (
+      !right ||
+      (right?.type === "note" && (!right?.beam || right?.beam === "begin"))
+    ) {
+      if (
+        left?.type === "note" &&
+        (left?.beam === "begin" || left?.beam === "continue")
+      ) {
+        last.beam = "end";
+      } else {
+        delete last.beam;
       }
     }
   }

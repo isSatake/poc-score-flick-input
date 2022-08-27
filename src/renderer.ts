@@ -404,22 +404,25 @@ const getBeamLinearFunc = ({
   let beamAngle: number;
   let 最短stemとbeamの交点y: Point;
   if (stemDirection === "up") {
-    // calc beam angle
-    const pitchFirstHi = firstEl.pitches[firstEl.pitches.length - 1].pitch;
-    const pitchLastHi = lastEl.pitches[lastEl.pitches.length - 1].pitch;
-    const yFirst = pitchToY(dnp.topOfStaff, pitchFirstHi, dnp.scale);
-    const yLast = pitchToY(dnp.topOfStaff, pitchLastHi, dnp.scale);
-    const yDistance = yLast - yFirst;
-    const xDistance =
-      beamedLeftOfStem[beamedLeftOfStem.length - 1] - beamedLeftOfStem[0];
-    if (pitchFirstHi > pitchLastHi) {
-      // 右肩下がり
-      beamAngle =
-        (yDistance >= yDistance4th ? yDistance4th : yDistance) / xDistance;
+    if (beamed.length === 1) {
+      beamAngle = 0;
     } else {
-      // 右肩上がり
-      beamAngle =
-        (-yDistance >= yDistance4th ? -yDistance4th : yDistance) / xDistance;
+      const pitchFirstHi = firstEl.pitches[firstEl.pitches.length - 1].pitch;
+      const pitchLastHi = lastEl.pitches[lastEl.pitches.length - 1].pitch;
+      const yFirst = pitchToY(dnp.topOfStaff, pitchFirstHi, dnp.scale);
+      const yLast = pitchToY(dnp.topOfStaff, pitchLastHi, dnp.scale);
+      const yDistance = yLast - yFirst;
+      const xDistance =
+        beamedLeftOfStem[beamedLeftOfStem.length - 1] - beamedLeftOfStem[0];
+      if (pitchFirstHi > pitchLastHi) {
+        // 右肩下がり
+        beamAngle =
+          (yDistance >= yDistance4th ? yDistance4th : yDistance) / xDistance;
+      } else {
+        // 右肩上がり
+        beamAngle =
+          (-yDistance >= yDistance4th ? -yDistance4th : yDistance) / xDistance;
+      }
     }
     // calc 交点
     const beamedAndLeftOfStem = beamed.map((note, i) => ({
@@ -442,22 +445,25 @@ const getBeamLinearFunc = ({
     }).top;
     最短stemとbeamの交点y = { x, y };
   } else {
-    // calc beam angle
-    const pitchFirstLo = firstEl.pitches[0].pitch;
-    const pitchLastLo = lastEl.pitches[0].pitch;
-    const yFirst = pitchToY(dnp.topOfStaff, pitchFirstLo, dnp.scale);
-    const yLast = pitchToY(dnp.topOfStaff, pitchLastLo, dnp.scale);
-    const yDistance = yLast - yFirst;
-    const xDistance =
-      beamedLeftOfStem[beamedLeftOfStem.length - 1] - beamedLeftOfStem[0];
-    if (pitchFirstLo > pitchLastLo) {
-      // 右肩下がり
-      beamAngle =
-        (yDistance >= yDistance4th ? yDistance4th : yDistance) / xDistance;
+    if (beamed.length === 1) {
+      beamAngle = 0;
     } else {
-      // 右肩上がり
-      beamAngle =
-        (-yDistance >= yDistance4th ? -yDistance4th : yDistance) / xDistance;
+      const pitchFirstLo = firstEl.pitches[0].pitch;
+      const pitchLastLo = lastEl.pitches[0].pitch;
+      const yFirst = pitchToY(dnp.topOfStaff, pitchFirstLo, dnp.scale);
+      const yLast = pitchToY(dnp.topOfStaff, pitchLastLo, dnp.scale);
+      const yDistance = yLast - yFirst;
+      const xDistance =
+        beamedLeftOfStem[beamedLeftOfStem.length - 1] - beamedLeftOfStem[0];
+      if (pitchFirstLo > pitchLastLo) {
+        // 右肩下がり
+        beamAngle =
+          (yDistance >= yDistance4th ? yDistance4th : yDistance) / xDistance;
+      } else {
+        // 右肩上がり
+        beamAngle =
+          (-yDistance >= yDistance4th ? -yDistance4th : yDistance) / xDistance;
+      }
     }
     // calc 交点
     const beamedAndLeftOfStem = beamed.map((note, i) => ({
@@ -538,13 +544,15 @@ const drawBeamedNotes = function* ({
   els: Note[];
   startIdx: number;
 }): IterableIterator<{ elIdx: number; elEnd: number; elLeft: number }> {
-  // drawing mixed duration beamed notes is not implemented yet
   const { ctx, scale, duration, left: startLeft } = dnp;
   const allBeamedPitches = els.flatMap((n) => n.pitches).map((p) => p.pitch);
   const stemDirection = getStemDirection(allBeamedPitches);
   const leftOfStemArr: number[] = [];
+  const beamExt = UNIT * scale;
   let left = startLeft;
-  for (let { pitches } of els) {
+  let shouldExt = false;
+  for (const i in els) {
+    const { pitches, beam } = els[i];
     const { leftOfStem, section } = drawNote({
       dnp: { ...dnp, left },
       pas: pitches,
@@ -554,9 +562,19 @@ const drawBeamedNotes = function* ({
     yield { elIdx: startIdx++, elLeft: left, elEnd: section.end };
     left = section.end + elementGap;
     leftOfStemArr.push(leftOfStem);
+    if (
+      Number(i) === els.length - 1 &&
+      (beam === "continue" || beam === "begin")
+    ) {
+      // ちょっとbeamを伸ばしてbeam modeであることを明示
+      shouldExt = true;
+      // section.end += beamExt;
+    }
   }
   const firstStemLeft = leftOfStemArr[0];
-  const lastStemLeft = leftOfStemArr[leftOfStemArr.length - 1];
+  // beamed.length === 1のとき右にちょい伸ばす
+  const lastStemLeft =
+    leftOfStemArr[leftOfStemArr.length - 1] + (shouldExt ? beamExt : 0);
   const stemLinearFunc = getBeamLinearFunc({
     dnp,
     stemDirection,
@@ -816,24 +834,18 @@ export const drawElements = ({
     });
     switch (el.type) {
       case "note":
-        const nextEl = elements[elIdx + 1];
-        // beamed noteが2個連続していたら連続する全てのbeamed notesを描画する
-        if (
-          el.beam === "begin" &&
-          nextEl?.type === "note" &&
-          (nextEl.beam === "continue" || nextEl.beam === "end")
-        ) {
+        if (el.beam === "begin") {
           // 連桁
           const startIdx = elIdx;
-          const beamedNotes: Note[] = [el, nextEl];
-          let _elIdx = elIdx + 2;
-          let _el = elements[_elIdx];
+          const beamedNotes: Note[] = [el];
+          let nextIdx = elIdx + 1;
+          let nextEl = elements[nextIdx];
           while (
-            _el?.type === "note" &&
-            (_el.beam === "continue" || _el.beam === "end")
+            nextEl?.type === "note" &&
+            (nextEl.beam === "continue" || nextEl.beam === "end")
           ) {
-            beamedNotes.push(_el);
-            _el = elements[++_elIdx];
+            beamedNotes.push(nextEl);
+            nextEl = elements[++nextIdx];
           }
           const beams = drawBeamedNotes({
             dnp: {
