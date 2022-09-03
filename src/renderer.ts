@@ -12,6 +12,10 @@ import {
   UNIT,
 } from "./bravura";
 import {
+  Accidental,
+  Bar,
+  Beam,
+  Clef,
   Duration,
   durations,
   Element,
@@ -30,6 +34,7 @@ import {
   upFlagMap,
 } from "./notation/notation";
 import { Point } from "./geometry";
+import { Matrix } from "./matrix";
 
 export const initCanvas = (
   leftPx: number,
@@ -112,12 +117,16 @@ const createSection = (start: number, end?: number): DrawnSection => {
   return { start, end: end ?? start };
 };
 
+export const getPathWidth = (path: Path): number => {
+  return path.bbox.ne.x - path.bbox.sw.x;
+};
+
 const calcSection = (
   start: number,
   scale: number,
   path: Path
 ): DrawnSection => {
-  const width = (path.bbox.ne.x - path.bbox.sw.x) * UNIT * scale;
+  const width = getPathWidth(path) * UNIT * scale;
   return createSection(start, start + width);
 };
 
@@ -797,16 +806,221 @@ const drawBarline = (
 
 export type Caret = { x: number; y: number; width: number; elIdx: number };
 
+type NoteStyleElement = { type: "notehead"; position: Point }
+    | { type: "accidental"; position: Point }
+    | { type: "ledger"; position: Point; width: number }
+    | { type: "stem"; position: Point }
+    | { type: "flag"; position: Point; direction: "up" | "down" };
+
+
+type NoteStyle = {
+    type: "note";
+    note: Note;
+    elements: NoteStyleElement[];
+    width: number;
+}
+
+const determineNoteStyle = (note: Note): NoteStyle => {
+  const elements: NoteStyleElement[] = [];
+  let left = 0;
+  let width = 0;
+
+  // accidentals
+  const accSections: DrawnSection[] = []
+  for (const p of note.pitches) {
+    if (!p.accidental) {
+      continue;
+    }
+    const {pitch,accidental} = p
+    const y = pitchToY(0, pitch, 1);
+    accSections.push(calcSection(left, 1, accidentalPathMap.get(accidental)!))
+    elements.push({
+      type: "accidental",
+      position: {x: left, y}
+    })
+  }
+  width += maxSection(left, accSections).end - left;
+
+  // ledger lines
+  // noteheads
+  // stem
+  // flag
+
+  return {
+    type: "note",
+    note,
+    elements,
+    width,
+  }
+}
+
+type DrawElement =
+  | NoteStyle
+  | {
+      type: "rest";
+      rest: Rest;
+    }
+  | {
+      type: "clef";
+      clef: Clef;
+    }
+  | {
+      type: "bar";
+      bar: Bar;
+    }
+  | {
+      type: "gap";
+      width: number;
+    }
+  | {
+      type: "beamとか";
+      elements: DrawElement[]; // 再帰的
+    };
+
+type DrawElementStyle = {
+  element: DrawElement;
+  /**
+   * DrawElement固有のmtx
+   * 装飾音とか音部変更記号とかはscale < 1にする使い方
+   * 装飾音はgapに食い込むようにtranslateするとか
+   */
+  localMtx?: Matrix;
+};
+
+type Style = {
+  /**
+   * staffのmtx
+   * canvas上にstaffをどう配置するか
+   */
+  mtx: Matrix;
+  /**
+   * 先頭に描画するElementのx座標
+   */
+  offsetLeft: number;
+  drawElements: DrawElementStyle[];
+};
+
+export const determineDrawElementStyle = ({
+  elements,
+  elementGap,
+  initClef,
+}: {
+  elements: Element[];
+  elementGap: number;
+  initClef?: Clef;
+}): {
+  styles: DrawElementStyle[];
+  elementIndexToX: Map<number, number>;
+} => {
+  const styles: DrawElementStyle[] = [];
+  const map = new Map();
+  let left = 0;
+  if (initClef?.type === "g") {
+    styles.push({
+      element: {
+        type: "clef",
+        clef: initClef,
+      },
+    });
+    styles.push({
+      element: {
+        type: "gap",
+        width: elementGap,
+      },
+    });
+    left = getPathWidth(bClefG) + elementGap;
+  }
+  let elIdx = 0;
+  while (elIdx < elements.length) {
+    const el = elements[elIdx];
+    switch (el.type) {
+      case "note":
+        if (el.beam === "begin") {
+          // 連桁
+          styles.push({
+            element: {
+              type: "beamとか",
+              elements: []
+            }
+          })
+          // TODO beam
+        } else {
+          const { end } = drawNote({
+            dnp: {
+              ctx,
+              topOfStaff,
+              left,
+              duration: el.duration,
+              scale,
+            },
+            pas: el.pitches,
+          }).section;
+          elementIdxToX.push({
+            x: left,
+            y: topOfStaff,
+            width: end - left,
+            elIdx,
+          });
+          left = end;
+          elIdx++;
+        }
+        break;
+      case "rest":
+        const { end } = drawRest(ctx, topOfStaff, left, el, scale);
+        elementIdxToX.push({
+          x: left,
+          y: topOfStaff,
+          width: end - left,
+          elIdx,
+        });
+        left = end;
+        elIdx++;
+        break;
+  }
+  return { styles, elementIndexToX: map };
+};
+
+// caretもこっから生成したらええんちゃう
+export const determineStyle = ({
+  scale,
+  offsetLeft,
+  elementGap,
+  initClef,
+  elements,
+  staffPosition,
+}: {
+  scale: number;
+  offsetLeft: number;
+  elementGap: number;
+  initClef?: Clef;
+  elements: Element[];
+  staffPosition: Point;
+}): Style => {
+  const drawElements: DrawElementStyle[] = [];
+
+  return {
+    // ここでstaff mtx決めちゃったらもともとやりたかったことができない。
+    // scale: 1で描画したとして、各Elementの位置を知りたいのよ
+    mtx: new Matrix().scale(scale).translate(staffPosition),
+    offsetLeft,
+    drawElements,
+  };
+};
+
 export const drawElements = ({
   ctx,
+  clef,
   canvasWidth,
   scale,
   leftOfStaff,
   topOfStaff,
   elementGap,
+  offsetLeft = elementGap,
   elements,
 }: {
   ctx: CanvasRenderingContext2D;
+  clef?: "g";
+  offsetLeft?: number;
   canvasWidth: number;
   scale: number;
   leftOfStaff: number;
@@ -911,11 +1125,11 @@ export const drawElements = ({
         left = end;
         elIdx++;
         break;
-      case "bar":
-        left = drawBarline(ctx, topOfStaff, left, scale).end;
-        elementIdxToX.push({ x: left, y: topOfStaff, width: 5, elIdx });
-        elIdx++;
-        break;
+      // case "bar":
+      //   left = drawBarline(ctx, topOfStaff, left, scale).end;
+      //   elementIdxToX.push({ x: left, y: topOfStaff, width: 5, elIdx });
+      //   elIdx++;
+      //   break;
     }
   }
   const { x: lastX } = elementIdxToX[elementIdxToX.length - 1];

@@ -62,6 +62,7 @@ window.onload = () => {
     });
     caretPositions = drawElements({
       ctx: mainCtx,
+      clef: "g",
       canvasWidth: mainWidth,
       scale,
       leftOfStaff,
@@ -98,7 +99,9 @@ window.onload = () => {
       leftOfStaff,
       topOfStaff: _topOfStaff,
       elementGap,
+      offsetLeft: previewCanvas.width / 2 - leftOfStaff,
       elements: [preview],
+      clef: undefined,
     });
   };
 

@@ -25,8 +25,12 @@ export type Rest = {
   duration: Duration;
 };
 
+export type Element = Note | Rest;
+
 export type Bar = {
   type: "bar";
 };
 
-export type Element = Note | Rest | Bar;
+export type Clef = {
+  type: "g";
+};
