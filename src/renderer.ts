@@ -118,7 +118,7 @@ const createSection = (start: number, end?: number): DrawnSection => {
 };
 
 export const getPathWidth = (path: Path): number => {
-  return path.bbox.ne.x - path.bbox.sw.x;
+  return (path.bbox.ne.x - path.bbox.sw.x) * UNIT;
 };
 
 const calcSection = (
@@ -126,7 +126,7 @@ const calcSection = (
   scale: number,
   path: Path
 ): DrawnSection => {
-  const width = getPathWidth(path) * UNIT * scale;
+  const width = getPathWidth(path) * scale;
   return createSection(start, start + width);
 };
 
@@ -141,6 +141,10 @@ const drawNoteHead = (dnp: DrawNoteParams, pa: PitchAcc): DrawnSection => {
 // note headからはみ出る長さ(片方)
 const ledgerLineExtension = (scale: number): number => {
   return UNIT * EXTENSION_LEDGER_LINE * scale;
+};
+
+const ledgerLineWidth = (duration: Duration): number => {
+  return noteHeadWidth(duration) + ledgerLineExtension(1) * 2;
 };
 
 const drawLedgerLine = ({
@@ -222,7 +226,7 @@ const calcStemShape = ({
   highest,
   extension = 0,
 }: {
-  dnp: DrawNoteParams;
+  dnp: { topOfStaff: number; scale: number; duration: Duration };
   direction: "up" | "down";
   lowest: PitchAcc;
   highest: PitchAcc;
@@ -257,6 +261,89 @@ const calcStemShape = ({
     bottom += extension;
   }
   return { top, bottom };
+};
+
+const determineStemFlagStyle = ({
+  left,
+  duration,
+  direction,
+  lowest,
+  highest,
+  beamed,
+}: {
+  left: number;
+  duration: Duration;
+  direction: "up" | "down";
+  lowest: PitchAcc;
+  highest: PitchAcc;
+  beamed?: {
+    top?: number;
+    bottom?: number;
+  };
+}): { elements: NoteStyleElement[]; section?: DrawnSection } => {
+  if (duration === 1) {
+    return { elements: [] };
+  }
+  const elements: NoteStyleElement[] = [];
+  let { top, bottom } = calcStemShape({
+    dnp: { topOfStaff: 0, scale: 1, duration },
+    direction,
+    lowest,
+    highest,
+  });
+  let stemCenter: number;
+  let flagSection: DrawnSection | undefined;
+  if (direction === "up") {
+    stemCenter = left - bStemWidth / 2;
+    if (beamed) {
+      top = beamed.top!;
+    } else {
+      const path = upFlagMap.get(duration);
+      if (path) {
+        elements.push({
+          type: "flag",
+          position: {
+            x: stemCenter - bStemWidth / 2 + UNIT * path.stemUpNW.x,
+            y: top + UNIT * path.stemUpNW.y,
+          },
+          duration, // pathも渡したほうがいいんだろうか
+          direction,
+        });
+        flagSection = calcSection(left, 1, path);
+      }
+    }
+  } else {
+    stemCenter = left + bStemWidth / 2;
+    if (beamed) {
+      bottom = beamed.bottom!;
+    } else {
+      const path = downFlagMap.get(duration);
+      if (path) {
+        elements.push({
+          type: "flag",
+          position: {
+            x: stemCenter - bStemWidth / 2 + UNIT * path.stemDownSW.x,
+            y: bottom + UNIT * path.stemDownSW.y,
+          },
+          duration,
+          direction,
+        });
+        flagSection = calcSection(left, 1, path);
+      }
+    }
+  }
+  elements.push({
+    type: "stem",
+    center: stemCenter,
+    top,
+    bottom,
+    width: bStemWidth,
+  });
+
+  return {
+    elements,
+    section: flagSection ?? { start: left, end: left + bStemWidth },
+  };
 };
 
 const drawStemFlag = ({
@@ -368,6 +455,9 @@ interface DrawNoteParams {
 }
 
 const maxSection = (left: number, sections: DrawnSection[]): DrawnSection => {
+  if (sections.length === 0) {
+    return { start: left, end: left };
+  }
   const start = Math.min(...sections.map((section) => section?.start ?? left));
   const end = Math.max(...sections.map((section) => section?.end ?? left));
   return { start, end };
@@ -402,7 +492,7 @@ const getBeamLinearFunc = ({
   beamed,
   beamedLeftOfStem,
 }: {
-  dnp: DrawNoteParams;
+  dnp: { topOfStaff: number; scale: number; duration: Duration };
   stemDirection: "up" | "down";
   beamed: Note[];
   beamedLeftOfStem: number[];
@@ -806,60 +896,33 @@ const drawBarline = (
 
 export type Caret = { x: number; y: number; width: number; elIdx: number };
 
-type NoteStyleElement = { type: "notehead"; position: Point }
-    | { type: "accidental"; position: Point }
-    | { type: "ledger"; position: Point; width: number }
-    | { type: "stem"; position: Point }
-    | { type: "flag"; position: Point; direction: "up" | "down" };
-
+type NoteStyleElement =
+  | { type: "notehead"; position: Point; duration: Duration }
+  | { type: "accidental"; position: Point; accidental: Accidental }
+  | { type: "ledger"; position: Point; width: number }
+  | { type: "stem"; center: number; top: number; bottom: number; width: number }
+  | {
+      type: "flag";
+      position: Point;
+      duration: Duration;
+      direction: "up" | "down";
+    };
 
 type NoteStyle = {
-    type: "note";
-    note: Note;
-    elements: NoteStyleElement[];
-    width: number;
-}
-
-const determineNoteStyle = (note: Note): NoteStyle => {
-  const elements: NoteStyleElement[] = [];
-  let left = 0;
-  let width = 0;
-
-  // accidentals
-  const accSections: DrawnSection[] = []
-  for (const p of note.pitches) {
-    if (!p.accidental) {
-      continue;
-    }
-    const {pitch,accidental} = p
-    const y = pitchToY(0, pitch, 1);
-    accSections.push(calcSection(left, 1, accidentalPathMap.get(accidental)!))
-    elements.push({
-      type: "accidental",
-      position: {x: left, y}
-    })
-  }
-  width += maxSection(left, accSections).end - left;
-
-  // ledger lines
-  // noteheads
-  // stem
-  // flag
-
-  return {
-    type: "note",
-    note,
-    elements,
-    width,
-  }
-}
-
+  type: "note";
+  note: Note;
+  elements: NoteStyleElement[];
+};
+type RestStyle = { type: "rest"; rest: Rest; position: Point };
+type BeamedNotesStyle = {
+  type: "beam";
+  elements: DrawElementStyle[];
+  beams: { nw: Point; ne: Point; sw: Point; se: Point }[];
+};
 type DrawElement =
   | NoteStyle
-  | {
-      type: "rest";
-      rest: Rest;
-    }
+  | RestStyle
+  | BeamedNotesStyle
   | {
       type: "clef";
       clef: Clef;
@@ -870,15 +933,320 @@ type DrawElement =
     }
   | {
       type: "gap";
-      width: number;
-    }
-  | {
-      type: "beamとか";
-      elements: DrawElement[]; // 再帰的
     };
+
+const determineNoteStyle = ({
+  note,
+  stemDirection,
+  beamed = false,
+}: {
+  note: Note;
+  stemDirection?: "up" | "down";
+  beamed?: boolean;
+}): { element: NoteStyle; width: number; leftOfStem: number } => {
+  const elements: NoteStyleElement[] = [];
+  let width = 0;
+
+  // accidentals
+  const accSections: DrawnSection[] = [];
+  for (const p of note.pitches) {
+    if (!p.accidental) {
+      continue;
+    }
+    const { pitch, accidental } = p;
+    const y = pitchToY(0, pitch, 1);
+    accSections.push(calcSection(0, 1, accidentalPathMap.get(accidental)!));
+    elements.push({
+      type: "accidental",
+      position: { x: 0, y },
+      accidental,
+    });
+  }
+  width += maxSection(0, accSections).end;
+  console.log("acc", width);
+
+  // ledger lines
+  let leftOfLedgerLine = 0;
+  if (accSections.length > 0) {
+    // Accidentalが描画されていればledger line開始位置を右にずらす
+    leftOfLedgerLine = accSections[0].end + gapWithAccidental(1);
+  }
+  const pitches = note.pitches.map((p) => p.pitch);
+  const minPitch = Math.min(...pitches);
+  const maxPitch = Math.max(...pitches);
+  const ledgerWidth = ledgerLineWidth(note.duration);
+  const ledgerSections: DrawnSection[] = [];
+  // min<=0 && max<=0 : minのみ描画
+  // min>=12 && max>=12 : maxのみ描画
+  // min===max && min<=0 : minのみ描画
+  // min===max && min>=12 : minのみ描画
+  // min<=0 && max>=12 : min, max描画
+  if (minPitch <= 0) {
+    // C4
+    for (let p = 0; p >= minPitch; p -= 2) {
+      elements.push({
+        type: "ledger",
+        width: ledgerWidth,
+        position: { x: leftOfLedgerLine, y: pitchToY(0, p, 1) },
+      });
+      ledgerSections.push({
+        start: leftOfLedgerLine,
+        end: leftOfLedgerLine + ledgerWidth,
+      });
+    }
+  }
+  if (maxPitch >= 12) {
+    // A5
+    for (let p = 12; p < maxPitch + 1; p += 2) {
+      elements.push({
+        type: "ledger",
+        width: ledgerWidth,
+        position: { x: leftOfLedgerLine, y: pitchToY(0, p, 1) },
+      });
+      ledgerSections.push({
+        start: leftOfLedgerLine,
+        end: leftOfLedgerLine + ledgerWidth,
+      });
+    }
+  }
+  width += maxSection(leftOfLedgerLine, ledgerSections).end - leftOfLedgerLine;
+  console.log("ledger", width);
+
+  // noteheads
+  let leftOfNotehead = 0;
+  if (ledgerSections.length > 0) {
+    // Ledger lineが描画されていればnote描画位置を右にずらす
+    leftOfNotehead = ledgerSections[0].start + ledgerLineExtension(1);
+  } else if (accSections.length > 0) {
+    // Accidentalが描画されていればnote描画位置を右にずらす
+    leftOfNotehead = accSections[0]?.end + gapWithAccidental(1) * 2; // *2とは？
+  }
+  // stemの左右どちらに音符を描画するか
+  if (!stemDirection) {
+    stemDirection = getStemDirection(pitches);
+  }
+  const notesLeftOfStem: PitchAcc[] = [];
+  const notesRightOfStem: PitchAcc[] = [];
+  const pitchAsc = sortPitch(note.pitches, "asc");
+  if (stemDirection === "up") {
+    // 上向きstem
+    for (let i = 0; i < pitchAsc.length; i++) {
+      if (i === 0) {
+        // 最低音は左側
+        notesLeftOfStem.push(pitchAsc[i]);
+      } else if (pitchAsc[i].pitch - pitchAsc[i - 1].pitch === 1) {
+        // 2度は右側
+        notesRightOfStem.push(pitchAsc[i]);
+        if (i + 1 < pitchAsc.length) {
+          // 右側描画となった次の音は左側
+          notesLeftOfStem.push(pitchAsc[++i]);
+        }
+      } else {
+        notesLeftOfStem.push(pitchAsc[i]);
+      }
+    }
+  } else {
+    // 下向きstem
+    const 高い順 = pitchAsc.concat().reverse();
+    for (let i = 0; i < 高い順.length; i++) {
+      if (i === 0) {
+        // 最低音は右側
+        notesRightOfStem.push(高い順[i]);
+      } else if (高い順[i - 1].pitch - 高い順[i].pitch === 1) {
+        // 2度は左側
+        notesLeftOfStem.push(高い順[i]);
+        if (i + 1 < 高い順.length) {
+          // 左側描画となった次の音は右側
+          notesRightOfStem.push(高い順[++i]);
+        }
+      } else {
+        notesRightOfStem.push(高い順[i]);
+      }
+    }
+  }
+  const noteheadStemFlagSections: DrawnSection[] = [];
+  for (const p of notesLeftOfStem) {
+    noteheadStemFlagSections.push(
+      calcSection(leftOfNotehead, 1, noteHeadByDuration(note.duration))
+    );
+    elements.push({
+      type: "notehead",
+      position: {
+        x: leftOfNotehead,
+        y: pitchToY(0, p.pitch, 1),
+      },
+      duration: note.duration,
+    });
+  }
+  let leftOfStemOrNotehead = leftOfNotehead;
+  if (notesLeftOfStem.length > 0) {
+    // Stem左側にnotehead描画していたらnotehead右端をstem開始位置に指定する
+    leftOfStemOrNotehead = noteheadStemFlagSections[0].end;
+  }
+  if (!beamed) {
+    // stem, flag
+    const { elements: el, section } = determineStemFlagStyle({
+      left: leftOfStemOrNotehead,
+      duration: note.duration,
+      direction: stemDirection,
+      lowest: pitchAsc[0],
+      highest: pitchAsc[pitchAsc.length - 1],
+    });
+    section && noteheadStemFlagSections.push(section);
+    elements.push(...el);
+  }
+  for (const p of notesRightOfStem) {
+    noteheadStemFlagSections.push(
+      calcSection(leftOfNotehead, 1, noteHeadByDuration(note.duration))
+    );
+    elements.push({
+      type: "notehead",
+      position: {
+        x: leftOfNotehead,
+        y: pitchToY(0, p.pitch, 1),
+      },
+      duration: note.duration,
+    });
+  }
+  width +=
+    maxSection(leftOfNotehead, noteheadStemFlagSections).end - leftOfNotehead;
+  console.log("notehead", width);
+
+  return {
+    element: {
+      type: "note",
+      note,
+      elements,
+    },
+    width,
+    leftOfStem: leftOfStemOrNotehead,
+  };
+};
+
+const determineRestStyle = (
+  rest: Rest
+): { element: RestStyle; width: number } => {
+  const path = restPathMap.get(rest.duration)!;
+  const position = {
+    x: 0,
+    y: UNIT * path.top,
+  };
+  const width = getPathWidth(path);
+  return {
+    element: {
+      type: "rest",
+      rest,
+      position,
+    },
+    width,
+  };
+};
+
+const determineBeamedNotesStyle = (
+  beamedNotes: Note[],
+  duration: Duration,
+  elementGap: number
+): {
+  element: BeamedNotesStyle;
+  width: number;
+  elementXArray: number[];
+} => {
+  const allBeamedPitches = beamedNotes
+    .flatMap((n) => n.pitches)
+    .map((p) => p.pitch);
+  const stemDirection = getStemDirection(allBeamedPitches);
+  const leftOfStemArr: number[] = [];
+  const elements: DrawElementStyle[] = [];
+  const elementXArray = [];
+  const gapEl: DrawElementStyle = {
+    element: { type: "gap" },
+    width: elementGap,
+  };
+  let left = 0;
+  let shouldExt = false;
+  for (const i in beamedNotes) {
+    const noteStyle = determineNoteStyle({
+      note: beamedNotes[i],
+      stemDirection,
+      beamed: true,
+    });
+    elements.push(noteStyle, gapEl);
+    elementXArray.push(left);
+    console.log(left);
+    leftOfStemArr.push(left + noteStyle.leftOfStem);
+    left +=
+      noteStyle.width + (i === `${beamedNotes.length - 1}` ? elementGap : 0);
+  }
+  const { beam: lastBeam } = beamedNotes[beamedNotes.length - 1];
+  if (lastBeam === "continue" || lastBeam === "begin") {
+    // ちょっとbeamを伸ばしてbeam modeであることを明示
+    shouldExt = true;
+    // section.end += beamExt;
+  }
+  const firstStemLeft = leftOfStemArr[0];
+  // beamed.length === 1のとき右にちょい伸ばす
+  console.log(leftOfStemArr);
+  const lastStemLeft =
+    leftOfStemArr[leftOfStemArr.length - 1] + (shouldExt ? UNIT : 0);
+  const stemLinearFunc = getBeamLinearFunc({
+    dnp: { topOfStaff: 0, scale: 1, duration },
+    stemDirection,
+    beamed: beamedNotes,
+    beamedLeftOfStem: leftOfStemArr,
+  });
+  const beams = [];
+  for (let i = 0; i < (numOfBeamsMap.get(duration) ?? 0); i++) {
+    const offsetY = (UNIT * bBeamThickness + UNIT * bBeamSpacing) * i;
+    beams.push(
+      getBeamShape({
+        scale: 1,
+        stemDirection,
+        firstStemLeft,
+        lastStemLeft,
+        stemLinearFunc,
+        offsetY,
+      })
+    );
+  }
+  for (const i in beamedNotes) {
+    const { pitches } = beamedNotes[i];
+    const pitchAsc = sortPitch(pitches, "asc");
+    const left = leftOfStemArr[i];
+    const edge = stemLinearFunc(left);
+    let beamed;
+    if (stemDirection === "up") {
+      beamed = { top: edge };
+    } else {
+      beamed = { bottom: edge };
+    }
+    // TODO note側のsectionとmergeしないと正しいwidthにならない
+    // beam noteだけgapが狭くなりそう。
+    const { elements: el, section } = determineStemFlagStyle({
+      left,
+      duration,
+      direction: stemDirection,
+      lowest: pitchAsc[0],
+      highest: pitchAsc[pitchAsc.length - 1],
+      beamed,
+    });
+    // gapを考慮したindex
+    const parent = elements[Number(i) * 2].element as NoteStyle;
+    parent.elements.push(...el);
+  }
+  return {
+    element: {
+      type: "beam",
+      beams,
+      elements,
+    },
+    width: left,
+    elementXArray: elementXArray,
+  };
+};
 
 type DrawElementStyle = {
   element: DrawElement;
+  width: number;
   /**
    * DrawElement固有のmtx
    * 装飾音とか音部変更記号とかはscale < 1にする使い方
@@ -913,23 +1281,28 @@ export const determineDrawElementStyle = ({
   elementIndexToX: Map<number, number>;
 } => {
   const styles: DrawElementStyle[] = [];
-  const map = new Map();
+  const gapEl: DrawElementStyle = {
+    element: { type: "gap" },
+    width: elementGap,
+  };
   let left = 0;
   if (initClef?.type === "g") {
-    styles.push({
-      element: {
-        type: "clef",
-        clef: initClef,
+    const width = getPathWidth(bClefG);
+    console.log(width);
+    styles.push(
+      gapEl,
+      {
+        element: {
+          type: "clef",
+          clef: initClef,
+        },
+        width,
       },
-    });
-    styles.push({
-      element: {
-        type: "gap",
-        width: elementGap,
-      },
-    });
-    left = getPathWidth(bClefG) + elementGap;
+      gapEl
+    );
+    left = width + gapEl.width * 2;
   }
+  const elementIndexToX = new Map();
   let elIdx = 0;
   while (elIdx < elements.length) {
     const el = elements[elIdx];
@@ -937,47 +1310,46 @@ export const determineDrawElementStyle = ({
       case "note":
         if (el.beam === "begin") {
           // 連桁
-          styles.push({
-            element: {
-              type: "beamとか",
-              elements: []
-            }
-          })
-          // TODO beam
+          const startIdx = elIdx;
+          const beamedNotes: Note[] = [el];
+          let nextIdx = elIdx + 1;
+          let nextEl = elements[nextIdx];
+          while (
+            nextEl?.type === "note" &&
+            (nextEl.beam === "continue" || nextEl.beam === "end")
+          ) {
+            beamedNotes.push(nextEl);
+            nextEl = elements[++nextIdx];
+          }
+          const s = determineBeamedNotesStyle(
+            beamedNotes,
+            el.duration,
+            elementGap
+          );
+          for (const i in s.elementXArray) {
+            elementIndexToX.set(i + elIdx, s.elementXArray[i]);
+          }
+          styles.push(s, gapEl);
+          left += s.width + elementGap;
+          elIdx += beamedNotes.length;
         } else {
-          const { end } = drawNote({
-            dnp: {
-              ctx,
-              topOfStaff,
-              left,
-              duration: el.duration,
-              scale,
-            },
-            pas: el.pitches,
-          }).section;
-          elementIdxToX.push({
-            x: left,
-            y: topOfStaff,
-            width: end - left,
-            elIdx,
-          });
-          left = end;
+          elementIndexToX.set(elIdx, left);
+          const s = determineNoteStyle({ note: el });
+          styles.push(s, gapEl);
+          left += s.width + elementGap;
           elIdx++;
         }
         break;
       case "rest":
-        const { end } = drawRest(ctx, topOfStaff, left, el, scale);
-        elementIdxToX.push({
-          x: left,
-          y: topOfStaff,
-          width: end - left,
-          elIdx,
-        });
-        left = end;
+        elementIndexToX.set(elIdx, left);
+        const s = determineRestStyle(el);
+        styles.push(s, gapEl);
+        left += s.width + elementGap;
         elIdx++;
         break;
+    }
   }
-  return { styles, elementIndexToX: map };
+  return { styles, elementIndexToX };
 };
 
 // caretもこっから生成したらええんちゃう
@@ -1005,6 +1377,131 @@ export const determineStyle = ({
     offsetLeft,
     drawElements,
   };
+};
+
+const paintNote = ({
+  ctx,
+  elements,
+}: {
+  ctx: CanvasRenderingContext2D;
+  elements: NoteStyleElement[];
+}) => {
+  for (const noteEl of elements) {
+    if (noteEl.type === "notehead") {
+      const { duration, position } = noteEl;
+      ctx.save();
+      ctx.translate(position.x, position.y);
+      const path = noteHeadByDuration(duration);
+      drawBravuraPath(ctx, 0, 0, 1, path);
+      ctx.restore();
+    } else if (noteEl.type === "ledger") {
+      const { width, position } = noteEl;
+      ctx.save();
+      ctx.translate(position.x, position.y);
+      ctx.strokeStyle = "#000";
+      ctx.lineWidth = bLedgerLineThickness;
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(width, 0);
+      ctx.closePath();
+      ctx.stroke();
+      ctx.restore();
+    } else if (noteEl.type === "accidental") {
+      const { position, accidental } = noteEl;
+      const path = accidentalPathMap.get(accidental)!;
+      ctx.save();
+      ctx.translate(position.x, position.y);
+      drawBravuraPath(ctx, 0, 0, 1, path);
+      ctx.restore();
+    } else if (noteEl.type === "flag") {
+      const { duration, direction, position } = noteEl;
+      const path =
+        direction === "up"
+          ? upFlagMap.get(duration)
+          : downFlagMap.get(duration);
+      if (path) {
+        drawBravuraPath(ctx, position.x, position.y, 1, path);
+      }
+    } else if (noteEl.type === "stem") {
+      const { top, bottom, center, width } = noteEl;
+      ctx.save();
+      ctx.translate(center, top);
+      ctx.strokeStyle = "#000";
+      ctx.lineWidth = width;
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(0, bottom - top);
+      ctx.closePath();
+      ctx.stroke();
+      ctx.restore();
+    }
+  }
+};
+
+const paintRest = ({
+  ctx,
+  element,
+}: {
+  ctx: CanvasRenderingContext2D;
+  element: RestStyle;
+}) => {
+  const { rest, position } = element;
+  const path = restPathMap.get(rest.duration)!;
+  ctx.save();
+  ctx.translate(position.x, position.y);
+  drawBravuraPath(ctx, 0, 0, 1, path);
+  ctx.restore();
+};
+
+const paintStyles = (
+  ctx: CanvasRenderingContext2D,
+  styles: DrawElementStyle[]
+) => {
+  ctx.save();
+  for (const { element, width } of styles) {
+    const { type } = element;
+    if (type === "clef") {
+      drawGClef(ctx, 0, 0, 1);
+    } else if (type === "note") {
+      paintNote({ ctx, elements: element.elements });
+    } else if (type === "rest") {
+      paintRest({ ctx, element });
+    } else if (type === "beam") {
+      const { elements: styles, beams } = element;
+      paintStyles(ctx, styles);
+      ctx.save();
+      ctx.fillStyle = "#000";
+      for (const beam of beams) {
+        ctx.beginPath();
+        ctx.moveTo(beam.nw.x, beam.nw.y);
+        ctx.lineTo(beam.sw.x, beam.sw.y);
+        ctx.lineTo(beam.se.x, beam.se.y);
+        ctx.lineTo(beam.ne.x, beam.ne.y);
+        ctx.closePath();
+        ctx.fill();
+      }
+      ctx.restore();
+    } else if (type === "bar") {
+      // TODO
+    } else if (type === "gap") {
+      // no-op
+    }
+    ctx.translate(width, 0);
+  }
+  ctx.restore();
+};
+
+export const paint = ({
+  ctx,
+  staffWidth,
+  styles,
+}: {
+  ctx: CanvasRenderingContext2D;
+  staffWidth: number;
+  styles: DrawElementStyle[];
+}) => {
+  drawStaff(ctx, 0, 0, staffWidth, 1);
+  paintStyles(ctx, styles);
 };
 
 export const drawElements = ({

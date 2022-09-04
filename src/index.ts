@@ -1,9 +1,11 @@
 import { registerPointerHandlers } from "./ui/pointer-event";
 import {
   Caret,
+  determineDrawElementStyle,
   drawCaret,
   drawElements,
   initCanvas,
+  paint,
   pitchByDistance,
   resetCanvas,
 } from "./renderer";
@@ -60,21 +62,40 @@ window.onload = () => {
       height: mainHeight,
       fillStyle: "#fff",
     });
-    caretPositions = drawElements({
-      ctx: mainCtx,
-      clef: "g",
-      canvasWidth: mainWidth,
-      scale,
-      leftOfStaff,
-      topOfStaff,
-      elementGap,
+
+    // 新
+    const { styles, elementIndexToX } = determineDrawElementStyle({
       elements: mainElements,
+      elementGap: UNIT,
+      initClef: { type: "g" },
     });
-    drawCaret({
+    console.log(styles, elementIndexToX);
+    mainCtx.save();
+    mainCtx.translate(leftOfStaff, topOfStaff);
+    mainCtx.scale(scale, scale);
+    paint({
       ctx: mainCtx,
-      scale,
-      pos: caretPositions[caretIndex],
+      staffWidth: UNIT * 100,
+      styles,
     });
+    mainCtx.restore();
+
+    // 旧
+    // caretPositions = drawElements({
+    //   ctx: mainCtx,
+    //   clef: "g",
+    //   canvasWidth: mainWidth,
+    //   scale,
+    //   leftOfStaff,
+    //   topOfStaff,
+    //   elementGap,
+    //   elements: mainElements,
+    // });
+    // drawCaret({
+    //   ctx: mainCtx,
+    //   scale,
+    //   pos: caretPositions[caretIndex],
+    // });
   };
   const updatePreview = (beamMode: BeamModes, element?: Element) => {
     resetCanvas({
