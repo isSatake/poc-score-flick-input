@@ -490,16 +490,20 @@ const getBeamLinearFunc = ({
   dnp,
   stemDirection,
   beamed,
-  beamedLeftOfStem,
+  arr,
 }: {
   dnp: { topOfStaff: number; scale: number; duration: Duration };
   stemDirection: "up" | "down";
   beamed: Note[];
-  beamedLeftOfStem: number[];
+  arr: { left: number; stemOffsetLeft: number }[];
 }): ((x: number) => number) => {
   const firstEl = beamed[0];
   const lastEl = beamed[beamed.length - 1];
   const yDistance4th = (UNIT / 2) * 3 * dnp.scale;
+  const stemDistance =
+    arr[arr.length - 1].left +
+    arr[arr.length - 1].stemOffsetLeft -
+    (arr[0].left + arr[0].stemOffsetLeft);
   let beamAngle: number;
   let 最短stemとbeamの交点y: Point;
   if (stemDirection === "up") {
@@ -511,22 +515,21 @@ const getBeamLinearFunc = ({
       const yFirst = pitchToY(dnp.topOfStaff, pitchFirstHi, dnp.scale);
       const yLast = pitchToY(dnp.topOfStaff, pitchLastHi, dnp.scale);
       const yDistance = yLast - yFirst;
-      const xDistance =
-        beamedLeftOfStem[beamedLeftOfStem.length - 1] - beamedLeftOfStem[0];
       if (pitchFirstHi > pitchLastHi) {
         // 右肩下がり
         beamAngle =
-          (yDistance >= yDistance4th ? yDistance4th : yDistance) / xDistance;
+          (yDistance >= yDistance4th ? yDistance4th : yDistance) / stemDistance;
       } else {
         // 右肩上がり
         beamAngle =
-          (-yDistance >= yDistance4th ? -yDistance4th : yDistance) / xDistance;
+          (-yDistance >= yDistance4th ? -yDistance4th : yDistance) /
+          stemDistance;
       }
     }
     // calc 交点
     const beamedAndLeftOfStem = beamed.map((note, i) => ({
       note,
-      leftOfStem: beamedLeftOfStem[i],
+      leftOfStem: arr[i].left + arr[i].stemOffsetLeft,
     }));
     const highest = beamedAndLeftOfStem.sort(
       (a, b) =>
@@ -552,22 +555,21 @@ const getBeamLinearFunc = ({
       const yFirst = pitchToY(dnp.topOfStaff, pitchFirstLo, dnp.scale);
       const yLast = pitchToY(dnp.topOfStaff, pitchLastLo, dnp.scale);
       const yDistance = yLast - yFirst;
-      const xDistance =
-        beamedLeftOfStem[beamedLeftOfStem.length - 1] - beamedLeftOfStem[0];
       if (pitchFirstLo > pitchLastLo) {
         // 右肩下がり
         beamAngle =
-          (yDistance >= yDistance4th ? yDistance4th : yDistance) / xDistance;
+          (yDistance >= yDistance4th ? yDistance4th : yDistance) / stemDistance;
       } else {
         // 右肩上がり
         beamAngle =
-          (-yDistance >= yDistance4th ? -yDistance4th : yDistance) / xDistance;
+          (-yDistance >= yDistance4th ? -yDistance4th : yDistance) /
+          stemDistance;
       }
     }
     // calc 交点
     const beamedAndLeftOfStem = beamed.map((note, i) => ({
       note,
-      leftOfStem: beamedLeftOfStem[i],
+      leftOfStem: arr[i].left + arr[i].stemOffsetLeft,
     }));
     const lowest = beamedAndLeftOfStem.sort(
       (a, b) => a.note.pitches[0].pitch - b.note.pitches[0].pitch
@@ -678,7 +680,7 @@ const drawBeamedNotes = function* ({
     dnp,
     stemDirection,
     beamed: els,
-    beamedLeftOfStem: leftOfStemArr,
+    arr: leftOfStemArr,
   });
   const beams = [];
   for (let i = 0; i < (numOfBeamsMap.get(duration) ?? 0); i++) {
@@ -914,10 +916,11 @@ type NoteStyle = {
   elements: NoteStyleElement[];
 };
 type RestStyle = { type: "rest"; rest: Rest; position: Point };
+type BeamStyle = { nw: Point; ne: Point; sw: Point; se: Point };
 type BeamedNotesStyle = {
   type: "beam";
   elements: DrawElementStyle[];
-  beams: { nw: Point; ne: Point; sw: Point; se: Point }[];
+  beams: BeamStyle[];
 };
 type DrawElement =
   | NoteStyle
@@ -943,7 +946,7 @@ const determineNoteStyle = ({
   note: Note;
   stemDirection?: "up" | "down";
   beamed?: boolean;
-}): { element: NoteStyle; width: number; leftOfStem: number } => {
+}): { element: NoteStyle; width: number; stemOffsetLeft: number } => {
   const elements: NoteStyleElement[] = [];
   let width = 0;
 
@@ -1119,7 +1122,7 @@ const determineNoteStyle = ({
       elements,
     },
     width,
-    leftOfStem: leftOfStemOrNotehead,
+    stemOffsetLeft: leftOfStemOrNotehead,
   };
 };
 
@@ -1155,9 +1158,9 @@ const determineBeamedNotesStyle = (
     .flatMap((n) => n.pitches)
     .map((p) => p.pitch);
   const stemDirection = getStemDirection(allBeamedPitches);
+  const arr: { left: number; stemOffsetLeft: number }[] = [];
   const leftOfStemArr: number[] = [];
   const elements: DrawElementStyle[] = [];
-  const elementXArray = [];
   const gapEl: DrawElementStyle = {
     element: { type: "gap" },
     width: elementGap,
@@ -1170,29 +1173,29 @@ const determineBeamedNotesStyle = (
       stemDirection,
       beamed: true,
     });
-    elements.push(noteStyle, gapEl);
-    elementXArray.push(left);
-    console.log(left);
-    leftOfStemArr.push(left + noteStyle.leftOfStem);
-    left +=
-      noteStyle.width + (i === `${beamedNotes.length - 1}` ? elementGap : 0);
+    arr.push({ left, stemOffsetLeft: noteStyle.stemOffsetLeft });
+    elements.push(noteStyle);
+    left += noteStyle.width;
+    if (Number(i) !== beamedNotes.length - 1) {
+      elements.push(gapEl);
+      left += elementGap;
+    }
   }
   const { beam: lastBeam } = beamedNotes[beamedNotes.length - 1];
   if (lastBeam === "continue" || lastBeam === "begin") {
     // ちょっとbeamを伸ばしてbeam modeであることを明示
-    shouldExt = true;
-    // section.end += beamExt;
+    // shouldExt = true;
   }
-  const firstStemLeft = leftOfStemArr[0];
-  // beamed.length === 1のとき右にちょい伸ばす
-  console.log(leftOfStemArr);
+  const firstStemLeft = arr[0].left + arr[0].stemOffsetLeft;
   const lastStemLeft =
-    leftOfStemArr[leftOfStemArr.length - 1] + (shouldExt ? UNIT : 0);
+    arr[arr.length - 1].left +
+    arr[arr.length - 1].stemOffsetLeft +
+    (shouldExt ? UNIT : 0);
   const stemLinearFunc = getBeamLinearFunc({
     dnp: { topOfStaff: 0, scale: 1, duration },
     stemDirection,
     beamed: beamedNotes,
-    beamedLeftOfStem: leftOfStemArr,
+    arr: arr,
   });
   const beams = [];
   for (let i = 0; i < (numOfBeamsMap.get(duration) ?? 0); i++) {
@@ -1211,8 +1214,7 @@ const determineBeamedNotesStyle = (
   for (const i in beamedNotes) {
     const { pitches } = beamedNotes[i];
     const pitchAsc = sortPitch(pitches, "asc");
-    const left = leftOfStemArr[i];
-    const edge = stemLinearFunc(left);
+    const edge = stemLinearFunc(arr[i].left + arr[i].stemOffsetLeft);
     let beamed;
     if (stemDirection === "up") {
       beamed = { top: edge };
@@ -1222,7 +1224,7 @@ const determineBeamedNotesStyle = (
     // TODO note側のsectionとmergeしないと正しいwidthにならない
     // beam noteだけgapが狭くなりそう。
     const { elements: el, section } = determineStemFlagStyle({
-      left,
+      left: arr[i].stemOffsetLeft,
       duration,
       direction: stemDirection,
       lowest: pitchAsc[0],
@@ -1240,7 +1242,7 @@ const determineBeamedNotesStyle = (
       elements,
     },
     width: left,
-    elementXArray: elementXArray,
+    elementXArray: arr.map(({ left }) => left),
   };
 };
 
@@ -1453,12 +1455,33 @@ const paintRest = ({
   ctx.restore();
 };
 
+const paintBeam = (ctx: CanvasRenderingContext2D, styles: BeamStyle[]) => {
+  ctx.save();
+  ctx.fillStyle = "#000";
+  for (const beam of styles) {
+    ctx.beginPath();
+    ctx.moveTo(beam.nw.x, beam.nw.y);
+    ctx.lineTo(beam.sw.x, beam.sw.y);
+    ctx.lineTo(beam.se.x, beam.se.y);
+    ctx.lineTo(beam.ne.x, beam.ne.y);
+    ctx.closePath();
+    ctx.fill();
+  }
+  ctx.restore();
+};
+
 const paintStyles = (
   ctx: CanvasRenderingContext2D,
-  styles: DrawElementStyle[]
+  styles: DrawElementStyle[],
+  color?: string,
+  yOffset?: number
 ) => {
   ctx.save();
   for (const { element, width } of styles) {
+    ctx.save();
+    ctx.fillStyle = color ?? "#FF0000";
+    ctx.fillRect(0, yOffset ?? 0, 10, 100);
+    ctx.restore();
     const { type } = element;
     if (type === "clef") {
       drawGClef(ctx, 0, 0, 1);
@@ -1468,25 +1491,19 @@ const paintStyles = (
       paintRest({ ctx, element });
     } else if (type === "beam") {
       const { elements: styles, beams } = element;
-      paintStyles(ctx, styles);
-      ctx.save();
-      ctx.fillStyle = "#000";
-      for (const beam of beams) {
-        ctx.beginPath();
-        ctx.moveTo(beam.nw.x, beam.nw.y);
-        ctx.lineTo(beam.sw.x, beam.sw.y);
-        ctx.lineTo(beam.se.x, beam.se.y);
-        ctx.lineTo(beam.ne.x, beam.ne.y);
-        ctx.closePath();
-        ctx.fill();
-      }
-      ctx.restore();
+      paintStyles(ctx, styles, "green", 100);
+      paintBeam(ctx, beams);
     } else if (type === "bar") {
       // TODO
     } else if (type === "gap") {
       // no-op
     }
     ctx.translate(width, 0);
+    ctx.save();
+    ctx.fillStyle = color ?? "red";
+    ctx.scale(10, 10);
+    ctx.fillText(`${width}`, 0, yOffset ?? 0);
+    ctx.restore();
   }
   ctx.restore();
 };
