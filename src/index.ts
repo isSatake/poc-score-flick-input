@@ -3,7 +3,6 @@ import {
   Caret,
   determineDrawElementStyle,
   drawCaret,
-  drawElements,
   initCanvas,
   paint,
   pitchByDistance,
@@ -62,8 +61,6 @@ window.onload = () => {
       height: mainHeight,
       fillStyle: "#fff",
     });
-
-    // 新
     const { styles, elementIndexToX } = determineDrawElementStyle({
       elements: mainElements,
       elementGap: UNIT,
@@ -80,17 +77,7 @@ window.onload = () => {
     });
     mainCtx.restore();
 
-    // 旧
-    // caretPositions = drawElements({
-    //   ctx: mainCtx,
-    //   clef: "g",
-    //   canvasWidth: mainWidth,
-    //   scale,
-    //   leftOfStaff,
-    //   topOfStaff,
-    //   elementGap,
-    //   elements: mainElements,
-    // });
+    // TODO canvasを分けると無駄な再描画を避けられるかも
     // drawCaret({
     //   ctx: mainCtx,
     //   scale,
@@ -113,17 +100,17 @@ window.onload = () => {
     }
     // B4がcanvasのvertical centerにくるように
     const _topOfStaff = previewHeight / 2 - (bStaffHeight * previewScale) / 2;
-    drawElements({
-      ctx: previewCtx,
-      canvasWidth: previewWidth,
-      scale: previewScale,
-      leftOfStaff,
-      topOfStaff: _topOfStaff,
-      elementGap,
-      offsetLeft: previewCanvas.width / 2 - leftOfStaff,
-      elements: [preview],
-      clef: undefined,
-    });
+    // drawElements({
+    //   ctx: previewCtx,
+    //   canvasWidth: previewWidth,
+    //   scale: previewScale,
+    //   leftOfStaff,
+    //   topOfStaff: _topOfStaff,
+    //   elementGap,
+    //   offsetLeft: previewCanvas.width / 2 - leftOfStaff,
+    //   elements: [preview],
+    //   clef: undefined,
+    // });
   };
 
   const changeNoteRestCallback: ChangeNoteRestCallback = {
