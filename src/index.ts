@@ -108,23 +108,31 @@ window.onload = () => {
     if (!element) {
       return;
     }
-    // TODO 前後 or beamed全部を含める
-    const preview: Element = { ...element };
-    if (beamMode !== "nobeam" && preview.type === "note") {
-      preview.beam = "begin";
+    const preview: Element[] = [];
+    let centerElIdx = 0;
+    const prevEl = mainElements[caretPositions[caretIndex].elIdx];
+    if (prevEl) {
+      preview.push(prevEl);
+      centerElIdx = 1;
     }
+    preview.push(element);
+    const postEl = mainElements[caretPositions[caretIndex + 1]?.elIdx];
+    if (postEl) {
+      preview.push(postEl);
+    }
+    console.log("preview", preview);
     // B4がcanvasのvertical centerにくるように
     const _topOfStaff = previewHeight / 2 - (bStaffHeight * previewScale) / 2;
-
     const { styles, elementIndexToX } = determineDrawElementStyle({
-      elements: [preview],
+      elements: preview,
       elementGap: UNIT,
     });
+    const center = elementIndexToX.get(centerElIdx) ?? 0;
     previewCtx.save();
     previewCtx.translate(0, _topOfStaff);
     previewCtx.scale(previewScale, previewScale);
     paintStaff(previewCtx, 0, 0, UNIT * 100, 1);
-    previewCtx.translate(previewWidth / 2 / scale, 0);
+    previewCtx.translate(previewWidth / 2 / scale - center, 0);
     paintStyles(previewCtx, styles);
     previewCtx.restore();
   };
