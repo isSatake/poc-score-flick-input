@@ -559,7 +559,6 @@ const determineNoteStyle = ({
     });
   }
   width += maxSection(0, accSections).end;
-  console.log("acc", width);
 
   // ledger lines
   let leftOfLedgerLine = 0;
@@ -606,7 +605,6 @@ const determineNoteStyle = ({
     }
   }
   width += maxSection(leftOfLedgerLine, ledgerSections).end - leftOfLedgerLine;
-  console.log("ledger", width);
 
   // noteheads
   let leftOfNotehead = 0;
@@ -706,7 +704,6 @@ const determineNoteStyle = ({
   }
   width +=
     maxSection(leftOfNotehead, noteheadStemFlagSections).end - leftOfNotehead;
-  console.log("notehead", width);
 
   return {
     element: {
@@ -838,7 +835,7 @@ const determineBeamedNotesStyle = (
   };
 };
 
-type DrawElementStyle = {
+export type DrawElementStyle = {
   element: DrawElement;
   width: number;
   /**
@@ -859,6 +856,8 @@ export const determineDrawElementStyle = ({
   initClef?: Clef;
 }): {
   styles: DrawElementStyle[];
+  styleIndexToX: number[];
+  styleIndexToElementIndex: number[];
   elementIndexToX: Map<number, number>;
 } => {
   const styles: DrawElementStyle[] = [];
@@ -866,22 +865,29 @@ export const determineDrawElementStyle = ({
     element: { type: "gap" },
     width: elementGap,
   };
+  const styleIndexToX = [];
+  const styleIndexToElementIndex = [];
   let left = 0;
+  styleIndexToX.push(left);
+  styleIndexToElementIndex.push(-1);
+  styles.push(gapEl);
+  left += gapEl.width;
   if (initClef?.type === "g") {
     const width = getPathWidth(bClefG);
-    console.log(width);
-    styles.push(
-      gapEl,
-      {
-        element: {
-          type: "clef",
-          clef: initClef,
-        },
-        width,
+    styleIndexToX.push(left);
+    styleIndexToElementIndex.push(-1);
+    styles.push({
+      element: {
+        type: "clef",
+        clef: initClef,
       },
-      gapEl
-    );
-    left = width + gapEl.width * 2;
+      width,
+    });
+    left += width;
+    styleIndexToX.push(left);
+    styleIndexToElementIndex.push(-1);
+    styles.push(gapEl);
+    left += gapEl.width;
   }
   const elementIndexToX = new Map();
   let elIdx = 0;
@@ -909,27 +915,45 @@ export const determineDrawElementStyle = ({
           for (const i in s.elementXArray) {
             elementIndexToX.set(i + elIdx, s.elementXArray[i]);
           }
-          styles.push(s, gapEl);
-          left += s.width + elementGap;
+          styleIndexToX.push(left);
+          styleIndexToElementIndex.push(elIdx);
+          styles.push(s);
+          left += s.width;
+          styleIndexToX.push(left);
+          styleIndexToElementIndex.push(elIdx);
+          styles.push(gapEl);
+          left += gapEl.width;
           elIdx += beamedNotes.length;
         } else {
           elementIndexToX.set(elIdx, left);
           const s = determineNoteStyle({ note: el });
-          styles.push(s, gapEl);
-          left += s.width + elementGap;
+          styleIndexToX.push(left);
+          styleIndexToElementIndex.push(elIdx);
+          styles.push(s);
+          left += s.width;
+          styleIndexToX.push(left);
+          styleIndexToElementIndex.push(elIdx);
+          styles.push(gapEl);
+          left += gapEl.width;
           elIdx++;
         }
         break;
       case "rest":
         elementIndexToX.set(elIdx, left);
         const s = determineRestStyle(el);
-        styles.push(s, gapEl);
-        left += s.width + elementGap;
+        styleIndexToX.push(left);
+        styleIndexToElementIndex.push(elIdx);
+        styles.push(s);
+        left += s.width;
+        styleIndexToX.push(left);
+        styleIndexToElementIndex.push(elIdx);
+        styles.push(gapEl);
+        left += gapEl.width;
         elIdx++;
         break;
     }
   }
-  return { styles, elementIndexToX };
+  return { styles, styleIndexToX, styleIndexToElementIndex, elementIndexToX };
 };
 
 const paintNote = ({
@@ -1029,10 +1053,6 @@ export const paintStyles = (
 ) => {
   ctx.save();
   for (const { element, width } of styles) {
-    ctx.save();
-    ctx.fillStyle = color ?? "#FF0000";
-    ctx.fillRect(0, yOffset ?? 0, 10, 100);
-    ctx.restore();
     const { type } = element;
     if (type === "clef") {
       paintGClef(ctx, 0, 0);
@@ -1050,11 +1070,6 @@ export const paintStyles = (
       // no-op
     }
     ctx.translate(width, 0);
-    ctx.save();
-    ctx.fillStyle = color ?? "red";
-    ctx.scale(10, 10);
-    ctx.fillText(`${width}`, 0, yOffset ?? 0);
-    ctx.restore();
   }
   ctx.restore();
 };

@@ -3,6 +3,7 @@ import {
   Caret,
   determineDrawElementStyle,
   drawCaret,
+  DrawElementStyle,
   initCanvas,
   paintStaff,
   paintStyles,
@@ -19,7 +20,7 @@ import {
   NoteInputHandler,
 } from "./ui/pointer-handlers";
 import { bStaffHeight, UNIT } from "./bravura";
-import { Duration, Element, Note, Rest } from "./notation/types";
+import { Clef, Duration, Element, Note, Rest } from "./notation/types";
 import {
   CaretCallback,
   ChangeBeamCallback,
@@ -62,25 +63,40 @@ window.onload = () => {
       height: mainHeight,
       fillStyle: "#fff",
     });
-    const { styles, elementIndexToX } = determineDrawElementStyle({
-      elements: mainElements,
-      elementGap: UNIT,
-      initClef: { type: "g" },
-    });
-    console.log(styles, elementIndexToX);
+    const initClef: Clef = { type: "g" };
+    const { styles, styleIndexToX, styleIndexToElementIndex, elementIndexToX } =
+      determineDrawElementStyle({
+        elements: mainElements,
+        elementGap: UNIT,
+        initClef,
+      });
+    caretPositions = [];
+    for (let i = initClef ? 2 : 1; i < styles.length; i++) {
+      const style = styles[i];
+      const width = style.element.type === "gap" ? UNIT / 3 : style.width;
+      caretPositions.push({
+        x: styleIndexToX[i] + (style.width - width) / 2,
+        y: 0,
+        width,
+        elIdx: styleIndexToElementIndex[i],
+      });
+    }
     mainCtx.save();
     mainCtx.translate(leftOfStaff, topOfStaff);
     mainCtx.scale(scale, scale);
     paintStaff(mainCtx, 0, 0, UNIT * 100, 1);
     paintStyles(mainCtx, styles);
-    mainCtx.restore();
-
     // TODO canvasを分けると無駄な再描画を避けられるかも
-    // drawCaret({
-    //   ctx: mainCtx,
-    //   scale,
-    //   pos: caretPositions[caretIndex],
-    // });
+    console.log("elements", mainElements.length);
+    console.log("styles", styles.length);
+    console.log("carets", caretPositions.length);
+    console.log("caretIndex", caretIndex);
+    drawCaret({
+      ctx: mainCtx,
+      scale: 1,
+      pos: caretPositions[caretIndex],
+    });
+    mainCtx.restore();
   };
   const updatePreview = (beamMode: BeamModes, element?: Element) => {
     resetCanvas({
@@ -417,7 +433,6 @@ function applyBeamForLastEdited(
   left?: Element,
   right?: Element
 ) {
-  console.log(last, left, right);
   if (
     last.type === "note" &&
     (last.beam === "begin" || last.beam === "continue")
