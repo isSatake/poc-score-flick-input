@@ -76,7 +76,7 @@ const paintGClef = (
   return calcSection(left, 1, bClefG);
 };
 
-const paintStaff = (
+export const paintStaff = (
   ctx: CanvasRenderingContext2D,
   left: number,
   top: number,
@@ -1021,7 +1021,7 @@ const paintBeam = (ctx: CanvasRenderingContext2D, styles: BeamStyle[]) => {
   ctx.restore();
 };
 
-const paintStyles = (
+export const paintStyles = (
   ctx: CanvasRenderingContext2D,
   styles: DrawElementStyle[],
   color?: string,
@@ -1057,19 +1057,6 @@ const paintStyles = (
     ctx.restore();
   }
   ctx.restore();
-};
-
-export const paint = ({
-  ctx,
-  staffWidth,
-  styles,
-}: {
-  ctx: CanvasRenderingContext2D;
-  staffWidth: number;
-  styles: DrawElementStyle[];
-}) => {
-  paintStaff(ctx, 0, 0, staffWidth, 1);
-  paintStyles(ctx, styles);
 };
 
 export const drawCaret = ({

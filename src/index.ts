@@ -4,7 +4,8 @@ import {
   determineDrawElementStyle,
   drawCaret,
   initCanvas,
-  paint,
+  paintStaff,
+  paintStyles,
   pitchByDistance,
   resetCanvas,
 } from "./renderer";
@@ -70,11 +71,8 @@ window.onload = () => {
     mainCtx.save();
     mainCtx.translate(leftOfStaff, topOfStaff);
     mainCtx.scale(scale, scale);
-    paint({
-      ctx: mainCtx,
-      staffWidth: UNIT * 100,
-      styles,
-    });
+    paintStaff(mainCtx, 0, 0, UNIT * 100, 1);
+    paintStyles(mainCtx, styles);
     mainCtx.restore();
 
     // TODO canvasを分けると無駄な再描画を避けられるかも
@@ -94,23 +92,25 @@ window.onload = () => {
     if (!element) {
       return;
     }
+    // TODO 前後 or beamed全部を含める
     const preview: Element = { ...element };
     if (beamMode !== "nobeam" && preview.type === "note") {
       preview.beam = "begin";
     }
     // B4がcanvasのvertical centerにくるように
     const _topOfStaff = previewHeight / 2 - (bStaffHeight * previewScale) / 2;
-    // drawElements({
-    //   ctx: previewCtx,
-    //   canvasWidth: previewWidth,
-    //   scale: previewScale,
-    //   leftOfStaff,
-    //   topOfStaff: _topOfStaff,
-    //   elementGap,
-    //   offsetLeft: previewCanvas.width / 2 - leftOfStaff,
-    //   elements: [preview],
-    //   clef: undefined,
-    // });
+
+    const { styles, elementIndexToX } = determineDrawElementStyle({
+      elements: [preview],
+      elementGap: UNIT,
+    });
+    previewCtx.save();
+    previewCtx.translate(0, _topOfStaff);
+    previewCtx.scale(previewScale, previewScale);
+    paintStaff(previewCtx, 0, 0, UNIT * 100, 1);
+    previewCtx.translate(previewWidth / 2 / scale, 0);
+    paintStyles(previewCtx, styles);
+    previewCtx.restore();
   };
 
   const changeNoteRestCallback: ChangeNoteRestCallback = {
