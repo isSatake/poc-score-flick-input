@@ -541,7 +541,7 @@ const determineNoteStyle = ({
   beamed?: boolean;
 }): { element: NoteStyle; width: number; stemOffsetLeft: number } => {
   const elements: NoteStyleElement[] = [];
-  let width = 0;
+  const sections: DrawnSection[] = [];
 
   // accidentals
   const accSections: DrawnSection[] = [];
@@ -558,7 +558,7 @@ const determineNoteStyle = ({
       accidental,
     });
   }
-  width += maxSection(0, accSections).end;
+  sections.push(...accSections);
 
   // ledger lines
   let leftOfLedgerLine = 0;
@@ -604,7 +604,7 @@ const determineNoteStyle = ({
       });
     }
   }
-  width += maxSection(leftOfLedgerLine, ledgerSections).end - leftOfLedgerLine;
+  sections.push(...ledgerSections);
 
   // noteheads
   let leftOfNotehead = 0;
@@ -702,8 +702,7 @@ const determineNoteStyle = ({
       duration: note.duration,
     });
   }
-  width +=
-    maxSection(leftOfNotehead, noteheadStemFlagSections).end - leftOfNotehead;
+  sections.push(...noteheadStemFlagSections);
 
   return {
     element: {
@@ -711,7 +710,7 @@ const determineNoteStyle = ({
       note,
       elements,
     },
-    width,
+    width: maxSection(0, sections).end,
     stemOffsetLeft: leftOfStemOrNotehead,
   };
 };
