@@ -1,14 +1,11 @@
 import { registerPointerHandlers } from "./ui/pointer-event";
 import {
-  Caret,
-  determineDrawElementStyle2,
-  drawCaret,
   initCanvas,
+  paintCaret,
   paintStaff,
   paintStyle,
-  pitchByDistance,
   resetCanvas,
-} from "./renderer";
+} from "./paint";
 import {
   ArrowHandler,
   ChangeBeamHandler,
@@ -19,7 +16,15 @@ import {
   NoteInputHandler,
 } from "./ui/pointer-handlers";
 import { bStaffHeight, UNIT } from "./bravura";
-import { Clef, Duration, Element, Note, Rest } from "./notation/types";
+import {
+  Clef,
+  Duration,
+  durations,
+  MusicalElement,
+  Note,
+  Pitch,
+  Rest,
+} from "./notation/types";
 import {
   CaretCallback,
   ChangeBeamCallback,
@@ -27,6 +32,7 @@ import {
   NoteInputCallback,
 } from "./ui/callbacks";
 import { sortPitches } from "./pitch";
+import { CaretStyle, determinePaintElementStyle } from "./style";
 
 export type BeamModes = "beam" | "lock" | "nobeam";
 
@@ -49,7 +55,7 @@ window.onload = () => {
   const previewCtx = previewCanvas.getContext("2d")!;
   const noteKeyEls = Array.from(document.getElementsByClassName("note"));
   let mainElements: (Note | Rest)[] = [];
-  let caretPositions: Caret[] = [];
+  let caretPositions: CaretStyle[] = [];
   let caretIndex = 0;
   let isNoteInputMode = true;
   let beamMode: BeamModes = "nobeam";
@@ -69,7 +75,7 @@ window.onload = () => {
     mainCtx.translate(leftOfStaff, topOfStaff);
     mainCtx.scale(scale, scale);
     paintStaff(mainCtx, 0, 0, UNIT * 100, 1);
-    const styles = determineDrawElementStyle2(mainElements, UNIT, { clef });
+    const styles = determinePaintElementStyle(mainElements, UNIT, { clef });
     for (const style of styles) {
       console.log("style", style);
       const { width, element, caretOption } = style;
@@ -96,7 +102,7 @@ window.onload = () => {
     mainCtx.translate(leftOfStaff, topOfStaff);
     mainCtx.scale(scale, scale);
     if (caretPositions[caretIndex]) {
-      drawCaret({
+      paintCaret({
         ctx: mainCtx,
         scale: 1,
         caret: caretPositions[caretIndex],
@@ -105,7 +111,7 @@ window.onload = () => {
     mainCtx.restore();
     console.log("main", "end");
   };
-  const updatePreview = (beamMode: BeamModes, newElement: Element) => {
+  const updatePreview = (beamMode: BeamModes, newElement: MusicalElement) => {
     console.log("preview", "start");
     resetCanvas({
       ctx: previewCtx,
@@ -123,7 +129,7 @@ window.onload = () => {
     console.log("preview", preview);
     // B4がcanvasのvertical centerにくるように
     const _topOfStaff = previewHeight / 2 - (bStaffHeight * previewScale) / 2;
-    const styles = [...determineDrawElementStyle2(preview, UNIT)];
+    const styles = [...determinePaintElementStyle(preview, UNIT)];
     const elIdxToX = new Map<number, number>();
     let cursor = 0;
     for (const style of styles) {
@@ -207,7 +213,7 @@ window.onload = () => {
       const left = downX - previewWidth / 2;
       const top = downY - previewHeight / 2;
       initCanvas(left, top, previewWidth, previewHeight, previewCanvas);
-      const element: Element = isNoteInputMode
+      const element: MusicalElement = isNoteInputMode
         ? {
             type: "note",
             duration,
@@ -232,7 +238,7 @@ window.onload = () => {
       previewCanvas.style.visibility = "visible";
     },
     updatePreview(duration: Duration, dy: number) {
-      const element: Element = isNoteInputMode
+      const element: MusicalElement = isNoteInputMode
         ? {
             type: "note",
             duration,
@@ -256,7 +262,7 @@ window.onload = () => {
       updatePreview(beamMode, element);
     },
     commit(duration: Duration, dy?: number) {
-      let newElement: Element;
+      let newElement: MusicalElement;
       if (isNoteInputMode) {
         newElement = {
           type: "note",
@@ -444,9 +450,9 @@ function applyBeam(
 }
 
 function applyBeamForLastEdited(
-  last: Element,
-  left?: Element,
-  right?: Element
+  last: MusicalElement,
+  left?: MusicalElement,
+  right?: MusicalElement
 ) {
   if (
     last.type === "note" &&
@@ -475,8 +481,8 @@ function inputNote({
   beamMode,
 }: {
   caretIndex: number;
-  elements: Element[];
-  newElement: Element;
+  elements: MusicalElement[];
+  newElement: MusicalElement;
   beamMode: BeamModes;
 }) {
   const _elements = [...elements];
@@ -521,3 +527,19 @@ function inputNote({
   }
   return { elements: _elements, insertedIndex, caretAdvance };
 }
+
+const pitchByDistance = (scale: number, dy: number, origin: Pitch): Pitch => {
+  const unitY = (UNIT / 2) * scale;
+  return Math.round(dy / unitY + origin);
+};
+
+const durationByDistance = (
+  scale: number,
+  dx: number,
+  origin: Duration
+): Duration => {
+  const unitX = UNIT * 2 * scale;
+  const _di = Math.round(dx / unitX + durations.indexOf(origin));
+  const di = Math.min(Math.max(_di, 0), 6);
+  return durations[di];
+};
