@@ -26,8 +26,12 @@ export interface NoteInputCallback {
   finish(): void;
 }
 
-export interface CaretCallback {
+export interface CaretInputCallback {
   back(): void;
 
   forward(): void;
+}
+
+export interface BarInputCallback {
+  bar(): void;
 }

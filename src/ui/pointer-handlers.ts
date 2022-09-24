@@ -1,7 +1,8 @@
 import { PointerHandler } from "./pointer-event";
 import { Point } from "../geometry";
 import {
-  CaretCallback,
+  BarInputCallback,
+  CaretInputCallback,
   ChangeBeamCallback,
   ChangeNoteRestCallback,
   NoteInputCallback,
@@ -206,7 +207,7 @@ export class NoteInputHandler extends EmptyPointerHandler {
 }
 
 export class ArrowHandler extends EmptyPointerHandler {
-  constructor(private callback: CaretCallback) {
+  constructor(private callback: CaretInputCallback) {
     super();
   }
 
@@ -217,5 +218,15 @@ export class ArrowHandler extends EmptyPointerHandler {
     } else if (className.match(/.*toRight.*/)) {
       this.callback.forward();
     }
+  }
+}
+
+export class BarHandler extends EmptyPointerHandler {
+  constructor(private callback: BarInputCallback) {
+    super();
+  }
+
+  onClick(ev: PointerEvent) {
+    this.callback.bar();
   }
 }

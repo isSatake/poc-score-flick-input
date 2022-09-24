@@ -21,6 +21,7 @@ import {
   NoteStyleElement,
   pitchToY,
   RestStyle,
+  BarStyle,
 } from "./style";
 
 export const initCanvas = (
@@ -88,20 +89,13 @@ export const paintStaff = (
 /**
  * 小節線描画
  */
-const paintBarline = (
-  ctx: CanvasRenderingContext2D,
-  topOfStaff: number,
-  left: number,
-  scale: number
-) => {
-  const width = UNIT * bThinBarlineThickness * scale;
-  const center = left + width / 2;
+const paintBarline = (ctx: CanvasRenderingContext2D, element: BarStyle) => {
   ctx.save();
   ctx.strokeStyle = "#000";
-  ctx.lineWidth = width;
+  ctx.lineWidth = element.lineWidth;
   ctx.beginPath();
-  ctx.moveTo(center, topOfStaff);
-  ctx.lineTo(center, topOfStaff + bStaffHeight * scale);
+  ctx.moveTo(0, 0);
+  ctx.lineTo(0, bStaffHeight);
   ctx.closePath();
   ctx.stroke();
   ctx.restore();
@@ -209,7 +203,7 @@ export const paintStyle = (
   } else if (type === "beam") {
     paintBeam(ctx, element);
   } else if (type === "bar") {
-    // TODO
+    paintBarline(ctx, element);
   } else if (type === "gap") {
     // no-op
   }
