@@ -8,6 +8,7 @@ import {
 } from "./paint";
 import {
   ArrowHandler,
+  BarHandler,
   ChangeBeamHandler,
   ChangeNoteRestHandler,
   GrayPointerHandler,
@@ -26,7 +27,8 @@ import {
   Rest,
 } from "./notation/types";
 import {
-  CaretCallback,
+  BarInputCallback,
+  CaretInputCallback,
   ChangeBeamCallback,
   ChangeNoteRestCallback,
   NoteInputCallback,
@@ -54,7 +56,7 @@ window.onload = () => {
   const mainCtx = mainCanvas.getContext("2d")!;
   const previewCtx = previewCanvas.getContext("2d")!;
   const noteKeyEls = Array.from(document.getElementsByClassName("note"));
-  let mainElements: (Note | Rest)[] = [];
+  let mainElements: MusicalElement[] = [];
   let caretPositions: CaretStyle[] = [];
   let caretIndex = 0;
   let isNoteInputMode = true;
@@ -119,7 +121,7 @@ window.onload = () => {
       height: previewHeight,
       fillStyle: "#fff",
     });
-    const { elements: preview, insertedIndex } = inputNote({
+    const { elements: preview, insertedIndex } = inputMusicalElement({
       caretIndex,
       elements: mainElements,
       newElement,
@@ -275,7 +277,7 @@ window.onload = () => {
           duration,
         };
       }
-      const { elements, insertedIndex, caretAdvance } = inputNote({
+      const { elements, insertedIndex, caretAdvance } = inputMusicalElement({
         caretIndex,
         elements: mainElements,
         newElement,
@@ -323,7 +325,7 @@ window.onload = () => {
     },
   };
 
-  const caretMoveCallback: CaretCallback = {
+  const caretMoveCallback: CaretInputCallback = {
     back() {
       if (caretIndex % 2 !== 0) {
         const idx = caretIndex === 1 ? 0 : (caretIndex - 1) / 2;
@@ -352,6 +354,21 @@ window.onload = () => {
     },
   };
 
+  const barInputCallback: BarInputCallback = {
+    bar() {
+      const { elements, insertedIndex, caretAdvance } = inputMusicalElement({
+        caretIndex,
+        elements: mainElements,
+        newElement: { type: "bar" },
+        beamMode,
+      });
+      lastEditedIdx = insertedIndex;
+      caretIndex += caretAdvance;
+      mainElements = elements;
+      updateMain();
+    },
+  };
+
   // for tablet
   registerPointerHandlers(
     ["keyboardBottom", "keyboardHandle"],
@@ -376,6 +393,7 @@ window.onload = () => {
   );
   // for screen capture
   registerPointerHandlers([], [new GrayPointerHandler()]);
+  registerPointerHandlers(["bars"], [new BarHandler(barInputCallback)]);
 
   initCanvas(0, 0, window.innerWidth, window.innerHeight, mainCanvas);
   initCanvas(0, 0, previewWidth, previewHeight, previewCanvas);
@@ -391,9 +409,9 @@ window.onload = () => {
  */
 function applyBeam(
   beamMode: BeamModes,
-  insert: Note | Rest,
-  left: Note | Rest | undefined,
-  right: Note | Rest | undefined
+  insert: MusicalElement,
+  left?: MusicalElement,
+  right?: MusicalElement
 ): void {
   if (insert.type === "note" && beamMode !== "nobeam") {
     // beamを挿入
@@ -474,7 +492,7 @@ function applyBeamForLastEdited(
   }
 }
 
-function inputNote({
+function inputMusicalElement({
   caretIndex,
   elements,
   newElement,
