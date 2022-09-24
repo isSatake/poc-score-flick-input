@@ -24,7 +24,6 @@ import {
   MusicalElement,
   Note,
   Pitch,
-  Rest,
 } from "./notation/types";
 import {
   BarInputCallback,
@@ -56,6 +55,8 @@ window.onload = () => {
   const mainCtx = mainCanvas.getContext("2d")!;
   const previewCtx = previewCanvas.getContext("2d")!;
   const noteKeyEls = Array.from(document.getElementsByClassName("note"));
+  const changeNoteRestKey =
+    document.getElementsByClassName("changeNoteRest")[0];
   let mainElements: MusicalElement[] = [];
   let caretPositions: CaretStyle[] = [];
   let caretIndex = 0;
@@ -186,6 +187,10 @@ window.onload = () => {
           this.isNoteInputMode() ? "rest" : "note"
         );
       });
+      changeNoteRestKey.className = changeNoteRestKey.className.replace(
+        this.isNoteInputMode() ? "rest" : "note",
+        this.isNoteInputMode() ? "note" : "rest"
+      );
       isNoteInputMode = !isNoteInputMode;
     },
   };
