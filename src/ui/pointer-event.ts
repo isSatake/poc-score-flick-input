@@ -6,6 +6,7 @@ export interface PointerHandler {
   onClick: (ev: PointerEvent) => void;
   onLongDown: (ev: PointerEvent) => void;
   onDrag: (ev: PointerEvent, downPoint: Point) => void;
+  onDoubleClick: (ev: PointerEvent) => void;
 }
 
 export class PointerEventListener {

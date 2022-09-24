@@ -132,9 +132,14 @@ html, body {
 }
 
 /* 1/8 */
-.k22.note {
+.k22.note.nobeam {
     background-size: auto 70%;
     background-image: url(img/n8.png);
+}
+
+.k22.note.beamed {
+    background-size: auto 70%;
+    background-image: url(img/beam8.svg);
 }
 
 .k22.rest {
@@ -143,9 +148,14 @@ html, body {
 }
 
 /* 1/16 */
-.k23.note {
+.k23.note.nobeam {
     background-size: auto 70%;
     background-image: url(img/n16.png);
+}
+
+.k23.note.beamed {
+    background-size: auto 70%;
+    background-image: url(img/beam16.svg);
 }
 
 .k23.rest {
@@ -154,9 +164,14 @@ html, body {
 }
 
 /* 1/32 */
-.k24.note {
+.k24.note.nobeam {
     background-size: auto 70%;
     background-image: url(img/n32.png);
+}
+
+.k24.note.beamed {
+    background-size: auto 70%;
+    background-image: url(img/beam32.svg);
 }
 
 .k24.rest {

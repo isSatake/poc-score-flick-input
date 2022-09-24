@@ -7,39 +7,6 @@ import {
   NoteInputCallback,
 } from "./callbacks";
 import { Duration } from "../notation/types";
-import { BeamModes } from "../index";
-
-export class N1Handler implements PointerHandler {
-  // ポインタハンドラがクラスになってるので、状態を持てる
-  private evCount = 0;
-
-  constructor() {
-    // ここでコマンドストリームを取るかな
-  }
-
-  onDown() {
-    console.log(`onDown count:${this.evCount++}`);
-    // ここでは楽譜入力イベントを投げるだけかな
-  }
-
-  onUp() {
-    console.log(`onUp count:${this.evCount++}`);
-  }
-
-  onClick() {
-    console.log(`onClick count:${this.evCount++}`);
-  }
-
-  onLongDown() {
-    console.log(`onLongDown count:${this.evCount++}`);
-    // フリック候補表示
-  }
-
-  onDrag() {
-    console.log(`onDrag count:${this.evCount++}`);
-    // フリック候補表示
-  }
-}
 
 class EmptyPointerHandler implements PointerHandler {
   constructor() {}
@@ -53,6 +20,8 @@ class EmptyPointerHandler implements PointerHandler {
   onLongDown(ev: PointerEvent) {}
 
   onDrag(ev: PointerEvent, downPoint: Point) {}
+
+  onDoubleClick(ev: PointerEvent) {}
 }
 
 export class KeyboardDragHandler extends EmptyPointerHandler {
@@ -139,6 +108,10 @@ export class ChangeBeamHandler extends EmptyPointerHandler {
       next
     );
     this.callback.change(next);
+  }
+
+  onDoubleClick(ev: PointerEvent) {
+    console.log("double");
   }
 }
 
