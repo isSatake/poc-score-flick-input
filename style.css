@@ -1,3 +1,8 @@
+root {
+    --keyWidth: 63px;
+    --keyHeight: 49px;
+}
+
 html, body {
     width: 100%;
     height: 100%;
@@ -42,11 +47,11 @@ html, body {
     box-shadow: #ccc 0 20px 70px -10px;
 }
 
-.candidateContainer {
+.keyHeader {
     height: 125px;
 }
 
-.candidateContainer {
+.keyHeader {
     height: 54px;
 }
 
@@ -70,12 +75,33 @@ html, body {
     height: 224px;
 }
 
-.keyContainer div {
+.keyContainer > div {
     border-radius: 5px;
     box-shadow: #8d9095 0 3px;
-    display: flex;
     align-items: center;
     justify-content: center;
+    width: 100%;
+    height: 100%;
+}
+
+.candidateContainer {
+    position: relative;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: repeat(3, 1fr);
+    width: 300%;
+    height: 300%;
+    margin-left: -100%;
+    margin-top: -78%;
+}
+
+.candidate {
+    position: relative;
+    background: red;
+    width: 100%;
+    height: 100%;
+    border: 1px solid green;
+    box-sizing: border-box;
 }
 
 .whiteKey {

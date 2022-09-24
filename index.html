@@ -9,7 +9,7 @@
 <script src="out.js"></script>
 <canvas id="mainCanvas"></canvas>
 <div id="keyboard">
-    <div class="candidateContainer"></div>
+    <div class="keyHeader"></div>
     <div class="keyContainer">
         <div class="grayKey k11 changeNoteRest rest"></div>
         <div class="whiteKey k12 note"></div>
@@ -24,7 +24,15 @@
         <div class="grayKey k31 changeBeam nobeam"></div>
         <div class="whiteKey k32 accidentals"></div>
         <div class="whiteKey k33 dynamics"></div>
-        <div class="whiteKey k34 bars"></div>
+        <div class="whiteKey k34 bars">
+            <div class="candidateContainer">
+                <div class="candidate top repeat"></div>
+            <div class="candidate left doublebar"></div>
+            <div class="candidate center bar"></div>
+            <div class="candidate right"></div>
+            <div class="candidate bottom"></div>
+            </div>
+        </div>
         <div class="grayKey k35 changeUi"></div>
         <div class="whiteKey k41 slur"></div>
         <div class="whiteKey k42 accent"></div>
