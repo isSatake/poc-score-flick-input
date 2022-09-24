@@ -817,7 +817,7 @@ const determineBeamedNotesStyle = (
     }
     // TODO note側のsectionとmergeしないと正しいwidthにならない
     // beam noteだけgapが狭くなりそう。
-    const { elements: el, section } = determineStemFlagStyle({
+    const { elements: el } = determineStemFlagStyle({
       left: arr[i].stemOffsetLeft,
       duration,
       direction: stemDirection,
@@ -1006,9 +1006,7 @@ const paintBeam = (ctx: CanvasRenderingContext2D, beam: BeamStyle) => {
 
 export const paintStyle = (
   ctx: CanvasRenderingContext2D,
-  { element }: DrawElementStyle,
-  color?: string,
-  yOffset?: number
+  { element }: DrawElementStyle
 ) => {
   const { type } = element;
   if (type === "clef") {

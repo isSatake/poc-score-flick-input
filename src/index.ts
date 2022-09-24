@@ -34,7 +34,6 @@ const scale = 0.08;
 const previewScale = 0.08;
 const leftOfStaff = 20;
 const topOfStaff = 2000 * scale;
-const elementGap = UNIT * 2 * scale;
 const defaultCaretWidth = 50;
 
 window.onload = () => {
@@ -50,7 +49,6 @@ window.onload = () => {
   const previewCtx = previewCanvas.getContext("2d")!;
   const noteKeyEls = Array.from(document.getElementsByClassName("note"));
   let mainElements: (Note | Rest)[] = [];
-  // const elements: Element[] = [];
   let caretPositions: Caret[] = [];
   let caretIndex = 0;
   let isNoteInputMode = true;
