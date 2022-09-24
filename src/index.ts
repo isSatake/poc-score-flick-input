@@ -1,9 +1,11 @@
 import { registerPointerHandlers } from "./ui/pointer-event";
 import {
   Caret,
+  determineDrawElementStyle2,
   drawCaret,
-  drawElements,
   initCanvas,
+  paintStaff,
+  paintStyle,
   pitchByDistance,
   resetCanvas,
 } from "./renderer";
@@ -17,7 +19,7 @@ import {
   NoteInputHandler,
 } from "./ui/pointer-handlers";
 import { bStaffHeight, UNIT } from "./bravura";
-import { Duration, Element, Note, Rest } from "./notation/types";
+import { Clef, Duration, Element, Note, Rest } from "./notation/types";
 import {
   CaretCallback,
   ChangeBeamCallback,
@@ -32,13 +34,13 @@ const scale = 0.08;
 const previewScale = 0.08;
 const leftOfStaff = 20;
 const topOfStaff = 2000 * scale;
-const elementGap = UNIT * 2 * scale;
+const defaultCaretWidth = 50;
 
 window.onload = () => {
   const mainWidth = window.innerWidth;
   const mainHeight = window.innerHeight;
   const previewWidth = 300;
-  const previewHeight = 600;
+  const previewHeight = 400;
   const mainCanvas = document.getElementById("mainCanvas") as HTMLCanvasElement;
   const previewCanvas = document.getElementById(
     "previewCanvas"
@@ -46,60 +48,124 @@ window.onload = () => {
   const mainCtx = mainCanvas.getContext("2d")!;
   const previewCtx = previewCanvas.getContext("2d")!;
   const noteKeyEls = Array.from(document.getElementsByClassName("note"));
-  const mainElements: (Note | Rest)[] = [];
-  // const elements: Element[] = [];
+  let mainElements: (Note | Rest)[] = [];
   let caretPositions: Caret[] = [];
   let caretIndex = 0;
   let isNoteInputMode = true;
   let beamMode: BeamModes = "nobeam";
   let lastEditedIdx: number;
   const updateMain = () => {
+    console.log("main", "start");
     resetCanvas({
       ctx: mainCtx,
       width: mainWidth,
       height: mainHeight,
       fillStyle: "#fff",
     });
-    caretPositions = drawElements({
-      ctx: mainCtx,
-      canvasWidth: mainWidth,
-      scale,
-      leftOfStaff,
-      topOfStaff,
-      elementGap,
-      elements: mainElements,
-    });
-    drawCaret({
-      ctx: mainCtx,
-      scale,
-      pos: caretPositions[caretIndex],
-    });
+    const clef: Clef = { type: "g" };
+    let cursor = 0;
+    caretPositions = [];
+    mainCtx.save();
+    mainCtx.translate(leftOfStaff, topOfStaff);
+    mainCtx.scale(scale, scale);
+    paintStaff(mainCtx, 0, 0, UNIT * 100, 1);
+    const styles = determineDrawElementStyle2(mainElements, UNIT, { clef });
+    for (const style of styles) {
+      console.log("style", style);
+      const { width, element, caretOption } = style;
+      paintStyle(mainCtx, style);
+      if (caretOption) {
+        const { index: elIdx, defaultWidth } = caretOption;
+        const caretWidth = defaultWidth ? defaultCaretWidth : width;
+        console.log("cursor", cursor);
+        caretPositions.push({
+          x: cursor + (defaultWidth ? width / 2 : 0),
+          y: 0,
+          width: caretWidth,
+          elIdx,
+        });
+      }
+      if (element.type !== "beam") {
+        cursor += width;
+        mainCtx.translate(width, 0);
+      }
+    }
+    mainCtx.restore();
+    console.log("carets", caretPositions);
+    console.log("current caret", caretPositions[caretIndex]);
+    mainCtx.save();
+    mainCtx.translate(leftOfStaff, topOfStaff);
+    mainCtx.scale(scale, scale);
+    if (caretPositions[caretIndex]) {
+      drawCaret({
+        ctx: mainCtx,
+        scale: 1,
+        caret: caretPositions[caretIndex],
+      });
+    }
+    mainCtx.restore();
+    console.log("main", "end");
   };
-  const updatePreview = (beamMode: BeamModes, element?: Element) => {
+  const updatePreview = (beamMode: BeamModes, newElement: Element) => {
+    console.log("preview", "start");
     resetCanvas({
       ctx: previewCtx,
       width: previewWidth,
       height: previewHeight,
       fillStyle: "#fff",
     });
-    if (!element) {
-      return;
-    }
-    const preview: Element = { ...element };
-    if (beamMode !== "nobeam" && preview.type === "note") {
-      preview.beam = "begin";
-    }
+    const { elements: preview, insertedIndex } = inputNote({
+      caretIndex,
+      elements: mainElements,
+      newElement,
+      beamMode,
+    });
+    console.log("insertedIdx", insertedIndex);
+    console.log("preview", preview);
     // B4がcanvasのvertical centerにくるように
     const _topOfStaff = previewHeight / 2 - (bStaffHeight * previewScale) / 2;
-    drawElements({
-      ctx: previewCtx,
-      canvasWidth: previewWidth,
-      scale: previewScale,
-      leftOfStaff,
-      topOfStaff: _topOfStaff,
-      elementGap,
-      elements: [preview],
-    });
+    const styles = [...determineDrawElementStyle2(preview, UNIT)];
+    const elIdxToX = new Map<number, number>();
+    let cursor = 0;
+    for (const style of styles) {
+      const { width, element, index } = style;
+      console.log("style", style);
+      if (index !== undefined) {
+        elIdxToX.set(index, cursor + width / 2);
+      }
+      if (element.type !== "beam") {
+        cursor += width;
+      }
+    }
+
+    console.log("elIdxToX", elIdxToX);
+
+    // paint staff
+    previewCtx.save();
+    // x: 左端 y: 中心
+    previewCtx.translate(0, _topOfStaff);
+    previewCtx.scale(previewScale, previewScale);
+    paintStaff(previewCtx, 0, 0, UNIT * 100, 1);
+    previewCtx.restore();
+
+    // paint elements
+    previewCtx.save();
+    // x: 中心, y: 中心
+    previewCtx.translate(previewWidth / 2, _topOfStaff);
+    previewCtx.scale(previewScale, previewScale);
+    // x: previewの中心
+    const centerX = elIdxToX.get(insertedIndex)!;
+    console.log("centerX", centerX);
+    previewCtx.translate(-centerX, 0);
+    for (const style of styles) {
+      const { width, element } = style;
+      paintStyle(previewCtx, style);
+      if (element.type !== "beam") {
+        previewCtx.translate(width, 0);
+      }
+    }
+    previewCtx.restore();
+    console.log("preview", "end");
   };
 
   const changeNoteRestCallback: ChangeNoteRestCallback = {
@@ -191,58 +257,28 @@ window.onload = () => {
       updatePreview(beamMode, element);
     },
     commit(duration: Duration, dy?: number) {
-      let newEl: Element;
+      let newElement: Element;
       if (isNoteInputMode) {
-        newEl = {
+        newElement = {
           type: "note",
           duration,
           pitches: [{ pitch: pitchByDistance(previewScale, dy ?? 0, 6) }],
         };
       } else {
-        newEl = {
+        newElement = {
           type: "rest",
           duration,
         };
       }
-      // 先頭
-      if (caretIndex === 0) {
-        const right = mainElements[caretIndex]; // まだ挿入してないのでcaretIdxと同じ
-        applyBeam(beamMode, newEl, undefined, right);
-        mainElements.splice(caretIndex, 0, newEl);
-        caretIndex += 2;
-        lastEditedIdx = 0;
-      } else {
-        if (caretIndex % 2 === 0) {
-          // 挿入
-          const insertIdx = caretIndex / 2;
-          const left = mainElements[insertIdx - 1];
-          const right = mainElements[insertIdx]; // まだ挿入してないのでinsertIdxと同じ
-          console.log("insertIdx", insertIdx, "left", left, "right", right);
-          applyBeam(beamMode, newEl, left, right);
-          mainElements.splice(insertIdx, 0, newEl);
-          caretIndex += 2;
-          lastEditedIdx = insertIdx;
-        } else {
-          // 上書き
-          const overrideIdx = caretIndex === 1 ? 0 : (caretIndex - 1) / 2;
-          const overrideEl = mainElements[overrideIdx];
-          if (
-            newEl.type === "note" &&
-            overrideEl.type === "note" &&
-            newEl.duration === overrideEl.duration
-          ) {
-            newEl.pitches = sortPitches([
-              ...overrideEl.pitches,
-              ...newEl.pitches,
-            ]);
-          }
-          const left = mainElements[overrideIdx - 1];
-          const right = mainElements[overrideIdx + 1];
-          applyBeam(beamMode, newEl, left, right);
-          mainElements.splice(overrideIdx, 1, newEl);
-          lastEditedIdx = overrideIdx;
-        }
-      }
+      const { elements, insertedIndex, caretAdvance } = inputNote({
+        caretIndex,
+        elements: mainElements,
+        newElement,
+        beamMode,
+      });
+      lastEditedIdx = insertedIndex;
+      caretIndex += caretAdvance;
+      mainElements = elements;
       updateMain();
     },
     backspace() {
@@ -278,12 +314,10 @@ window.onload = () => {
       if (caretIndex % 2 !== 0) {
         const idx = caretIndex === 1 ? 0 : (caretIndex - 1) / 2;
         if (idx === lastEditedIdx) {
-          if (idx === lastEditedIdx) {
-            const lastEl = mainElements[lastEditedIdx];
-            const left = mainElements[idx - 1];
-            const right = mainElements[idx + 1];
-            applyBeamForLastEdited(lastEl, left, right);
-          }
+          const lastEl = mainElements[lastEditedIdx];
+          const left = mainElements[idx - 1];
+          const right = mainElements[idx + 1];
+          applyBeamForLastEdited(lastEl, left, right);
         }
       }
       caretIndex = Math.max(caretIndex - 1, 0);
@@ -406,7 +440,6 @@ function applyBeamForLastEdited(
   left?: Element,
   right?: Element
 ) {
-  console.log(last, left, right);
   if (
     last.type === "note" &&
     (last.beam === "begin" || last.beam === "continue")
@@ -425,4 +458,58 @@ function applyBeamForLastEdited(
       }
     }
   }
+}
+
+function inputNote({
+  caretIndex,
+  elements,
+  newElement,
+  beamMode,
+}: {
+  caretIndex: number;
+  elements: Element[];
+  newElement: Element;
+  beamMode: BeamModes;
+}) {
+  const _elements = [...elements];
+  let insertedIndex = 0;
+  let caretAdvance = 0;
+  if (caretIndex === 0) {
+    const right = _elements[caretIndex]; // まだ挿入してないのでcaretIdxと同じ
+    applyBeam(beamMode, newElement, undefined, right);
+    _elements.splice(caretIndex, 0, newElement);
+    caretAdvance = 2;
+  } else {
+    if (caretIndex % 2 === 0) {
+      // 挿入
+      const insertIdx = caretIndex / 2;
+      const left = _elements[insertIdx - 1];
+      const right = _elements[insertIdx]; // まだ挿入してないのでinsertIdxと同じ
+      console.log("insertIdx", insertIdx, "left", left, "right", right);
+      applyBeam(beamMode, newElement, left, right);
+      _elements.splice(insertIdx, 0, newElement);
+      caretAdvance = 2;
+      insertedIndex = insertIdx;
+    } else {
+      // 上書き
+      const overrideIdx = caretIndex === 1 ? 0 : (caretIndex - 1) / 2;
+      const overrideEl = _elements[overrideIdx];
+      if (
+        newElement.type === "note" &&
+        overrideEl.type === "note" &&
+        newElement.duration === overrideEl.duration
+      ) {
+        newElement.pitches = sortPitches([
+          ...overrideEl.pitches,
+          ...newElement.pitches,
+        ]);
+      }
+      const left = _elements[overrideIdx - 1];
+      const right = _elements[overrideIdx + 1];
+      applyBeam(beamMode, newElement, left, right);
+      _elements.splice(overrideIdx, 1, newElement);
+      insertedIndex = overrideIdx;
+    }
+  }
+  return { elements: _elements, insertedIndex, caretAdvance };
 }
