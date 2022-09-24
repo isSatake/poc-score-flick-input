@@ -15,6 +15,7 @@ import {
   bClefG,
   bStaffHeight,
   bStemWidth,
+  bThinBarlineThickness,
   EXTENSION_LEDGER_LINE,
   Path,
   UNIT,
@@ -58,6 +59,7 @@ export type NoteStyleElement =
       width: number;
     };
 export type RestStyle = { type: "rest"; rest: Rest; position: Point };
+export type BarStyle = { type: "bar"; bar: Bar; lineWidth: number };
 export type BeamStyle = {
   type: "beam";
   nw: Point;
@@ -69,13 +71,10 @@ type PaintElement =
   | NoteStyle
   | RestStyle
   | BeamStyle
+  | BarStyle
   | {
       type: "clef";
       clef: Clef;
-    }
-  | {
-      type: "bar";
-      bar: Bar;
     }
   | {
       type: "gap";
@@ -467,6 +466,11 @@ const determineRestStyle = (
   };
 };
 
+const determineBarStyle = (bar: Bar): { element: BarStyle; width: number } => {
+  const width = bThinBarlineThickness * UNIT;
+  return { element: { type: "bar", bar, lineWidth: width }, width };
+};
+
 export const pitchToY = (
   topOfStaff: number,
   pitch: Pitch,
@@ -815,6 +819,11 @@ export const determinePaintElementStyle = function* (
     } else if (el.type === "rest") {
       const rest = determineRestStyle(el);
       yield { caretOption: { index }, index, ...rest };
+      yield { caretOption: { index, defaultWidth: true }, ...gapEl };
+      index++;
+    } else if (el.type === "bar") {
+      const bar = determineBarStyle(el);
+      yield { caretOption: { index }, index, ...bar };
       yield { caretOption: { index, defaultWidth: true }, ...gapEl };
       index++;
     }
