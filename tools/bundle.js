@@ -29,7 +29,7 @@ if (isWatch) {
     .catch(onError);
 } else {
   build({
-    entryPoints: ["index.ts"],
+    entryPoints: ["src/index.ts"],
     bundle: true,
     minify: true,
     sourcemap: true,
