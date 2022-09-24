@@ -25,7 +25,7 @@ export type Rest = {
   duration: Duration;
 };
 
-export type Element = Note | Rest;
+export type MusicalElement = Note | Rest;
 
 export type Bar = {
   type: "bar";
