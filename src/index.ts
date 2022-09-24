@@ -77,7 +77,6 @@ window.onload = () => {
       if (caretOption) {
         const { index: elIdx, defaultWidth } = caretOption;
         const caretWidth = defaultWidth ? defaultCaretWidth : width;
-        console.log("cursor", cursor);
         caretPositions.push({
           x: cursor + (defaultWidth ? width / 2 : 0),
           y: 0,
@@ -286,7 +285,16 @@ window.onload = () => {
       if (targetElIdx < 0) {
         return;
       }
-      mainElements.splice(targetElIdx, 1);
+      const deleted = mainElements.splice(targetElIdx, 1)[0];
+      if (deleted.type === "note") {
+        const left = mainElements[targetElIdx - 1];
+        const right = mainElements[targetElIdx];
+        if (deleted.beam === "begin" && right) {
+          (right as Note).beam = "begin";
+        } else if (deleted.beam === "end" && left) {
+          (left as Note).beam = "end";
+        }
+      }
 
       // 削除後のcaret位置を計算
       let t = caretIndex - 1;

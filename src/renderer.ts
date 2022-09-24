@@ -760,16 +760,14 @@ const determineBeamedNotesStyle = (
       beamed: true,
     });
     arr.push({ left, stemOffsetLeft: noteStyle.stemOffsetLeft });
-    const caretOption = { index: i };
+    const caretOption = { index: i + startIdx };
     elements.push({ caretOption, index: i + startIdx, ...noteStyle });
     left += noteStyle.width;
-    if (i !== beamedNotes.length - 1) {
-      elements.push({
-        caretOption: { ...caretOption, defaultWidth: true },
-        ...gapEl,
-      });
-      left += elementGap;
-    }
+    elements.push({
+      caretOption: { ...caretOption, index: i + startIdx, defaultWidth: true },
+      ...gapEl,
+    });
+    left += elementGap;
   }
   const { beam: lastBeam } = beamedNotes[beamedNotes.length - 1];
   if (lastBeam === "continue" || lastBeam === "begin") {
@@ -871,15 +869,14 @@ export const determineDrawElementStyle2 = function* (
   }
   const caretOption = { index: -1, defaultWidth: true };
   yield { caretOption, ...gapEl };
-  let elIdx = 0;
-  while (elIdx < elements.length) {
-    const el = elements[elIdx];
-    let idxAdd = 0;
+  let index = 0;
+  while (index < elements.length) {
+    const el = elements[index];
     if (el.type === "note") {
       if (el.beam === "begin") {
         // 連桁
         const beamedNotes: Note[] = [el];
-        let nextIdx = elIdx + 1;
+        let nextIdx = index + 1;
         let nextEl = elements[nextIdx];
         while (
           nextEl?.type === "note" &&
@@ -888,31 +885,28 @@ export const determineDrawElementStyle2 = function* (
           beamedNotes.push(nextEl);
           nextEl = elements[++nextIdx];
         }
-        const s = determineBeamedNotesStyle(
+        const beamedStyles = determineBeamedNotesStyle(
           beamedNotes,
           el.duration,
           gapWidth,
-          elIdx
+          index
         );
-        for (const beamedEl of s) {
-          yield beamedEl;
+        for (const beamed of beamedStyles) {
+          yield beamed;
         }
-        idxAdd = beamedNotes.length;
+        index += beamedNotes.length;
       } else {
         const note = determineNoteStyle({ note: el });
-        const caretOption = { index: elIdx };
-        yield { caretOption, index: elIdx, ...note };
-        idxAdd = 1;
+        yield { caretOption: { index }, index: index, ...note };
+        yield { caretOption: { index, defaultWidth: true }, ...gapEl };
+        index++;
       }
     } else if (el.type === "rest") {
       const rest = determineRestStyle(el);
-      const caretOption = { index: elIdx };
-      yield { caretOption, index: elIdx, ...rest };
-      idxAdd = 1;
+      yield { caretOption: { index }, index, ...rest };
+      yield { caretOption: { index, defaultWidth: true }, ...gapEl };
+      index++;
     }
-    const caretOption = { index: elIdx, defaultWidth: true };
-    yield { caretOption, ...gapEl };
-    elIdx += idxAdd;
   }
 };
 
@@ -1023,35 +1017,6 @@ export const paintStyle = (
     // no-op
   }
 };
-
-// export const paintStyles = (
-//   ctx: CanvasRenderingContext2D,
-//   styles: DrawElementStyle[],
-//   color?: string,
-//   yOffset?: number
-// ) => {
-//   ctx.save();
-//   for (const { element, width } of styles) {
-//     const { type } = element;
-//     if (type === "clef") {
-//       paintGClef(ctx, 0, 0);
-//     } else if (type === "note") {
-//       paintNote({ ctx, elements: element.elements });
-//     } else if (type === "rest") {
-//       paintRest({ ctx, element });
-//     } else if (type === "beam") {
-//       const { elements: styles, beams } = element;
-//       paintStyles(ctx, styles, "green", 100);
-//       paintBeam(ctx, beams);
-//     } else if (type === "bar") {
-//       // TODO
-//     } else if (type === "gap") {
-//       // no-op
-//     }
-//     ctx.translate(width, 0);
-//   }
-//   ctx.restore();
-// };
 
 export const drawCaret = ({
   ctx,
