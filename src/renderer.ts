@@ -509,7 +509,7 @@ type NoteStyle = {
   elements: NoteStyleElement[];
 };
 type RestStyle = { type: "rest"; rest: Rest; position: Point };
-type BeamStyle = { nw: Point; ne: Point; sw: Point; se: Point };
+type BeamStyle = { type: "beam"; nw: Point; ne: Point; sw: Point; se: Point };
 type BeamedNotesStyle = {
   type: "beam";
   elements: DrawElementStyle[];
@@ -518,7 +518,7 @@ type BeamedNotesStyle = {
 type DrawElement =
   | NoteStyle
   | RestStyle
-  | BeamedNotesStyle
+  | BeamStyle
   | {
       type: "clef";
       clef: Clef;
@@ -737,12 +737,9 @@ const determineRestStyle = (
 const determineBeamedNotesStyle = (
   beamedNotes: Note[],
   duration: Duration,
-  elementGap: number
-): {
-  element: BeamedNotesStyle;
-  width: number;
-  elementXArray: number[];
-} => {
+  elementGap: number,
+  startIdx: number
+): DrawElementStyle[] => {
   const allBeamedPitches = beamedNotes
     .flatMap((n) => n.pitches)
     .map((p) => p.pitch);
@@ -755,24 +752,29 @@ const determineBeamedNotesStyle = (
   };
   let left = 0;
   let shouldExt = false;
-  for (const i in beamedNotes) {
+  for (const _i in beamedNotes) {
+    const i = Number(_i);
     const noteStyle = determineNoteStyle({
       note: beamedNotes[i],
       stemDirection,
       beamed: true,
     });
     arr.push({ left, stemOffsetLeft: noteStyle.stemOffsetLeft });
-    elements.push(noteStyle);
+    const caretOption = { index: i };
+    elements.push({ caretOption, index: i + startIdx, ...noteStyle });
     left += noteStyle.width;
-    if (Number(i) !== beamedNotes.length - 1) {
-      elements.push(gapEl);
+    if (i !== beamedNotes.length - 1) {
+      elements.push({
+        caretOption: { ...caretOption, defaultWidth: true },
+        ...gapEl,
+      });
       left += elementGap;
     }
   }
   const { beam: lastBeam } = beamedNotes[beamedNotes.length - 1];
   if (lastBeam === "continue" || lastBeam === "begin") {
     // ちょっとbeamを伸ばしてbeam modeであることを明示
-    // shouldExt = true;
+    shouldExt = true;
   }
   const firstStemLeft = arr[0].left + arr[0].stemOffsetLeft;
   const lastStemLeft =
@@ -785,19 +787,23 @@ const determineBeamedNotesStyle = (
     beamed: beamedNotes,
     arr: arr,
   });
-  const beams = [];
+  const beamed: DrawElementStyle[] = [];
   for (let i = 0; i < (numOfBeamsMap.get(duration) ?? 0); i++) {
     const offsetY = (UNIT * bBeamThickness + UNIT * bBeamSpacing) * i;
-    beams.push(
-      getBeamShape({
-        scale: 1,
-        stemDirection,
-        firstStemLeft,
-        lastStemLeft,
-        stemLinearFunc,
-        offsetY,
-      })
-    );
+    beamed.push({
+      element: {
+        type: "beam",
+        ...getBeamShape({
+          scale: 1,
+          stemDirection,
+          firstStemLeft,
+          lastStemLeft,
+          stemLinearFunc,
+          offsetY,
+        }),
+      },
+      width: lastStemLeft - firstStemLeft,
+    });
   }
   for (const i in beamedNotes) {
     const { pitches } = beamedNotes[i];
@@ -823,20 +829,17 @@ const determineBeamedNotesStyle = (
     const parent = elements[Number(i) * 2].element as NoteStyle;
     parent.elements.push(...el);
   }
-  return {
-    element: {
-      type: "beam",
-      beams,
-      elements,
-    },
-    width: left,
-    elementXArray: arr.map(({ left }) => left),
-  };
+  return [...beamed, ...elements];
 };
 
 export type DrawElementStyle = {
   element: DrawElement;
   width: number;
+  index?: number;
+  caretOption?: {
+    index: number;
+    defaultWidth?: boolean;
+  };
   /**
    * DrawElement固有のmtx
    * 装飾音とか音部変更記号とかはscale < 1にする使い方
@@ -845,114 +848,72 @@ export type DrawElementStyle = {
   localMtx?: Matrix;
 };
 
-export const determineDrawElementStyle = ({
-  elements,
-  elementGap,
-  initClef,
-}: {
-  elements: Element[];
-  elementGap: number;
-  initClef?: Clef;
-}): {
-  styles: DrawElementStyle[];
-  styleIndexToX: number[];
-  styleIndexToElementIndex: number[];
-  elementIndexToX: Map<number, number>;
-} => {
-  const styles: DrawElementStyle[] = [];
+export const determineDrawElementStyle2 = function* (
+  elements: Element[],
+  gapWidth: number,
+  headOpts?: { clef: Clef }
+): Generator<DrawElementStyle> {
   const gapEl: DrawElementStyle = {
     element: { type: "gap" },
-    width: elementGap,
+    width: gapWidth,
   };
-  const styleIndexToX = [];
-  const styleIndexToElementIndex = [];
-  let left = 0;
-  styleIndexToX.push(left);
-  styleIndexToElementIndex.push(-1);
-  styles.push(gapEl);
-  left += gapEl.width;
-  if (initClef?.type === "g") {
-    const width = getPathWidth(bClefG);
-    styleIndexToX.push(left);
-    styleIndexToElementIndex.push(-1);
-    styles.push({
-      element: {
-        type: "clef",
-        clef: initClef,
-      },
-      width,
-    });
-    left += width;
-    styleIndexToX.push(left);
-    styleIndexToElementIndex.push(-1);
-    styles.push(gapEl);
-    left += gapEl.width;
+  if (headOpts) {
+    yield gapEl;
+    if (headOpts.clef) {
+      yield {
+        element: {
+          type: "clef",
+          clef: headOpts.clef,
+        },
+        width: getPathWidth(bClefG),
+      };
+    }
   }
-  const elementIndexToX = new Map();
+  const caretOption = { index: -1, defaultWidth: true };
+  yield { caretOption, ...gapEl };
   let elIdx = 0;
   while (elIdx < elements.length) {
     const el = elements[elIdx];
-    switch (el.type) {
-      case "note":
-        if (el.beam === "begin") {
-          // 連桁
-          const beamedNotes: Note[] = [el];
-          let nextIdx = elIdx + 1;
-          let nextEl = elements[nextIdx];
-          while (
-            nextEl?.type === "note" &&
-            (nextEl.beam === "continue" || nextEl.beam === "end")
-          ) {
-            beamedNotes.push(nextEl);
-            nextEl = elements[++nextIdx];
-          }
-          const s = determineBeamedNotesStyle(
-            beamedNotes,
-            el.duration,
-            elementGap
-          );
-          for (const i in s.elementXArray) {
-            elementIndexToX.set(i + elIdx, s.elementXArray[i]);
-          }
-          styleIndexToX.push(left);
-          styleIndexToElementIndex.push(elIdx);
-          styles.push(s);
-          left += s.width;
-          styleIndexToX.push(left);
-          styleIndexToElementIndex.push(elIdx);
-          styles.push(gapEl);
-          left += gapEl.width;
-          elIdx += beamedNotes.length;
-        } else {
-          elementIndexToX.set(elIdx, left);
-          const s = determineNoteStyle({ note: el });
-          styleIndexToX.push(left);
-          styleIndexToElementIndex.push(elIdx);
-          styles.push(s);
-          left += s.width;
-          styleIndexToX.push(left);
-          styleIndexToElementIndex.push(elIdx);
-          styles.push(gapEl);
-          left += gapEl.width;
-          elIdx++;
+    let idxAdd = 0;
+    if (el.type === "note") {
+      if (el.beam === "begin") {
+        // 連桁
+        const beamedNotes: Note[] = [el];
+        let nextIdx = elIdx + 1;
+        let nextEl = elements[nextIdx];
+        while (
+          nextEl?.type === "note" &&
+          (nextEl.beam === "continue" || nextEl.beam === "end")
+        ) {
+          beamedNotes.push(nextEl);
+          nextEl = elements[++nextIdx];
         }
-        break;
-      case "rest":
-        elementIndexToX.set(elIdx, left);
-        const s = determineRestStyle(el);
-        styleIndexToX.push(left);
-        styleIndexToElementIndex.push(elIdx);
-        styles.push(s);
-        left += s.width;
-        styleIndexToX.push(left);
-        styleIndexToElementIndex.push(elIdx);
-        styles.push(gapEl);
-        left += gapEl.width;
-        elIdx++;
-        break;
+        const s = determineBeamedNotesStyle(
+          beamedNotes,
+          el.duration,
+          gapWidth,
+          elIdx
+        );
+        for (const beamedEl of s) {
+          yield beamedEl;
+        }
+        idxAdd = beamedNotes.length;
+      } else {
+        const note = determineNoteStyle({ note: el });
+        const caretOption = { index: elIdx };
+        yield { caretOption, index: elIdx, ...note };
+        idxAdd = 1;
+      }
+    } else if (el.type === "rest") {
+      const rest = determineRestStyle(el);
+      const caretOption = { index: elIdx };
+      yield { caretOption, index: elIdx, ...rest };
+      idxAdd = 1;
     }
+    const caretOption = { index: elIdx, defaultWidth: true };
+    yield { caretOption, ...gapEl };
+    elIdx += idxAdd;
   }
-  return { styles, styleIndexToX, styleIndexToElementIndex, elementIndexToX };
 };
 
 const paintNote = ({
@@ -1029,60 +990,81 @@ const paintRest = ({
   ctx.restore();
 };
 
-const paintBeam = (ctx: CanvasRenderingContext2D, styles: BeamStyle[]) => {
+const paintBeam = (ctx: CanvasRenderingContext2D, beam: BeamStyle) => {
   ctx.save();
   ctx.fillStyle = "#000";
-  for (const beam of styles) {
-    ctx.beginPath();
-    ctx.moveTo(beam.nw.x, beam.nw.y);
-    ctx.lineTo(beam.sw.x, beam.sw.y);
-    ctx.lineTo(beam.se.x, beam.se.y);
-    ctx.lineTo(beam.ne.x, beam.ne.y);
-    ctx.closePath();
-    ctx.fill();
-  }
+  ctx.beginPath();
+  ctx.moveTo(beam.nw.x, beam.nw.y);
+  ctx.lineTo(beam.sw.x, beam.sw.y);
+  ctx.lineTo(beam.se.x, beam.se.y);
+  ctx.lineTo(beam.ne.x, beam.ne.y);
+  ctx.closePath();
+  ctx.fill();
+
   ctx.restore();
 };
 
-export const paintStyles = (
+export const paintStyle = (
   ctx: CanvasRenderingContext2D,
-  styles: DrawElementStyle[],
+  { element }: DrawElementStyle,
   color?: string,
   yOffset?: number
 ) => {
-  ctx.save();
-  for (const { element, width } of styles) {
-    const { type } = element;
-    if (type === "clef") {
-      paintGClef(ctx, 0, 0);
-    } else if (type === "note") {
-      paintNote({ ctx, elements: element.elements });
-    } else if (type === "rest") {
-      paintRest({ ctx, element });
-    } else if (type === "beam") {
-      const { elements: styles, beams } = element;
-      paintStyles(ctx, styles, "green", 100);
-      paintBeam(ctx, beams);
-    } else if (type === "bar") {
-      // TODO
-    } else if (type === "gap") {
-      // no-op
-    }
-    ctx.translate(width, 0);
+  const { type } = element;
+  if (type === "clef") {
+    paintGClef(ctx, 0, 0);
+  } else if (type === "note") {
+    paintNote({ ctx, elements: element.elements });
+  } else if (type === "rest") {
+    paintRest({ ctx, element });
+  } else if (type === "beam") {
+    paintBeam(ctx, element);
+  } else if (type === "bar") {
+    // TODO
+  } else if (type === "gap") {
+    // no-op
   }
-  ctx.restore();
 };
+
+// export const paintStyles = (
+//   ctx: CanvasRenderingContext2D,
+//   styles: DrawElementStyle[],
+//   color?: string,
+//   yOffset?: number
+// ) => {
+//   ctx.save();
+//   for (const { element, width } of styles) {
+//     const { type } = element;
+//     if (type === "clef") {
+//       paintGClef(ctx, 0, 0);
+//     } else if (type === "note") {
+//       paintNote({ ctx, elements: element.elements });
+//     } else if (type === "rest") {
+//       paintRest({ ctx, element });
+//     } else if (type === "beam") {
+//       const { elements: styles, beams } = element;
+//       paintStyles(ctx, styles, "green", 100);
+//       paintBeam(ctx, beams);
+//     } else if (type === "bar") {
+//       // TODO
+//     } else if (type === "gap") {
+//       // no-op
+//     }
+//     ctx.translate(width, 0);
+//   }
+//   ctx.restore();
+// };
 
 export const drawCaret = ({
   ctx,
   scale,
-  pos,
+  caret,
 }: {
   ctx: CanvasRenderingContext2D;
   scale: number;
-  pos: Caret;
+  caret: Caret;
 }) => {
-  const { x, y, width } = pos;
+  const { x, y, width } = caret;
   const height = bStaffHeight * scale;
   ctx.save();
   ctx.fillStyle = "#FF000055";
