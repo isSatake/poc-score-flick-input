@@ -12,6 +12,7 @@ import {
 import {
   bBeamSpacing,
   bBeamThickness,
+  bBoldBarlineThickness,
   bClefG,
   bStaffHeight,
   bStemWidth,
@@ -59,7 +60,10 @@ export type NoteStyleElement =
       width: number;
     };
 export type RestStyle = { type: "rest"; rest: Rest; position: Point };
-export type BarStyle = { type: "bar"; bar: Bar; lineWidth: number };
+export type BarStyle = { type: "bar"; bar: Bar; elements: BarStyleElement[] };
+export type BarStyleElement =
+  | { type: "line"; position: Point; lineWidth: number }
+  | { type: "colon"; position: Point };
 export type BeamStyle = {
   type: "beam";
   nw: Point;
@@ -467,8 +471,50 @@ const determineRestStyle = (
 };
 
 const determineBarStyle = (bar: Bar): { element: BarStyle; width: number } => {
-  const width = bThinBarlineThickness * UNIT;
-  return { element: { type: "bar", bar, lineWidth: width }, width };
+  const thinWidth = bThinBarlineThickness * UNIT;
+  const elements: BarStyleElement[] = [];
+  if (bar.subtype === "single") {
+    elements.push({
+      type: "line",
+      position: { x: 0, y: 0 },
+      lineWidth: thinWidth,
+    });
+  } else if (bar.subtype === "double") {
+    elements.push(
+      {
+        type: "line",
+        position: { x: 0, y: 0 },
+        lineWidth: thinWidth,
+      },
+      {
+        type: "line",
+        position: { x: 10, y: 0 }, // TODO x
+        lineWidth: thinWidth,
+      }
+    );
+  } else {
+    const boldWidth = bBoldBarlineThickness * UNIT;
+    elements.push(
+      {
+        type: "colon",
+        position: { x: 0, y: 10 }, // TODO y
+      },
+      {
+        type: "line",
+        position: { x: 10, y: 0 }, // TODO x
+        lineWidth: thinWidth,
+      },
+      {
+        type: "line",
+        position: { x: 15, y: 0 }, // TODO x
+        lineWidth: boldWidth,
+      }
+    );
+  }
+  return {
+    element: { type: "bar", bar, elements },
+    width: 0, // TODO
+  };
 };
 
 export const pitchToY = (

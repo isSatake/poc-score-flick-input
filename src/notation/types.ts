@@ -29,6 +29,7 @@ export type MusicalElement = Note | Rest | Bar;
 
 export type Bar = {
   type: "bar";
+  subtype: "single" | "double" | "repeat";
 };
 
 export type Clef = {

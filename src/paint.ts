@@ -92,12 +92,14 @@ export const paintStaff = (
 const paintBarline = (ctx: CanvasRenderingContext2D, element: BarStyle) => {
   ctx.save();
   ctx.strokeStyle = "#000";
-  ctx.lineWidth = element.lineWidth;
-  ctx.beginPath();
-  ctx.moveTo(0, 0);
-  ctx.lineTo(0, bStaffHeight);
-  ctx.closePath();
-  ctx.stroke();
+  for (const el of element.elements) {
+    ctx.lineWidth = element.lineWidth;
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(0, bStaffHeight);
+    ctx.closePath();
+    ctx.stroke();
+  }
   ctx.restore();
 };
 

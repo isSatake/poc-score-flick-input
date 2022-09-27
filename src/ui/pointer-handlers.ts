@@ -136,6 +136,25 @@ export class KeyPressHandler extends EmptyPointerHandler {
   }
 }
 
+export class BarInputHandler extends EmptyPointerHandler {
+  private candidateContainer: HTMLDivElement;
+  constructor(private callback: BarInputCallback) {
+    super();
+    this.candidateContainer = document.querySelector(
+      ".bars .candidateContainer"
+    ) as HTMLDivElement;
+  }
+  onClick(ev: PointerEvent) {
+    this.callback.commit({ type: "bar", subtype: "single" });
+  }
+  onLongDown(ev: PointerEvent) {
+    this.candidateContainer.style.visibility = "visible";
+  }
+  onUp(ev: PointerEvent, downPoint: Point) {
+    this.candidateContainer.style.visibility = "hidden";
+  }
+}
+
 export class NoteInputHandler extends EmptyPointerHandler {
   private readonly posToDurationMap = new Map<string, Duration>([
     ["12", 1],
@@ -218,15 +237,5 @@ export class ArrowHandler extends EmptyPointerHandler {
     } else if (className.match(/.*toRight.*/)) {
       this.callback.forward();
     }
-  }
-}
-
-export class BarHandler extends EmptyPointerHandler {
-  constructor(private callback: BarInputCallback) {
-    super();
-  }
-
-  onClick(ev: PointerEvent) {
-    this.callback.bar();
   }
 }

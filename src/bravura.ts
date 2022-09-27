@@ -11,6 +11,7 @@ export const WIDTH_NOTE_HEAD_BLACK = 295; // 1000 / 4 * 1.18
 export const WIDTH_NOTE_HEAD_WHOLE = 422; // 1000 / 4 * 1.688
 export const EXTENSION_LEDGER_LINE = 0.2;
 export const bThinBarlineThickness = 0.16; // e.g. a normal barline, or each of the lines of a double barline
+export const bBoldBarlineThickness = 0.32; // TODO 太線の定義を探す
 export const bBeamThickness = 0.5;
 export const bBeamSpacing = 0.25;
 
