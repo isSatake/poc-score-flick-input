@@ -58,20 +58,7 @@ window.onload = () => {
   const noteKeyEls = Array.from(document.getElementsByClassName("note"));
   const changeNoteRestKey =
     document.getElementsByClassName("changeNoteRest")[0];
-  let mainElements: MusicalElement[] = [
-    {
-      type: "bar",
-      subtype: "single",
-    },
-    {
-      type: "bar",
-      subtype: "double",
-    },
-    {
-      type: "bar",
-      subtype: "repeat",
-    },
-  ];
+  let mainElements: MusicalElement[] = [];
   let caretPositions: CaretStyle[] = [];
   let caretIndex = 0;
   let isNoteInputMode = true;

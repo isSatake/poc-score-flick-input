@@ -25,10 +25,10 @@ export type Rest = {
   duration: Duration;
 };
 
+export type BarTypes = "single" | "double" | "final" | "repeat";
 export type Bar = {
   type: "bar";
-  subtype: "single" | "double" | "repeat";
-  // TODO final
+  subtype: BarTypes;
 };
 
 export type Repeat = {

@@ -7,7 +7,7 @@ import {
   ChangeNoteRestCallback,
   NoteInputCallback,
 } from "./callbacks";
-import { Duration } from "../notation/types";
+import { BarTypes, Duration } from "../notation/types";
 
 class EmptyPointerHandler implements PointerHandler {
   constructor() {}
@@ -151,6 +151,12 @@ export class BarInputHandler extends EmptyPointerHandler {
     this.candidateContainer.style.visibility = "visible";
   }
   onUp(ev: PointerEvent, downPoint: Point) {
+    const [subtype] = (ev.target as HTMLDivElement).className
+      .split(" ")
+      .filter((v) => v.match(/single|double|repeat/));
+    if (subtype) {
+      this.callback.commit({ type: "bar", subtype: subtype as BarTypes });
+    }
     this.candidateContainer.style.visibility = "hidden";
   }
 }

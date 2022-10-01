@@ -90,27 +90,46 @@ html, body {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   grid-template-rows: repeat(3, 1fr);
-  width: 300%;
-  height: 300%;
-  top: -100%;
-  left: -100%;
+  width: 330%;
+  height: 330%;
+  top: -115%;
+  left: -115%;
+  filter: drop-shadow(0px 1px 2px grey);
 }
 
 .candidate {
   position: relative;
-  background: red;
+  background: white;
   width: 100%;
   height: 100%;
-  border: 1px solid green;
-  box-sizing: border-box;
+}
+
+.candidate:hover {
+  background: #027bff;
 }
 
 .candidate.top {
   grid-column-start: 2;
+  box-sizing: border-box;
+  border-bottom: 1px solid #ebe9eb;
+  border-top-left-radius: 9px;
+  border-top-right-radius: 9px;
+}
+
+.candidate.top:hover {
+  border: none;
 }
 
 .candidate.left {
   grid-row-start: 2;
+  box-sizing: border-box;
+  border-right: 1px solid #ebe9eb;
+  border-top-left-radius: 9px;
+  border-bottom-left-radius: 9px;
+}
+
+.candidate.left:hover {
+  border: none;
 }
 
 .candidate.center {
@@ -119,11 +138,54 @@ html, body {
 
 .candidate.right {
   grid-row-start: 2;
+  box-sizing: border-box;
+  border-left: 1px solid #ebe9eb;
+  border-top-right-radius: 9px;
+  border-bottom-right-radius: 9px;
+}
+
+.candidate.right:hover {
+  border: none;
 }
 
 .candidate.bottom {
   grid-column-start: 2;
   grid-row-start: 3;
+  box-sizing: border-box;
+  border-top: 1px solid #ebe9eb;
+  border-bottom-left-radius: 9px;
+  border-bottom-right-radius: 9px;
+}
+
+.candidate.bottom:hover {
+  border: none;
+}
+
+.buttonImage {
+  width: 100%;
+  height: 100%;
+  background-color: black;
+  pointer-events: none;
+}
+
+.buttonImage:hover {
+  background-color: white;
+}
+
+.single > .buttonImage {
+  -webkit-mask: url("img/barline_single.svg") no-repeat center center / 50% 50%;
+}
+
+.double > .buttonImage {
+  -webkit-mask: url("img/barline_double.svg") no-repeat center center / 50% 50%;
+}
+
+.final > .buttonImage {
+  -webkit-mask: url("img/barline_final.svg") no-repeat center center / 50% 50%;
+}
+
+.repeat > .buttonImage {
+  -webkit-mask: url("img/barline_repeat.svg") no-repeat center center / 50% 50%;
 }
 
 .whiteKey {
