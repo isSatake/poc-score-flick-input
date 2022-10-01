@@ -10,15 +10,18 @@ import {
   Rest,
 } from "./notation/types";
 import {
+  bBarlineSeparation,
   bBeamSpacing,
   bBeamThickness,
-  bBoldBarlineThickness,
   bClefG,
+  bRepeatBarlineDotSeparation,
   bStaffHeight,
   bStemWidth,
+  bThickBarlineThickness,
   bThinBarlineThickness,
   EXTENSION_LEDGER_LINE,
   Path,
+  repeatDotRadius,
   UNIT,
 } from "./bravura";
 import {
@@ -63,7 +66,7 @@ export type RestStyle = { type: "rest"; rest: Rest; position: Point };
 export type BarStyle = { type: "bar"; bar: Bar; elements: BarStyleElement[] };
 export type BarStyleElement =
   | { type: "line"; position: Point; lineWidth: number }
-  | { type: "colon"; position: Point };
+  | { type: "dot"; position: Point };
 export type BeamStyle = {
   type: "beam";
   nw: Point;
@@ -472,13 +475,16 @@ const determineRestStyle = (
 
 const determineBarStyle = (bar: Bar): { element: BarStyle; width: number } => {
   const thinWidth = bThinBarlineThickness * UNIT;
+  const barlineSeparation = bBarlineSeparation * UNIT;
   const elements: BarStyleElement[] = [];
+  let width = 0;
   if (bar.subtype === "single") {
     elements.push({
       type: "line",
       position: { x: 0, y: 0 },
       lineWidth: thinWidth,
     });
+    width = thinWidth;
   } else if (bar.subtype === "double") {
     elements.push(
       {
@@ -488,32 +494,47 @@ const determineBarStyle = (bar: Bar): { element: BarStyle; width: number } => {
       },
       {
         type: "line",
-        position: { x: 10, y: 0 }, // TODO x
+        position: { x: thinWidth + barlineSeparation, y: 0 }, // TODO x
         lineWidth: thinWidth,
       }
     );
+    width = barlineSeparation + thinWidth * 2;
   } else {
-    const boldWidth = bBoldBarlineThickness * UNIT;
+    const boldWidth = bThickBarlineThickness * UNIT;
+    const dotToLineSeparation = bRepeatBarlineDotSeparation * UNIT;
     elements.push(
       {
-        type: "colon",
-        position: { x: 0, y: 10 }, // TODO y
+        type: "dot",
+        position: { x: 0, y: UNIT + UNIT / 2 }, // 第2間
       },
       {
         type: "line",
-        position: { x: 10, y: 0 }, // TODO x
+        position: { x: repeatDotRadius * 2 + dotToLineSeparation, y: 0 },
         lineWidth: thinWidth,
       },
       {
         type: "line",
-        position: { x: 15, y: 0 }, // TODO x
+        position: {
+          x:
+            repeatDotRadius * 2 +
+            dotToLineSeparation +
+            thinWidth +
+            barlineSeparation,
+          y: 0,
+        },
         lineWidth: boldWidth,
       }
     );
+    width =
+      repeatDotRadius * 2 +
+      dotToLineSeparation +
+      thinWidth +
+      barlineSeparation +
+      boldWidth;
   }
   return {
     element: { type: "bar", bar, elements },
-    width: 0, // TODO
+    width,
   };
 };
 

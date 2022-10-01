@@ -5,6 +5,7 @@ import {
   bStaffLineWidth,
   bThinBarlineThickness,
   Path,
+  repeatDotRadius,
   UNIT,
 } from "./bravura";
 import {
@@ -90,17 +91,30 @@ export const paintStaff = (
  * 小節線描画
  */
 const paintBarline = (ctx: CanvasRenderingContext2D, element: BarStyle) => {
-  ctx.save();
-  ctx.strokeStyle = "#000";
   for (const el of element.elements) {
-    ctx.lineWidth = element.lineWidth;
-    ctx.beginPath();
-    ctx.moveTo(0, 0);
-    ctx.lineTo(0, bStaffHeight);
-    ctx.closePath();
-    ctx.stroke();
+    ctx.save();
+    if (el.type === "line") {
+      ctx.translate(el.position.x + el.lineWidth / 2, el.position.y);
+      ctx.strokeStyle = "#000";
+      ctx.lineWidth = el.lineWidth;
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(0, bStaffHeight);
+      ctx.closePath();
+      ctx.stroke();
+    } else {
+      const rad = repeatDotRadius;
+      ctx.translate(el.position.x + rad, el.position.y);
+      ctx.fillStyle = "#000";
+      ctx.beginPath();
+      ctx.arc(0, 0, rad, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(0, UNIT, rad, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
   }
-  ctx.restore();
 };
 
 const paintNote = ({

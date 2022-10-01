@@ -58,7 +58,20 @@ window.onload = () => {
   const noteKeyEls = Array.from(document.getElementsByClassName("note"));
   const changeNoteRestKey =
     document.getElementsByClassName("changeNoteRest")[0];
-  let mainElements: MusicalElement[] = [];
+  let mainElements: MusicalElement[] = [
+    {
+      type: "bar",
+      subtype: "single",
+    },
+    {
+      type: "bar",
+      subtype: "double",
+    },
+    {
+      type: "bar",
+      subtype: "repeat",
+    },
+  ];
   let caretPositions: CaretStyle[] = [];
   let caretIndex = 0;
   let isNoteInputMode = true;
@@ -88,7 +101,7 @@ window.onload = () => {
         const { index: elIdx, defaultWidth } = caretOption;
         const caretWidth = defaultWidth ? defaultCaretWidth : width;
         caretPositions.push({
-          x: cursor + (defaultWidth ? width / 2 : 0),
+          x: cursor + (defaultWidth ? width / 2 - caretWidth / 2 : 0),
           y: 0,
           width: caretWidth,
           elIdx,
