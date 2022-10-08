@@ -716,6 +716,97 @@ const sortPitch = (p: PitchAcc[], dir: "asc" | "dsc"): PitchAcc[] => {
   });
 };
 
+const determineBeamsStyle = (p: {
+  beamedNotes: Note[];
+  notePositions: { left: number; stemOffsetLeft: number }[];
+  linearFunc: (x: number) => number;
+  stemDirection: "up" | "down";
+  duration?: Duration;
+}): PaintElementStyle[] => {
+  const {
+    beamedNotes,
+    notePositions,
+    linearFunc,
+    stemDirection,
+    duration = 8,
+  } = p;
+  let shouldExt = false;
+  // 途中の16th, 32thのケツは必ずshouldExt=trueになってしまうなぁ
+  const { beam: lastBeam } = beamedNotes[beamedNotes.length - 1];
+  if (lastBeam === "continue" || lastBeam === "begin") {
+    // ちょっとbeamを伸ばしてbeam modeであることを明示
+    shouldExt = true;
+  }
+  // 32th, 16th && beamedNotes.length:1のときlastStemLeftは短くする
+  // 長さはextにそろえる
+  const firstStemLeft = notePositions[0].left + notePositions[0].stemOffsetLeft;
+  let lastStemLeft =
+    notePositions[notePositions.length - 1].left +
+    notePositions[notePositions.length - 1].stemOffsetLeft +
+    (shouldExt ? UNIT : 0);
+  if (duration > 8 && beamedNotes.length === 1) {
+    // TODO 続き
+    lastStemLeft = firstStemLeft + UNIT;
+  }
+  const beams: PaintElementStyle[] = [];
+  const offsetY =
+    (UNIT * bBeamThickness + UNIT * bBeamSpacing) *
+    (numOfBeamsMap.get(duration)! - 1);
+  beams.push({
+    element: {
+      type: "beam",
+      ...getBeamShape({
+        scale: 1,
+        stemDirection,
+        firstStemLeft,
+        lastStemLeft,
+        stemLinearFunc: linearFunc,
+        offsetY,
+      }),
+    },
+    width: lastStemLeft - firstStemLeft,
+  });
+  if (duration === 32) {
+    return beams;
+  }
+  const shorterDuration = (duration * 2) as Duration;
+  const beamedChunks: { start: number; end: number }[] = [];
+  let chunkIdx = 0;
+  let i = 0;
+  let current;
+  while (i < beamedNotes.length) {
+    const note = beamedNotes[i];
+    if (note.duration === shorterDuration) {
+      if (!current) {
+        // 1音だけのbeamも考慮してendにも同じidxを格納
+        current = { start: i, end: i };
+        beamedChunks.push(current);
+      }
+    } else if (current) {
+      beamedChunks[chunkIdx].end = i;
+      chunkIdx++;
+      current = undefined;
+    }
+    i++;
+  }
+  if (current) {
+    // beamedNotes全てがshorterDurationの場合を考慮
+    beamedChunks[chunkIdx].end = beamedNotes.length;
+  }
+  console.log(beamedChunks);
+  for (const { start, end } of beamedChunks) {
+    beams.push(
+      ...determineBeamsStyle({
+        ...p,
+        beamedNotes: beamedNotes.slice(start, end + 1),
+        notePositions: notePositions.slice(start, end + 1),
+        duration: shorterDuration,
+      })
+    );
+  }
+  return beams;
+};
+
 const determineBeamedNotesStyle = (
   beamedNotes: Note[],
   duration: Duration,
@@ -726,7 +817,7 @@ const determineBeamedNotesStyle = (
     .flatMap((n) => n.pitches)
     .map((p) => p.pitch);
   const stemDirection = getStemDirection(allBeamedPitches);
-  const arr: { left: number; stemOffsetLeft: number }[] = [];
+  const notePositions: { left: number; stemOffsetLeft: number }[] = [];
   const elements: PaintElementStyle[] = [];
   const gapEl: PaintElementStyle = {
     element: { type: "gap" },
@@ -741,7 +832,7 @@ const determineBeamedNotesStyle = (
       stemDirection,
       beamed: true,
     });
-    arr.push({ left, stemOffsetLeft: noteStyle.stemOffsetLeft });
+    notePositions.push({ left, stemOffsetLeft: noteStyle.stemOffsetLeft });
     const caretOption = { index: i + startIdx };
     elements.push({ caretOption, index: i + startIdx, ...noteStyle });
     left += noteStyle.width;
@@ -751,44 +842,25 @@ const determineBeamedNotesStyle = (
     });
     left += elementGap;
   }
-  const { beam: lastBeam } = beamedNotes[beamedNotes.length - 1];
-  if (lastBeam === "continue" || lastBeam === "begin") {
-    // ちょっとbeamを伸ばしてbeam modeであることを明示
-    shouldExt = true;
-  }
-  const firstStemLeft = arr[0].left + arr[0].stemOffsetLeft;
-  const lastStemLeft =
-    arr[arr.length - 1].left +
-    arr[arr.length - 1].stemOffsetLeft +
-    (shouldExt ? UNIT : 0);
-  const stemLinearFunc = getBeamLinearFunc({
+  // durationが変わろうが、始点・終点が変わろうが共通
+  const linearFunc = getBeamLinearFunc({
     dnp: { topOfStaff: 0, scale: 1, duration },
     stemDirection,
     beamed: beamedNotes,
-    arr: arr,
+    arr: notePositions,
   });
-  const beamed: PaintElementStyle[] = [];
-  for (let i = 0; i < (numOfBeamsMap.get(duration) ?? 0); i++) {
-    const offsetY = (UNIT * bBeamThickness + UNIT * bBeamSpacing) * i;
-    beamed.push({
-      element: {
-        type: "beam",
-        ...getBeamShape({
-          scale: 1,
-          stemDirection,
-          firstStemLeft,
-          lastStemLeft,
-          stemLinearFunc,
-          offsetY,
-        }),
-      },
-      width: lastStemLeft - firstStemLeft,
-    });
-  }
+  const beams = determineBeamsStyle({
+    beamedNotes,
+    notePositions,
+    linearFunc,
+    stemDirection,
+  });
   for (const i in beamedNotes) {
     const { pitches } = beamedNotes[i];
     const pitchAsc = sortPitch(pitches, "asc");
-    const edge = stemLinearFunc(arr[i].left + arr[i].stemOffsetLeft);
+    const edge = linearFunc(
+      notePositions[i].left + notePositions[i].stemOffsetLeft
+    );
     let beamed;
     if (stemDirection === "up") {
       beamed = { top: edge };
@@ -798,7 +870,7 @@ const determineBeamedNotesStyle = (
     // TODO note側のsectionとmergeしないと正しいwidthにならない
     // beam noteだけgapが狭くなりそう。
     const { elements: el } = determineStemFlagStyle({
-      left: arr[i].stemOffsetLeft,
+      left: notePositions[i].stemOffsetLeft,
       duration,
       direction: stemDirection,
       lowest: pitchAsc[0],
@@ -809,7 +881,7 @@ const determineBeamedNotesStyle = (
     const parent = elements[Number(i) * 2].element as NoteStyle;
     parent.elements.push(...el);
   }
-  return [...beamed, ...elements];
+  return [...beams, ...elements];
 };
 
 export type PaintElementStyle = {
