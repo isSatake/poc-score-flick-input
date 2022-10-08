@@ -8,7 +8,7 @@ import {
 } from "./paint";
 import {
   ArrowHandler,
-  BarHandler,
+  BarInputHandler,
   ChangeBeamHandler,
   ChangeNoteRestHandler,
   GrayPointerHandler,
@@ -18,6 +18,7 @@ import {
 } from "./ui/pointer-handlers";
 import { bStaffHeight, UNIT } from "./bravura";
 import {
+  Bar,
   Clef,
   Duration,
   durations,
@@ -87,7 +88,7 @@ window.onload = () => {
         const { index: elIdx, defaultWidth } = caretOption;
         const caretWidth = defaultWidth ? defaultCaretWidth : width;
         caretPositions.push({
-          x: cursor + (defaultWidth ? width / 2 : 0),
+          x: cursor + (defaultWidth ? width / 2 - caretWidth / 2 : 0),
           y: 0,
           width: caretWidth,
           elIdx,
@@ -360,11 +361,11 @@ window.onload = () => {
   };
 
   const barInputCallback: BarInputCallback = {
-    bar() {
+    commit(bar: Bar) {
       const { elements, insertedIndex, caretAdvance } = inputMusicalElement({
         caretIndex,
         elements: mainElements,
-        newElement: { type: "bar" },
+        newElement: bar,
         beamMode,
       });
       lastEditedIdx = insertedIndex;
@@ -396,9 +397,12 @@ window.onload = () => {
     ["toLeft", "toRight"],
     [new ArrowHandler(caretMoveCallback)]
   );
+  registerPointerHandlers(
+    ["bars", "candidate"],
+    [new BarInputHandler(barInputCallback)]
+  );
   // for screen capture
   registerPointerHandlers([], [new GrayPointerHandler()]);
-  registerPointerHandlers(["bars"], [new BarHandler(barInputCallback)]);
 
   initCanvas(0, 0, window.innerWidth, window.innerHeight, mainCanvas);
   initCanvas(0, 0, previewWidth, previewHeight, previewCanvas);

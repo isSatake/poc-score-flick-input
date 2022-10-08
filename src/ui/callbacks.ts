@@ -1,4 +1,4 @@
-import { Duration } from "../notation/types";
+import { Bar, Duration } from "../notation/types";
 import { BeamModes } from "../index";
 
 export interface ChangeNoteRestCallback {
@@ -33,5 +33,5 @@ export interface CaretInputCallback {
 }
 
 export interface BarInputCallback {
-  bar(): void;
+  commit(bar: Bar): void;
 }
