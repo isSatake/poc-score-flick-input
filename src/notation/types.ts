@@ -25,11 +25,18 @@ export type Rest = {
   duration: Duration;
 };
 
-export type MusicalElement = Note | Rest | Bar;
-
+export type BarTypes = "single" | "double" | "final" | "repeat";
 export type Bar = {
   type: "bar";
+  subtype: BarTypes;
 };
+
+export type Repeat = {
+  type: "repeat";
+  subtype: "begin" | "end";
+};
+
+export type MusicalElement = Note | Rest | Bar;
 
 export type Clef = {
   type: "g";
