@@ -657,41 +657,39 @@ const getBeamLinearFunc = ({
 const getBeamShape = ({
   scale,
   stemDirection,
-  firstStemLeft,
-  lastStemLeft,
+  beamLeft,
+  beamRight,
   stemLinearFunc,
   offsetY = 0,
 }: {
   scale: number;
   stemDirection: "up" | "down";
-  firstStemLeft: number;
-  lastStemLeft: number;
+  beamLeft: number;
+  beamRight: number;
   stemLinearFunc: (stemX: number) => number;
   offsetY?: number;
 }): { nw: Point; ne: Point; sw: Point; se: Point } => {
   const beamHeight = UNIT * bBeamThickness * scale;
   // first note
   const firstStemEdge =
-    stemLinearFunc(firstStemLeft) +
-    (stemDirection === "up" ? offsetY : -offsetY);
+    stemLinearFunc(beamLeft) + (stemDirection === "up" ? offsetY : -offsetY);
   const nw = {
-    x: firstStemLeft,
+    x: beamLeft,
     y: stemDirection === "up" ? firstStemEdge : firstStemEdge - beamHeight,
   };
   const sw = {
-    x: firstStemLeft,
+    x: beamLeft,
     y: stemDirection === "up" ? firstStemEdge + beamHeight : firstStemEdge,
   };
   // last note
   const lastStemEdge =
-    stemLinearFunc(lastStemLeft) +
-    (stemDirection === "up" ? offsetY : -offsetY);
+    stemLinearFunc(beamRight) + (stemDirection === "up" ? offsetY : -offsetY);
   const ne = {
-    x: lastStemLeft,
+    x: beamRight,
     y: stemDirection === "up" ? lastStemEdge : lastStemEdge - beamHeight,
   };
   const se = {
-    x: lastStemLeft,
+    x: beamRight,
     y: stemDirection === "up" ? lastStemEdge + beamHeight : lastStemEdge,
   };
   return { nw, ne, se, sw };
@@ -716,12 +714,13 @@ const sortPitch = (p: PitchAcc[], dir: "asc" | "dsc"): PitchAcc[] => {
   });
 };
 
-const determineBeamsStyle = (p: {
+const determineBeamStyle = (p: {
   beamedNotes: Note[];
   notePositions: { left: number; stemOffsetLeft: number }[];
   linearFunc: (x: number) => number;
   stemDirection: "up" | "down";
   duration?: Duration;
+  headOrTail?: "head" | "tail";
 }): PaintElementStyle[] => {
   const {
     beamedNotes,
@@ -729,24 +728,25 @@ const determineBeamsStyle = (p: {
     linearFunc,
     stemDirection,
     duration = 8,
+    headOrTail,
   } = p;
   let shouldExt = false;
-  // 途中の16th, 32thのケツは必ずshouldExt=trueになってしまうなぁ
   const { beam: lastBeam } = beamedNotes[beamedNotes.length - 1];
   if (lastBeam === "continue" || lastBeam === "begin") {
     // ちょっとbeamを伸ばしてbeam modeであることを明示
     shouldExt = true;
   }
-  // 32th, 16th && beamedNotes.length:1のときlastStemLeftは短くする
-  // 長さはextにそろえる
-  const firstStemLeft = notePositions[0].left + notePositions[0].stemOffsetLeft;
-  let lastStemLeft =
+  let beamLeft = notePositions[0].left + notePositions[0].stemOffsetLeft;
+  let beamRight =
     notePositions[notePositions.length - 1].left +
     notePositions[notePositions.length - 1].stemOffsetLeft +
     (shouldExt ? UNIT : 0);
   if (duration > 8 && beamedNotes.length === 1) {
-    // TODO 続き
-    lastStemLeft = firstStemLeft + UNIT;
+    if (headOrTail === "head") {
+      beamRight = beamLeft + UNIT;
+    } else if (headOrTail === "tail") {
+      beamLeft = beamRight - UNIT;
+    }
   }
   const beams: PaintElementStyle[] = [];
   const offsetY =
@@ -758,19 +758,23 @@ const determineBeamsStyle = (p: {
       ...getBeamShape({
         scale: 1,
         stemDirection,
-        firstStemLeft,
-        lastStemLeft,
+        beamLeft,
+        beamRight,
         stemLinearFunc: linearFunc,
         offsetY,
       }),
     },
-    width: lastStemLeft - firstStemLeft,
+    width: beamRight - beamLeft,
   });
   if (duration === 32) {
     return beams;
   }
   const shorterDuration = (duration * 2) as Duration;
-  const beamedChunks: { start: number; end: number }[] = [];
+  const beamedChunks: {
+    start: number;
+    end: number;
+    headOrTail?: "head" | "tail";
+  }[] = [];
   let chunkIdx = 0;
   let i = 0;
   let current;
@@ -778,8 +782,14 @@ const determineBeamsStyle = (p: {
     const note = beamedNotes[i];
     if (note.duration === shorterDuration) {
       if (!current) {
+        let headOrTail: "head" | "tail" | undefined;
+        if (i === 0) {
+          headOrTail = "head";
+        } else if (i === beamedNotes.length - 1) {
+          headOrTail = "tail";
+        }
         // 1音だけのbeamも考慮してendにも同じidxを格納
-        current = { start: i, end: i };
+        current = { start: i, end: i, headOrTail };
         beamedChunks.push(current);
       }
     } else if (current) {
@@ -790,17 +800,19 @@ const determineBeamsStyle = (p: {
     i++;
   }
   if (current) {
-    // beamedNotes全てがshorterDurationの場合を考慮
+    // beamedNotes末尾がshorterDurationの場合を考慮
     beamedChunks[chunkIdx].end = beamedNotes.length;
+    beamedChunks[chunkIdx].headOrTail = "tail";
   }
   console.log(beamedChunks);
-  for (const { start, end } of beamedChunks) {
+  for (const { start, end, headOrTail } of beamedChunks) {
     beams.push(
-      ...determineBeamsStyle({
+      ...determineBeamStyle({
         ...p,
-        beamedNotes: beamedNotes.slice(start, end + 1),
-        notePositions: notePositions.slice(start, end + 1),
+        beamedNotes: beamedNotes.slice(start, end),
+        notePositions: notePositions.slice(start, end),
         duration: shorterDuration,
+        headOrTail,
       })
     );
   }
@@ -849,7 +861,7 @@ const determineBeamedNotesStyle = (
     beamed: beamedNotes,
     arr: notePositions,
   });
-  const beams = determineBeamsStyle({
+  const beams = determineBeamStyle({
     beamedNotes,
     notePositions,
     linearFunc,
