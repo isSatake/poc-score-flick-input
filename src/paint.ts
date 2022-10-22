@@ -3,7 +3,6 @@ import {
   bLedgerLineThickness,
   bStaffHeight,
   bStaffLineWidth,
-  bThinBarlineThickness,
   Path,
   repeatDotRadius,
   UNIT,
@@ -16,29 +15,40 @@ import {
   upFlagMap,
 } from "./notation/notation";
 import {
+  BarStyle,
   BeamStyle,
   CaretStyle,
-  PaintElementStyle,
   NoteStyleElement,
+  PaintElementStyle,
   pitchToY,
   RestStyle,
-  BarStyle,
 } from "./style";
 
-export const initCanvas = (
-  leftPx: number,
-  topPx: number,
-  width: number,
-  height: number,
-  _canvas?: HTMLCanvasElement
-): HTMLCanvasElement => {
+export const initCanvas = ({
+  dpr,
+  leftPx,
+  topPx,
+  width,
+  height,
+  _canvas,
+}: {
+  dpr: number;
+  leftPx: number;
+  topPx: number;
+  width: number;
+  height: number;
+  _canvas?: HTMLCanvasElement;
+}) => {
   const canvas = _canvas ?? document.createElement("canvas");
   canvas.style.position = "absolute";
   canvas.style.top = `${topPx}px`;
   canvas.style.left = `${leftPx}px`;
-  canvas.width = width;
-  canvas.height = height;
-  return canvas;
+  canvas.style.width = `${width}px`;
+  // https://developer.mozilla.org/en-US/docs/Web/API/Canvas_API/Tutorial/Optimizing_canvas#scaling_for_high_resolution_displays
+  canvas.width = width * dpr;
+  canvas.height = height * dpr;
+  canvas.style.height = `${height}px`;
+  canvas.getContext("2d")?.scale(dpr, dpr);
 };
 
 const paintBravuraPath = (

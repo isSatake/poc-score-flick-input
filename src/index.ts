@@ -38,6 +38,7 @@ import { CaretStyle, determinePaintElementStyle } from "./style";
 
 export type BeamModes = "beam" | "lock" | "nobeam";
 
+const dpr = window.devicePixelRatio;
 const scale = 0.08;
 const previewScale = 0.08;
 const leftOfStaff = 20;
@@ -220,7 +221,14 @@ window.onload = () => {
     startPreview(duration: Duration, downX: number, downY: number) {
       const left = downX - previewWidth / 2;
       const top = downY - previewHeight / 2;
-      initCanvas(left, top, previewWidth, previewHeight, previewCanvas);
+      initCanvas({
+        dpr,
+        leftPx: left,
+        topPx: top,
+        width: previewWidth,
+        height: previewHeight,
+        _canvas: previewCanvas,
+      });
       const element: MusicalElement = isNoteInputMode
         ? {
             type: "note",
@@ -404,8 +412,22 @@ window.onload = () => {
   // for screen capture
   registerPointerHandlers([], [new GrayPointerHandler()]);
 
-  initCanvas(0, 0, window.innerWidth, window.innerHeight, mainCanvas);
-  initCanvas(0, 0, previewWidth, previewHeight, previewCanvas);
+  initCanvas({
+    dpr,
+    leftPx: 0,
+    topPx: 0,
+    width: window.innerWidth,
+    height: window.innerHeight,
+    _canvas: mainCanvas,
+  });
+  initCanvas({
+    dpr,
+    leftPx: 0,
+    topPx: 0,
+    width: previewWidth,
+    height: previewHeight,
+    _canvas: previewCanvas,
+  });
   updateMain();
 };
 
