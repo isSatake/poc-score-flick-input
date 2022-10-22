@@ -179,7 +179,6 @@ const paintNote = ({
       ctx.beginPath();
       ctx.moveTo(0, 0);
       ctx.lineTo(0, bottom - top);
-      ctx.closePath();
       ctx.stroke();
       ctx.restore();
     }
