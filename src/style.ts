@@ -33,7 +33,6 @@ import {
   restPathMap,
   upFlagMap,
 } from "./notation/notation";
-import { Matrix } from "./matrix";
 import { Point } from "./geometry";
 
 export type CaretStyle = { x: number; y: number; width: number; elIdx: number };
@@ -477,7 +476,7 @@ const determineBarStyle = (bar: Bar): { element: BarStyle; width: number } => {
   const thinWidth = bThinBarlineThickness * UNIT;
   const barlineSeparation = bBarlineSeparation * UNIT;
   const elements: BarStyleElement[] = [];
-  let width = 0;
+  let width;
   if (bar.subtype === "single") {
     elements.push({
       type: "line",
@@ -730,11 +729,16 @@ const determineBeamStyle = (p: {
     duration = 8,
     headOrTail,
   } = p;
+  console.log("determineBeamStyle", duration);
   let shouldExt = false;
   const { beam: lastBeam } = beamedNotes[beamedNotes.length - 1];
   if (lastBeam === "continue" || lastBeam === "begin") {
     // ちょっとbeamを伸ばしてbeam modeであることを明示
-    shouldExt = true;
+    if (duration > 8) {
+      shouldExt = headOrTail === "tail";
+    } else {
+      shouldExt = true;
+    }
   }
   let beamLeft = notePositions[0].left + notePositions[0].stemOffsetLeft;
   let beamRight =
@@ -770,7 +774,7 @@ const determineBeamStyle = (p: {
     return beams;
   }
   const shorterDuration = (duration * 2) as Duration;
-  const beamedChunks: {
+  const beamChunks: {
     start: number;
     end: number;
     headOrTail?: "head" | "tail";
@@ -780,7 +784,7 @@ const determineBeamStyle = (p: {
   let current;
   while (i < beamedNotes.length) {
     const note = beamedNotes[i];
-    if (note.duration === shorterDuration) {
+    if (note.duration >= shorterDuration) {
       if (!current) {
         let headOrTail: "head" | "tail" | undefined;
         if (i === 0) {
@@ -790,10 +794,10 @@ const determineBeamStyle = (p: {
         }
         // 1音だけのbeamも考慮してendにも同じidxを格納
         current = { start: i, end: i, headOrTail };
-        beamedChunks.push(current);
+        beamChunks.push(current);
       }
     } else if (current) {
-      beamedChunks[chunkIdx].end = i;
+      beamChunks[chunkIdx].end = i;
       chunkIdx++;
       current = undefined;
     }
@@ -801,11 +805,11 @@ const determineBeamStyle = (p: {
   }
   if (current) {
     // beamedNotes末尾がshorterDurationの場合を考慮
-    beamedChunks[chunkIdx].end = beamedNotes.length;
-    beamedChunks[chunkIdx].headOrTail = "tail";
+    beamChunks[chunkIdx].end = beamedNotes.length;
+    beamChunks[chunkIdx].headOrTail = "tail";
   }
-  console.log(beamedChunks);
-  for (const { start, end, headOrTail } of beamedChunks) {
+  console.log(beamChunks);
+  for (const { start, end, headOrTail } of beamChunks) {
     beams.push(
       ...determineBeamStyle({
         ...p,
@@ -836,7 +840,6 @@ const determineBeamedNotesStyle = (
     width: elementGap,
   };
   let left = 0;
-  let shouldExt = false;
   for (const _i in beamedNotes) {
     const i = Number(_i);
     const noteStyle = determineNoteStyle({
@@ -904,12 +907,6 @@ export type PaintElementStyle = {
     index: number;
     defaultWidth?: boolean;
   };
-  /**
-   * DrawElement固有のmtx
-   * 装飾音とか音部変更記号とかはscale < 1にする使い方
-   * 装飾音はgapに食い込むようにtranslateするとか
-   */
-  localMtx?: Matrix;
 };
 
 export const determinePaintElementStyle = function* (
