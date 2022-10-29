@@ -9,6 +9,7 @@ import {
 import {
   ArrowHandler,
   BarInputHandler,
+  ChangeAccidentalHandler,
   ChangeBeamHandler,
   ChangeNoteRestHandler,
   GrayPointerHandler,
@@ -18,6 +19,7 @@ import {
 } from "./ui/pointer-handlers";
 import { bStaffHeight, UNIT } from "./bravura";
 import {
+  accidentals,
   Bar,
   Clef,
   Duration,
@@ -29,6 +31,7 @@ import {
 import {
   BarInputCallback,
   CaretInputCallback,
+  ChangeAccidentalCallback,
   ChangeBeamCallback,
   ChangeNoteRestCallback,
   NoteInputCallback,
@@ -37,6 +40,8 @@ import { sortPitches } from "./pitch";
 import { CaretStyle, determinePaintElementStyle } from "./style";
 
 export type BeamModes = "beam" | "lock" | "nobeam";
+const accidentalModes = [undefined, ...accidentals] as const;
+export type AccidentalModes = typeof accidentalModes[number];
 
 const dpr = window.devicePixelRatio;
 const scale = 0.08;
@@ -64,6 +69,7 @@ window.onload = () => {
   let caretIndex = 0;
   let isNoteInputMode = true;
   let beamMode: BeamModes = "nobeam";
+  let accidentalModeIdx = 0;
   let lastEditedIdx: number;
   const updateMain = () => {
     console.log("main", "start");
@@ -217,6 +223,17 @@ window.onload = () => {
       }
     },
   };
+  const changeAccidentalCallback: ChangeAccidentalCallback = {
+    getMode() {
+      return accidentalModes[accidentalModeIdx];
+    },
+    next() {
+      accidentalModeIdx =
+        accidentalModeIdx === accidentalModes.length - 1
+          ? 0
+          : accidentalModeIdx + 1;
+    },
+  };
   const noteInputCallback: NoteInputCallback = {
     startPreview(duration: Duration, downX: number, downY: number) {
       const left = downX - previewWidth / 2;
@@ -233,7 +250,12 @@ window.onload = () => {
         ? {
             type: "note",
             duration,
-            pitches: [{ pitch: pitchByDistance(previewScale, 0, 6) }],
+            pitches: [
+              {
+                pitch: pitchByDistance(previewScale, 0, 6),
+                accidental: accidentalModes[accidentalModeIdx],
+              },
+            ],
           }
         : {
             type: "rest",
@@ -258,7 +280,12 @@ window.onload = () => {
         ? {
             type: "note",
             duration,
-            pitches: [{ pitch: pitchByDistance(previewScale, dy, 6) }],
+            pitches: [
+              {
+                pitch: pitchByDistance(previewScale, dy, 6),
+                accidental: accidentalModes[accidentalModeIdx],
+              },
+            ],
           }
         : {
             type: "rest",
@@ -283,7 +310,12 @@ window.onload = () => {
         newElement = {
           type: "note",
           duration,
-          pitches: [{ pitch: pitchByDistance(previewScale, dy ?? 0, 6) }],
+          pitches: [
+            {
+              pitch: pitchByDistance(previewScale, dy ?? 0, 6),
+              accidental: accidentalModes[accidentalModeIdx],
+            },
+          ],
         };
       } else {
         newElement = {
@@ -408,6 +440,10 @@ window.onload = () => {
   registerPointerHandlers(
     ["bars", "candidate"],
     [new BarInputHandler(barInputCallback)]
+  );
+  registerPointerHandlers(
+    ["accidentals"],
+    [new ChangeAccidentalHandler(changeAccidentalCallback)]
   );
   // for screen capture
   registerPointerHandlers([], [new GrayPointerHandler()]);
