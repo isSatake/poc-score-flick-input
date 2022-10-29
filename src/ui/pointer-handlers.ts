@@ -3,6 +3,7 @@ import { Point } from "../geometry";
 import {
   BarInputCallback,
   CaretInputCallback,
+  ChangeAccidentalCallback,
   ChangeBeamCallback,
   ChangeNoteRestCallback,
   NoteInputCallback,
@@ -158,6 +159,29 @@ export class BarInputHandler extends EmptyPointerHandler {
       this.callback.commit({ type: "bar", subtype: subtype as BarTypes });
     }
     this.candidateContainer.style.visibility = "hidden";
+  }
+}
+
+export class ChangeAccidentalHandler extends EmptyPointerHandler {
+  private elMap: Map<"sharp" | "natural" | "flat", HTMLDivElement>;
+  constructor(private callback: ChangeAccidentalCallback) {
+    super();
+    this.elMap = new Map([
+      ["sharp", document.querySelector(".sharp") as HTMLDivElement],
+      ["natural", document.querySelector(".natural") as HTMLDivElement],
+      ["flat", document.querySelector(".flat") as HTMLDivElement],
+    ]);
+  }
+  onClick(ev: PointerEvent) {
+    this.callback.next();
+    const current = this.callback.getMode();
+    for (const [mode, el] of this.elMap.entries()) {
+      if (mode === current) {
+        el.className = el.className + " selected";
+      } else {
+        el.className = mode;
+      }
+    }
   }
 }
 
