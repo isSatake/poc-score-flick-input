@@ -4,7 +4,8 @@ export type Duration = typeof durations[number];
 // C4 (middleC) = 0
 export type Pitch = number;
 
-export type Accidental = "sharp" | "natural" | "flat";
+export const accidentals = ["sharp", "natural", "flat"] as const;
+export type Accidental = typeof accidentals[number];
 
 export type PitchAcc = {
   pitch: Pitch;
