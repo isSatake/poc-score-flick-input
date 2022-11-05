@@ -9,6 +9,7 @@ import {
 import {
   ArrowHandler,
   BarInputHandler,
+  CanvasPointerHandler,
   ChangeAccidentalHandler,
   ChangeBeamHandler,
   ChangeNoteRestHandler,
@@ -30,6 +31,7 @@ import {
 } from "./notation/types";
 import {
   BarInputCallback,
+  CanvasCallback,
   CaretInputCallback,
   ChangeAccidentalCallback,
   ChangeBeamCallback,
@@ -37,7 +39,12 @@ import {
   NoteInputCallback,
 } from "./ui/callbacks";
 import { sortPitches } from "./pitch";
-import { CaretStyle, determinePaintElementStyle } from "./style";
+import {
+  CaretStyle,
+  determinePaintElementStyle,
+  PaintElementStyle,
+} from "./style";
+import { Point } from "./geometry";
 
 export type BeamModes = "beam" | "lock" | "nobeam";
 const accidentalModes = [undefined, ...accidentals] as const;
@@ -46,8 +53,8 @@ export type AccidentalModes = typeof accidentalModes[number];
 const dpr = window.devicePixelRatio;
 const scale = 0.08;
 const previewScale = 0.08;
-const leftOfStaff = 20;
-const topOfStaff = 2000 * scale;
+const leftOfStaff = 250;
+const topOfStaff = 2000;
 const defaultCaretWidth = 50;
 
 window.onload = () => {
@@ -71,6 +78,7 @@ window.onload = () => {
   let beamMode: BeamModes = "nobeam";
   let accidentalModeIdx = 0;
   let lastEditedIdx: number;
+  let styles: PaintElementStyle[] = [];
   const updateMain = () => {
     console.log("main", "start");
     resetCanvas({
@@ -83,10 +91,17 @@ window.onload = () => {
     let cursor = 0;
     caretPositions = [];
     mainCtx.save();
-    mainCtx.translate(leftOfStaff, topOfStaff);
     mainCtx.scale(scale, scale);
+    mainCtx.translate(leftOfStaff, topOfStaff);
     paintStaff(mainCtx, 0, 0, UNIT * 100, 1);
-    const styles = determinePaintElementStyle(mainElements, UNIT, { clef });
+    styles = [
+      ...determinePaintElementStyle(
+        mainElements,
+        UNIT,
+        { x: leftOfStaff, y: topOfStaff },
+        { clef }
+      ),
+    ];
     for (const style of styles) {
       console.log("style", style);
       const { width, element, caretOption } = style;
@@ -110,8 +125,8 @@ window.onload = () => {
     console.log("carets", caretPositions);
     console.log("current caret", caretPositions[caretIndex]);
     mainCtx.save();
-    mainCtx.translate(leftOfStaff, topOfStaff);
     mainCtx.scale(scale, scale);
+    mainCtx.translate(leftOfStaff, topOfStaff);
     if (caretPositions[caretIndex]) {
       paintCaret({
         ctx: mainCtx,
@@ -140,7 +155,9 @@ window.onload = () => {
     console.log("preview", preview);
     // B4がcanvasのvertical centerにくるように
     const _topOfStaff = previewHeight / 2 - (bStaffHeight * previewScale) / 2;
-    const styles = [...determinePaintElementStyle(preview, UNIT)];
+    const styles = [
+      ...determinePaintElementStyle(preview, UNIT, { x: 0, y: _topOfStaff }),
+    ];
     const elIdxToX = new Map<number, number>();
     let cursor = 0;
     for (const style of styles) {
@@ -415,6 +432,21 @@ window.onload = () => {
     },
   };
 
+  const canvasCallback: CanvasCallback = {
+    onMove(htmlPoint: Point) {
+      const x = htmlPoint.x / scale;
+      const y = htmlPoint.y / scale;
+      for (const style of styles) {
+        const { left, top, width, height } = style;
+        if (left && top && width && height) {
+          if (left < x && x < left + width && top < y && y < top + height) {
+            console.log(style.element.type);
+          }
+        }
+      }
+    },
+  };
+
   // for tablet
   registerPointerHandlers(
     ["keyboardBottom", "keyboardHandle"],
@@ -445,8 +477,11 @@ window.onload = () => {
     ["accidentals"],
     [new ChangeAccidentalHandler(changeAccidentalCallback)]
   );
-  // for screen capture
   registerPointerHandlers([], [new GrayPointerHandler()]);
+  registerPointerHandlers(
+    ["mainCanvas"],
+    [new CanvasPointerHandler(canvasCallback)]
+  );
 
   initCanvas({
     dpr,

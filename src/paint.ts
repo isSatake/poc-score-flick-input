@@ -109,7 +109,7 @@ const paintBarline = (ctx: CanvasRenderingContext2D, element: BarStyle) => {
       ctx.lineWidth = el.lineWidth;
       ctx.beginPath();
       ctx.moveTo(0, 0);
-      ctx.lineTo(0, bStaffHeight);
+      ctx.lineTo(0, el.height);
       ctx.closePath();
       ctx.stroke();
     } else {

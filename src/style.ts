@@ -61,10 +61,18 @@ export type NoteStyleElement =
       bottom: number;
       width: number;
     };
-export type RestStyle = { type: "rest"; rest: Rest; position: Point };
-export type BarStyle = { type: "bar"; bar: Bar; elements: BarStyleElement[] };
+export type RestStyle = {
+  type: "rest";
+  rest: Rest;
+  position: Point;
+};
+export type BarStyle = {
+  type: "bar";
+  bar: Bar;
+  elements: BarStyleElement[];
+};
 export type BarStyleElement =
-  | { type: "line"; position: Point; lineWidth: number }
+  | { type: "line"; position: Point; height: number; lineWidth: number }
   | { type: "dot"; position: Point };
 export type BeamStyle = {
   type: "beam";
@@ -73,18 +81,18 @@ export type BeamStyle = {
   sw: Point;
   se: Point;
 };
+type ClefStyle = {
+  type: "clef";
+  clef: Clef;
+};
+type GapStyle = { type: "gap" };
 type PaintElement =
   | NoteStyle
   | RestStyle
   | BeamStyle
   | BarStyle
-  | {
-      type: "clef";
-      clef: Clef;
-    }
-  | {
-      type: "gap";
-    };
+  | ClefStyle
+  | GapStyle;
 
 type Section = {
   start: number;
@@ -110,7 +118,13 @@ const determineNoteStyle = ({
   note: Note;
   stemDirection?: "up" | "down";
   beamed?: boolean;
-}): { element: NoteStyle; width: number; stemOffsetLeft: number } => {
+}): {
+  element: NoteStyle;
+  width: number;
+  // top: number;
+  // height: number;
+  stemOffsetLeft: number;
+} => {
   const elements: NoteStyleElement[] = [];
   const sections: Section[] = [];
 
@@ -454,50 +468,58 @@ const determineStemFlagStyle = ({
 };
 
 const determineRestStyle = (
-  rest: Rest
-): { element: RestStyle; width: number } => {
+  rest: Rest,
+  elOrigin: Point // paint時のtranslation
+): { element: RestStyle; width: number; top: number; height: number } => {
   const path = restPathMap.get(rest.duration)!;
-  const position = {
-    x: 0,
-    y: UNIT * path.top,
-  };
-  const width = getPathWidth(path);
+  const y = UNIT * path.top;
+  const pathOrigin = { x: 0, y };
+  const bbox = getPathBBox(path);
   return {
     element: {
       type: "rest",
       rest,
-      position,
+      position: pathOrigin,
     },
-    width,
+    ...bbox,
+    top: bbox.top + elOrigin.y, // 間違ってそう
   };
 };
 
-const determineBarStyle = (bar: Bar): { element: BarStyle; width: number } => {
+const determineBarStyle = (
+  bar: Bar
+): { element: BarStyle; width: number; height: number } => {
   const thinWidth = bThinBarlineThickness * UNIT;
   const barlineSeparation = bBarlineSeparation * UNIT;
   const elements: BarStyleElement[] = [];
-  let width;
+  let width = 0;
+  let height = 0;
   if (bar.subtype === "single") {
     elements.push({
       type: "line",
       position: { x: 0, y: 0 },
+      height: bStaffHeight,
       lineWidth: thinWidth,
     });
     width = thinWidth;
+    height = bStaffHeight;
   } else if (bar.subtype === "double") {
     elements.push(
       {
         type: "line",
         position: { x: 0, y: 0 },
+        height: bStaffHeight,
         lineWidth: thinWidth,
       },
       {
         type: "line",
         position: { x: thinWidth + barlineSeparation, y: 0 }, // TODO x
+        height: bStaffHeight,
         lineWidth: thinWidth,
       }
     );
     width = barlineSeparation + thinWidth * 2;
+    height = bStaffHeight;
   } else {
     const boldWidth = bThickBarlineThickness * UNIT;
     const dotToLineSeparation = bRepeatBarlineDotSeparation * UNIT;
@@ -509,6 +531,7 @@ const determineBarStyle = (bar: Bar): { element: BarStyle; width: number } => {
       {
         type: "line",
         position: { x: repeatDotRadius * 2 + dotToLineSeparation, y: 0 },
+        height: bStaffHeight,
         lineWidth: thinWidth,
       },
       {
@@ -521,6 +544,7 @@ const determineBarStyle = (bar: Bar): { element: BarStyle; width: number } => {
             barlineSeparation,
           y: 0,
         },
+        height: bStaffHeight,
         lineWidth: boldWidth,
       }
     );
@@ -530,10 +554,12 @@ const determineBarStyle = (bar: Bar): { element: BarStyle; width: number } => {
       thinWidth +
       barlineSeparation +
       boldWidth;
+    height = bStaffHeight;
   }
   return {
     element: { type: "bar", bar, elements },
     width,
+    height,
   };
 };
 
@@ -899,9 +925,14 @@ const determineBeamedNotesStyle = (
   return [...beams, ...elements];
 };
 
+type 当たり判定 = (point: Point) => boolean;
+
 export type PaintElementStyle = {
   element: PaintElement;
   width: number;
+  left?: number;
+  top?: number;
+  height?: number;
   index?: number;
   caretOption?: {
     index: number;
@@ -912,26 +943,36 @@ export type PaintElementStyle = {
 export const determinePaintElementStyle = function* (
   elements: MusicalElement[],
   gapWidth: number,
+  origin: Point,
   headOpts?: { clef: Clef }
 ): Generator<PaintElementStyle> {
   const gapEl: PaintElementStyle = {
     element: { type: "gap" },
     width: gapWidth,
   };
+  let left = origin.x;
+  console.log("left", left);
   if (headOpts) {
-    yield gapEl;
+    yield { left, top: origin.y, ...gapEl };
+    left += gapEl.width;
+    console.log("left", left);
     if (headOpts.clef) {
-      yield {
+      const clef: PaintElementStyle = {
         element: {
           type: "clef",
           clef: headOpts.clef,
         },
         width: getPathWidth(bClefG),
       };
+      yield clef;
+      left += clef.width;
+      console.log("left", left);
     }
   }
   const caretOption = { index: -1, defaultWidth: true };
-  yield { caretOption, ...gapEl };
+  yield { caretOption, left, top: origin.y, ...gapEl };
+  left += gapEl.width;
+  console.log("left", left);
   let index = 0;
   while (index < elements.length) {
     const el = elements[index];
@@ -961,18 +1002,50 @@ export const determinePaintElementStyle = function* (
       } else {
         const note = determineNoteStyle({ note: el });
         yield { caretOption: { index }, index: index, ...note };
-        yield { caretOption: { index, defaultWidth: true }, ...gapEl };
+        left += note.width;
+        yield {
+          caretOption: { index, defaultWidth: true },
+          left,
+          top: origin.y,
+          ...gapEl,
+        };
+        left += gapEl.width;
         index++;
       }
     } else if (el.type === "rest") {
-      const rest = determineRestStyle(el);
-      yield { caretOption: { index }, index, ...rest };
-      yield { caretOption: { index, defaultWidth: true }, ...gapEl };
+      const rest = determineRestStyle(el, { ...origin, x: origin.x + left });
+      yield {
+        caretOption: { index },
+        index,
+        ...rest,
+        left,
+      };
+      left += rest.width;
+      yield {
+        caretOption: { index, defaultWidth: true },
+        left,
+        top: origin.y,
+        ...gapEl,
+      };
+      left += gapEl.width;
       index++;
     } else if (el.type === "bar") {
       const bar = determineBarStyle(el);
-      yield { caretOption: { index }, index, ...bar };
-      yield { caretOption: { index, defaultWidth: true }, ...gapEl };
+      yield {
+        caretOption: { index },
+        index,
+        left,
+        top: origin.y,
+        ...bar,
+      };
+      left += bar.width;
+      yield {
+        caretOption: { index, defaultWidth: true },
+        left,
+        top: origin.y,
+        ...gapEl,
+      };
+      left += gapEl.width;
       index++;
     }
   }
@@ -980,4 +1053,19 @@ export const determinePaintElementStyle = function* (
 
 const getPathWidth = (path: Path): number => {
   return (path.bbox.ne.x - path.bbox.sw.x) * UNIT;
+};
+
+const getPathHeight = (path: Path): number => {
+  return (path.bbox.ne.y - path.bbox.sw.y) * UNIT;
+};
+
+const getPathBBox = (
+  path: Path
+): { left: number; top: number; width: number; height: number } => {
+  return {
+    left: path.bbox.sw.x * UNIT,
+    top: path.bbox.ne.y * UNIT,
+    width: getPathWidth(path),
+    height: getPathHeight(path),
+  };
 };

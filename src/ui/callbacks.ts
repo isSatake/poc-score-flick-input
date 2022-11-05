@@ -1,5 +1,6 @@
 import { Bar, Duration } from "../notation/types";
 import { AccidentalModes, BeamModes } from "../index";
+import { Point } from "../geometry";
 
 export interface ChangeNoteRestCallback {
   isNoteInputMode(): boolean;
@@ -40,4 +41,8 @@ export interface CaretInputCallback {
 
 export interface BarInputCallback {
   commit(bar: Bar): void;
+}
+
+export interface CanvasCallback {
+  onMove(htmlPoint: Point): void;
 }
