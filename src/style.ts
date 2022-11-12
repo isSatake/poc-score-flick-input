@@ -14,6 +14,7 @@ import {
   bBeamSpacing,
   bBeamThickness,
   bClefG,
+  bLedgerLineThickness,
   bRepeatBarlineDotSeparation,
   bStaffHeight,
   bStemWidth,
@@ -99,6 +100,13 @@ type Section = {
   end: number;
 };
 
+type BBox = {
+  left: number;
+  top: number;
+  right: number;
+  bottom: number;
+};
+
 export const createSection = (start: number, end?: number): Section => {
   return { start, end: end ?? start };
 };
@@ -107,7 +115,7 @@ export const calcSection = (
   scale: number,
   path: Path
 ): Section => {
-  const width = getPathWidth(path) * scale;
+  const width = getPathWidth(path, UNIT) * scale;
   return createSection(start, start + width);
 };
 const determineNoteStyle = ({
@@ -127,35 +135,40 @@ const determineNoteStyle = ({
 } => {
   const elements: NoteStyleElement[] = [];
   const sections: Section[] = [];
+  const bboxes: BBox[] = [];
 
   // accidentals
-  const accSections: Section[] = [];
+  // const accSections: Section[] = [];
+  const accBBoxes: BBox[] = [];
   for (const p of note.pitches) {
     if (!p.accidental) {
       continue;
     }
     const { pitch, accidental } = p;
     const y = pitchToY(0, pitch, 1);
-    accSections.push(calcSection(0, 1, accidentalPathMap.get(accidental)!));
+    // accSections.push(calcSection(0, 1, accidentalPathMap.get(accidental)!));
+    accBBoxes.push(getPathBBox(accidentalPathMap.get(accidental)!, UNIT));
     elements.push({
       type: "accidental",
       position: { x: 0, y },
       accidental,
     });
   }
-  sections.push(...accSections);
+  // sections.push(...accSections);
+  bboxes.push(...accBBoxes);
 
   // ledger lines
   let leftOfLedgerLine = 0;
-  if (accSections.length > 0) {
+  if (accBBoxes.length > 0) {
     // Accidentalが描画されていればledger line開始位置を右にずらす
-    leftOfLedgerLine = accSections[0].end + gapWithAccidental(1);
+    leftOfLedgerLine = accBBoxes[0].right + gapWithAccidental(1);
   }
   const pitches = note.pitches.map((p) => p.pitch);
   const minPitch = Math.min(...pitches);
   const maxPitch = Math.max(...pitches);
   const ledgerWidth = ledgerLineWidth(note.duration);
-  const ledgerSections: Section[] = [];
+  // const ledgerSections: Section[] = [];
+  const ledgerBBoxes: BBox[] = [];
   // min<=0 && max<=0 : minのみ描画
   // min>=12 && max>=12 : maxのみ描画
   // min===max && min<=0 : minのみ描画
@@ -164,41 +177,56 @@ const determineNoteStyle = ({
   if (minPitch <= 0) {
     // C4
     for (let p = 0; p >= minPitch; p -= 2) {
+      const y = pitchToY(0, p, 1);
       elements.push({
         type: "ledger",
         width: ledgerWidth,
-        position: { x: leftOfLedgerLine, y: pitchToY(0, p, 1) },
+        position: { x: leftOfLedgerLine, y },
       });
-      ledgerSections.push({
-        start: leftOfLedgerLine,
-        end: leftOfLedgerLine + ledgerWidth,
+      // ledgerSections.push({
+      //   start: leftOfLedgerLine,
+      //   end: leftOfLedgerLine + ledgerWidth,
+      // });
+      ledgerBBoxes.push({
+        left: leftOfLedgerLine,
+        right: leftOfLedgerLine + ledgerWidth,
+        top: y - bLedgerLineThickness,
+        bottom: y + bLedgerLineThickness,
       });
     }
   }
   if (maxPitch >= 12) {
     // A5
     for (let p = 12; p < maxPitch + 1; p += 2) {
+      const y = pitchToY(0, p, 1);
       elements.push({
         type: "ledger",
         width: ledgerWidth,
-        position: { x: leftOfLedgerLine, y: pitchToY(0, p, 1) },
+        position: { x: leftOfLedgerLine, y },
       });
-      ledgerSections.push({
-        start: leftOfLedgerLine,
-        end: leftOfLedgerLine + ledgerWidth,
+      // ledgerSections.push({
+      //   start: leftOfLedgerLine,
+      //   end: leftOfLedgerLine + ledgerWidth,
+      // });
+      ledgerBBoxes.push({
+        left: leftOfLedgerLine,
+        right: leftOfLedgerLine + ledgerWidth,
+        top: y - bLedgerLineThickness,
+        bottom: y + bLedgerLineThickness,
       });
     }
   }
-  sections.push(...ledgerSections);
+  // sections.push(...ledgerSections);
+  bboxes.push(...ledgerBBoxes);
 
   // noteheads
   let leftOfNotehead = 0;
-  if (ledgerSections.length > 0) {
+  if (ledgerBBoxes.length > 0) {
     // Ledger lineが描画されていればnote描画位置を右にずらす
-    leftOfNotehead = ledgerSections[0].start + ledgerLineExtension(1);
-  } else if (accSections.length > 0) {
+    leftOfNotehead = ledgerBBoxes[0].left + ledgerLineExtension(1);
+  } else if (accBBoxes.length > 0) {
     // Accidentalが描画されていればnote描画位置を右にずらす
-    leftOfNotehead = accSections[0]?.end + gapWithAccidental(1) * 2; // *2とは？
+    leftOfNotehead = accBBoxes[0]?.right + gapWithAccidental(1) * 2; // *2とは？
   }
   // stemの左右どちらに音符を描画するか
   if (!stemDirection) {
@@ -243,10 +271,16 @@ const determineNoteStyle = ({
       }
     }
   }
-  const noteheadStemFlagSections: Section[] = [];
+  // const noteheadStemFlagSections: Section[] = [];
+  const noteheadStemFlagBBoxes: BBox[] = [];
   for (const p of notesLeftOfStem) {
-    noteheadStemFlagSections.push(
-      calcSection(leftOfNotehead, 1, noteHeadByDuration(note.duration))
+    // noteheadStemFlagSections.push(
+    //   calcSection(leftOfNotehead, 1, noteHeadByDuration(note.duration))
+    // );
+    noteheadStemFlagBBoxes.push(
+      offsetBBox(getPathBBox(noteHeadByDuration(note.duration), UNIT), {
+        left: leftOfNotehead,
+      })
     );
     elements.push({
       type: "head",
@@ -260,7 +294,8 @@ const determineNoteStyle = ({
   let leftOfStemOrNotehead = leftOfNotehead;
   if (notesLeftOfStem.length > 0) {
     // Stem左側にnotehead描画していたらnotehead右端をstem開始位置に指定する
-    leftOfStemOrNotehead = noteheadStemFlagSections[0].end;
+    // leftOfStemOrNotehead = noteheadStemFlagSections[0].end;
+    leftOfStemOrNotehead = noteheadStemFlagBBoxes[0].right;
   }
   if (!beamed) {
     // stem, flag
@@ -401,11 +436,12 @@ const determineStemFlagStyle = ({
     top?: number;
     bottom?: number;
   };
-}): { elements: NoteStyleElement[]; section?: Section } => {
+}): { elements: NoteStyleElement[]; bboxes?: BBox[] } => {
   if (duration === 1) {
     return { elements: [] };
   }
   const elements: NoteStyleElement[] = [];
+  // TODO stemもbboxesに突っ込む
   let { top, bottom } = calcStemShape({
     dnp: { topOfStaff: 0, scale: 1, duration },
     direction,
@@ -413,24 +449,28 @@ const determineStemFlagStyle = ({
     highest,
   });
   let stemCenter: number;
-  let flagSection: Section | undefined;
+  // let flagSection: Section | undefined;
+  let flagBBox: BBox | undefined;
+  const bboxes: BBox[] = [];
   if (direction === "up") {
     stemCenter = left - bStemWidth / 2;
     if (beamed) {
       top = beamed.top!;
     } else {
       const path = upFlagMap.get(duration);
+      const left = stemCenter - bStemWidth / 2;
       if (path) {
         elements.push({
           type: "flag",
           position: {
-            x: stemCenter - bStemWidth / 2 + UNIT * path.stemUpNW.x,
+            x: left + UNIT * path.stemUpNW.x,
             y: top + UNIT * path.stemUpNW.y,
           },
           duration, // pathも渡したほうがいいんだろうか
           direction,
         });
-        flagSection = calcSection(left, 1, path);
+        // flagSection = calcSection(left, 1, path);
+        bboxes.push(offsetBBox(getPathBBox(path, UNIT), { left, top }));
       }
     }
   } else {
@@ -449,7 +489,8 @@ const determineStemFlagStyle = ({
           duration,
           direction,
         });
-        flagSection = calcSection(left, 1, path);
+        // flagSection = calcSection(left, 1, path);
+        flagBBox = offsetBBox(getPathBBox(path, UNIT), { left });
       }
     }
   }
@@ -463,7 +504,8 @@ const determineStemFlagStyle = ({
 
   return {
     elements,
-    section: flagSection ?? { start: left, end: left + bStemWidth },
+    // section: flagSection ?? { start: left, end: left + bStemWidth },
+    bboxes: flagBBox ?? {},
   };
 };
 
@@ -474,15 +516,16 @@ const determineRestStyle = (
   const path = restPathMap.get(rest.duration)!;
   const y = UNIT * path.top;
   const pathOrigin = { x: 0, y };
-  const bbox = getPathBBox(path);
+  const { top } = getPathBBox(path, UNIT);
   return {
     element: {
       type: "rest",
       rest,
       position: pathOrigin,
     },
-    ...bbox,
-    topTo5th: y - bbox.top,
+    width: getPathWidth(path, UNIT),
+    height: getPathHeight(path, UNIT),
+    topTo5th: y - top,
   };
 };
 
@@ -962,7 +1005,7 @@ export const determinePaintElementStyle = function* (
           type: "clef",
           clef: headOpts.clef,
         },
-        width: getPathWidth(bClefG),
+        width: getPathWidth(bClefG, UNIT),
       };
       yield clef;
       left += clef.width;
@@ -1052,21 +1095,28 @@ export const determinePaintElementStyle = function* (
   }
 };
 
-const getPathWidth = (path: Path): number => {
-  return (path.bbox.ne.x - path.bbox.sw.x) * UNIT;
+const getPathWidth = (path: Path, unit: number): number => {
+  return (path.bbox.ne.x - path.bbox.sw.x) * unit;
 };
 
-const getPathHeight = (path: Path): number => {
-  return (path.bbox.ne.y - path.bbox.sw.y) * UNIT;
+const getPathHeight = (path: Path, unit: number): number => {
+  return (path.bbox.ne.y - path.bbox.sw.y) * unit;
 };
 
-const getPathBBox = (
-  path: Path
-): { left: number; top: number; width: number; height: number } => {
+const getPathBBox = (path: Path, unit: number): BBox => {
   return {
-    left: path.bbox.sw.x * UNIT,
-    top: path.bbox.ne.y * UNIT,
-    width: getPathWidth(path),
-    height: getPathHeight(path),
+    left: path.bbox.sw.x * unit,
+    top: path.bbox.ne.y * unit,
+    bottom: path.bbox.sw.y * unit,
+    right: path.bbox.ne.x * unit,
+  };
+};
+
+const offsetBBox = (bbox: BBox, offset?: Partial<BBox>): BBox => {
+  return {
+    left: bbox.left + (offset?.left ?? 0),
+    top: bbox.top + (offset?.top ?? 0),
+    right: bbox.right + (offset?.right ?? 0),
+    bottom: bbox.bottom + (offset?.bottom ?? 0),
   };
 };
