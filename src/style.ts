@@ -470,7 +470,7 @@ const determineStemFlagStyle = ({
 const determineRestStyle = (
   rest: Rest,
   elOrigin: Point // paint時のtranslation
-): { element: RestStyle; width: number; top: number; height: number } => {
+): { element: RestStyle; width: number; topTo5th: number; height: number } => {
   const path = restPathMap.get(rest.duration)!;
   const y = UNIT * path.top;
   const pathOrigin = { x: 0, y };
@@ -482,7 +482,7 @@ const determineRestStyle = (
       position: pathOrigin,
     },
     ...bbox,
-    top: bbox.top + elOrigin.y, // 間違ってそう
+    topTo5th: y - bbox.top,
   };
 };
 
@@ -1018,6 +1018,7 @@ export const determinePaintElementStyle = function* (
         caretOption: { index },
         index,
         ...rest,
+        top: origin.y + rest.topTo5th,
         left,
       };
       left += rest.width;
