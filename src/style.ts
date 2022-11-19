@@ -34,7 +34,7 @@ import {
   restPathMap,
   upFlagMap,
 } from "./notation/notation";
-import { Point } from "./geometry";
+import { BBox, getPathBBox, offsetBBox, Point } from "./geometry";
 
 export type CaretStyle = { x: number; y: number; width: number; elIdx: number };
 
@@ -83,6 +83,7 @@ export type BeamStyle = {
   se: Point;
 };
 type ClefStyle = {
+  // paintとの分担を考えるとposition持っとくほうがいいかもしれん
   type: "clef";
   clef: Clef;
 };
@@ -100,13 +101,6 @@ type Section = {
   end: number;
 };
 
-type BBox = {
-  left: number;
-  top: number;
-  right: number;
-  bottom: number;
-};
-
 export const createSection = (start: number, end?: number): Section => {
   return { start, end: end ?? start };
 };
@@ -120,25 +114,26 @@ export const calcSection = (
 };
 const determineNoteStyle = ({
   note,
+  left,
+  top,
   stemDirection,
   beamed = false,
 }: {
   note: Note;
+  left: number;
+  top: number;
   stemDirection?: "up" | "down";
   beamed?: boolean;
 }): {
   element: NoteStyle;
   width: number;
-  // top: number;
-  // height: number;
   stemOffsetLeft: number;
+  bbox: BBox;
 } => {
   const elements: NoteStyleElement[] = [];
-  const sections: Section[] = [];
   const bboxes: BBox[] = [];
 
   // accidentals
-  // const accSections: Section[] = [];
   const accBBoxes: BBox[] = [];
   for (const p of note.pitches) {
     if (!p.accidental) {
@@ -146,7 +141,6 @@ const determineNoteStyle = ({
     }
     const { pitch, accidental } = p;
     const y = pitchToY(0, pitch, 1);
-    // accSections.push(calcSection(0, 1, accidentalPathMap.get(accidental)!));
     accBBoxes.push(getPathBBox(accidentalPathMap.get(accidental)!, UNIT));
     elements.push({
       type: "accidental",
@@ -154,7 +148,6 @@ const determineNoteStyle = ({
       accidental,
     });
   }
-  // sections.push(...accSections);
   bboxes.push(...accBBoxes);
 
   // ledger lines
@@ -167,7 +160,6 @@ const determineNoteStyle = ({
   const minPitch = Math.min(...pitches);
   const maxPitch = Math.max(...pitches);
   const ledgerWidth = ledgerLineWidth(note.duration);
-  // const ledgerSections: Section[] = [];
   const ledgerBBoxes: BBox[] = [];
   // min<=0 && max<=0 : minのみ描画
   // min>=12 && max>=12 : maxのみ描画
@@ -183,10 +175,6 @@ const determineNoteStyle = ({
         width: ledgerWidth,
         position: { x: leftOfLedgerLine, y },
       });
-      // ledgerSections.push({
-      //   start: leftOfLedgerLine,
-      //   end: leftOfLedgerLine + ledgerWidth,
-      // });
       ledgerBBoxes.push({
         left: leftOfLedgerLine,
         right: leftOfLedgerLine + ledgerWidth,
@@ -204,10 +192,6 @@ const determineNoteStyle = ({
         width: ledgerWidth,
         position: { x: leftOfLedgerLine, y },
       });
-      // ledgerSections.push({
-      //   start: leftOfLedgerLine,
-      //   end: leftOfLedgerLine + ledgerWidth,
-      // });
       ledgerBBoxes.push({
         left: leftOfLedgerLine,
         right: leftOfLedgerLine + ledgerWidth,
@@ -216,7 +200,6 @@ const determineNoteStyle = ({
       });
     }
   }
-  // sections.push(...ledgerSections);
   bboxes.push(...ledgerBBoxes);
 
   // noteheads
@@ -271,15 +254,11 @@ const determineNoteStyle = ({
       }
     }
   }
-  // const noteheadStemFlagSections: Section[] = [];
   const noteheadStemFlagBBoxes: BBox[] = [];
   for (const p of notesLeftOfStem) {
-    // noteheadStemFlagSections.push(
-    //   calcSection(leftOfNotehead, 1, noteHeadByDuration(note.duration))
-    // );
     noteheadStemFlagBBoxes.push(
       offsetBBox(getPathBBox(noteHeadByDuration(note.duration), UNIT), {
-        left: leftOfNotehead,
+        x: leftOfNotehead,
       })
     );
     elements.push({
@@ -294,45 +273,70 @@ const determineNoteStyle = ({
   let leftOfStemOrNotehead = leftOfNotehead;
   if (notesLeftOfStem.length > 0) {
     // Stem左側にnotehead描画していたらnotehead右端をstem開始位置に指定する
-    // leftOfStemOrNotehead = noteheadStemFlagSections[0].end;
     leftOfStemOrNotehead = noteheadStemFlagBBoxes[0].right;
   }
+  bboxes.push(...noteheadStemFlagBBoxes);
   if (!beamed) {
     // stem, flag
-    const { elements: el, section } = determineStemFlagStyle({
+    const { elements: el, bboxes: stemFlagBB } = determineStemFlagStyle({
       left: leftOfStemOrNotehead,
       duration: note.duration,
       direction: stemDirection,
       lowest: pitchAsc[0],
       highest: pitchAsc[pitchAsc.length - 1],
     });
-    section && noteheadStemFlagSections.push(section);
     elements.push(...el);
+    bboxes.push(...stemFlagBB);
   }
   for (const p of notesRightOfStem) {
-    noteheadStemFlagSections.push(
-      calcSection(leftOfNotehead, 1, noteHeadByDuration(note.duration))
-    );
+    const position = {
+      x: leftOfNotehead,
+      y: pitchToY(0, p.pitch, 1),
+    };
     elements.push({
       type: "head",
-      position: {
-        x: leftOfNotehead,
-        y: pitchToY(0, p.pitch, 1),
-      },
+      position,
       duration: note.duration,
     });
+    bboxes.push(
+      offsetBBox(getPathBBox(noteHeadByDuration(note.duration), UNIT), position)
+    );
   }
-  sections.push(...noteheadStemFlagSections);
-
+  console.log("note bboxes", bboxes);
+  const bbox = mergeBBoxes(bboxes);
   return {
     element: {
       type: "note",
       note,
       elements,
     },
-    width: maxSection(0, sections).end,
+    width: bbox.right - bbox.left,
     stemOffsetLeft: leftOfStemOrNotehead,
+    bbox: offsetBBox(bbox, { x: left, y: top }),
   };
+};
+
+const mergeBBoxes = (bboxes: BBox[]): BBox => {
+  let ret: BBox | undefined;
+  for (let b of bboxes) {
+    if (!ret) {
+      ret = b;
+    } else {
+      if (b.left < ret.left) {
+        ret.left = b.left;
+      }
+      if (b.top < ret.top) {
+        ret.top = b.top;
+      }
+      if (b.right > ret.right) {
+        ret.right = b.right;
+      }
+      if (b.bottom > ret.bottom) {
+        ret.bottom = b.bottom;
+      }
+    }
+  }
+  return ret!;
 };
 
 // note headからはみ出る長さ(片方)
@@ -436,12 +440,11 @@ const determineStemFlagStyle = ({
     top?: number;
     bottom?: number;
   };
-}): { elements: NoteStyleElement[]; bboxes?: BBox[] } => {
+}): { elements: NoteStyleElement[]; bboxes: BBox[] } => {
   if (duration === 1) {
-    return { elements: [] };
+    return { elements: [], bboxes: [] };
   }
   const elements: NoteStyleElement[] = [];
-  // TODO stemもbboxesに突っ込む
   let { top, bottom } = calcStemShape({
     dnp: { topOfStaff: 0, scale: 1, duration },
     direction,
@@ -449,8 +452,6 @@ const determineStemFlagStyle = ({
     highest,
   });
   let stemCenter: number;
-  // let flagSection: Section | undefined;
-  let flagBBox: BBox | undefined;
   const bboxes: BBox[] = [];
   if (direction === "up") {
     stemCenter = left - bStemWidth / 2;
@@ -460,17 +461,17 @@ const determineStemFlagStyle = ({
       const path = upFlagMap.get(duration);
       const left = stemCenter - bStemWidth / 2;
       if (path) {
+        const position = {
+          x: left + UNIT * path.stemUpNW.x,
+          y: top + UNIT * path.stemUpNW.y,
+        };
         elements.push({
           type: "flag",
-          position: {
-            x: left + UNIT * path.stemUpNW.x,
-            y: top + UNIT * path.stemUpNW.y,
-          },
+          position,
           duration, // pathも渡したほうがいいんだろうか
           direction,
         });
-        // flagSection = calcSection(left, 1, path);
-        bboxes.push(offsetBBox(getPathBBox(path, UNIT), { left, top }));
+        bboxes.push(offsetBBox(getPathBBox(path, UNIT), position));
       }
     }
   } else {
@@ -480,130 +481,165 @@ const determineStemFlagStyle = ({
     } else {
       const path = downFlagMap.get(duration);
       if (path) {
+        const position = {
+          x: stemCenter - bStemWidth / 2 + UNIT * path.stemDownSW.x,
+          y: bottom + UNIT * path.stemDownSW.y,
+        };
         elements.push({
           type: "flag",
-          position: {
-            x: stemCenter - bStemWidth / 2 + UNIT * path.stemDownSW.x,
-            y: bottom + UNIT * path.stemDownSW.y,
-          },
+          position,
           duration,
           direction,
         });
-        // flagSection = calcSection(left, 1, path);
-        flagBBox = offsetBBox(getPathBBox(path, UNIT), { left });
+        bboxes.push(offsetBBox(getPathBBox(path, UNIT), position));
       }
     }
   }
-  elements.push({
+  const stemEl: NoteStyleElement = {
     type: "stem",
     center: stemCenter,
     top,
     bottom,
     width: bStemWidth,
-  });
-
-  return {
-    elements,
-    // section: flagSection ?? { start: left, end: left + bStemWidth },
-    bboxes: flagBBox ?? {},
   };
+  elements.push(stemEl);
+  bboxes.push({
+    left: stemEl.center - stemEl.width / 2,
+    top: stemEl.top,
+    right: stemEl.center + stemEl.width / 2,
+    bottom: stemEl.bottom,
+  });
+  return { elements, bboxes };
 };
 
 const determineRestStyle = (
   rest: Rest,
-  elOrigin: Point // paint時のtranslation
-): { element: RestStyle; width: number; topTo5th: number; height: number } => {
+  left: number,
+  top: number
+): { element: RestStyle; bbox: BBox; width: number } => {
   const path = restPathMap.get(rest.duration)!;
-  const y = UNIT * path.top;
+  const y = UNIT * path.originUnits + top;
   const pathOrigin = { x: 0, y };
-  const { top } = getPathBBox(path, UNIT);
+  const bbox = offsetBBox(getPathBBox(path, UNIT), { x: left, y });
   return {
     element: {
       type: "rest",
       rest,
       position: pathOrigin,
     },
-    width: getPathWidth(path, UNIT),
-    height: getPathHeight(path, UNIT),
-    topTo5th: y - top,
+    bbox,
+    width: bbox.right - bbox.left,
   };
 };
 
 const determineBarStyle = (
-  bar: Bar
-): { element: BarStyle; width: number; height: number } => {
+  bar: Bar,
+  left: number,
+  top: number
+): { element: BarStyle; bbox: BBox; width: number } => {
   const thinWidth = bThinBarlineThickness * UNIT;
   const barlineSeparation = bBarlineSeparation * UNIT;
   const elements: BarStyleElement[] = [];
   let width = 0;
   let height = 0;
   if (bar.subtype === "single") {
-    elements.push({
-      type: "line",
-      position: { x: 0, y: 0 },
-      height: bStaffHeight,
-      lineWidth: thinWidth,
-    });
-    width = thinWidth;
-    height = bStaffHeight;
-  } else if (bar.subtype === "double") {
-    elements.push(
-      {
-        type: "line",
-        position: { x: 0, y: 0 },
-        height: bStaffHeight,
-        lineWidth: thinWidth,
+    return {
+      element: {
+        type: "bar",
+        bar,
+        elements: [
+          {
+            type: "line",
+            position: { x: 0, y: 0 },
+            height: bStaffHeight,
+            lineWidth: thinWidth,
+          },
+        ],
       },
-      {
-        type: "line",
-        position: { x: thinWidth + barlineSeparation, y: 0 }, // TODO x
-        height: bStaffHeight,
-        lineWidth: thinWidth,
-      }
-    );
-    width = barlineSeparation + thinWidth * 2;
-    height = bStaffHeight;
+      width: thinWidth,
+      bbox: {
+        left,
+        top,
+        right: left + thinWidth,
+        bottom: top + bStaffHeight,
+      },
+    };
+  } else if (bar.subtype === "double") {
+    return {
+      element: {
+        type: "bar",
+        bar,
+        elements: [
+          {
+            type: "line",
+            position: { x: 0, y: 0 },
+            height: bStaffHeight,
+            lineWidth: thinWidth,
+          },
+          {
+            type: "line",
+            position: { x: thinWidth + barlineSeparation, y: 0 }, // TODO x
+            height: bStaffHeight,
+            lineWidth: thinWidth,
+          },
+        ],
+      },
+      width: barlineSeparation + thinWidth * 2,
+      bbox: {
+        left,
+        top,
+        right: left + barlineSeparation + thinWidth * 2,
+        bottom: top + bStaffHeight,
+      },
+    };
   } else {
     const boldWidth = bThickBarlineThickness * UNIT;
     const dotToLineSeparation = bRepeatBarlineDotSeparation * UNIT;
-    elements.push(
-      {
-        type: "dot",
-        position: { x: 0, y: UNIT + UNIT / 2 }, // 第2間
-      },
-      {
-        type: "line",
-        position: { x: repeatDotRadius * 2 + dotToLineSeparation, y: 0 },
-        height: bStaffHeight,
-        lineWidth: thinWidth,
-      },
-      {
-        type: "line",
-        position: {
-          x:
-            repeatDotRadius * 2 +
-            dotToLineSeparation +
-            thinWidth +
-            barlineSeparation,
-          y: 0,
-        },
-        height: bStaffHeight,
-        lineWidth: boldWidth,
-      }
-    );
-    width =
+    const width =
       repeatDotRadius * 2 +
       dotToLineSeparation +
       thinWidth +
       barlineSeparation +
       boldWidth;
-    height = bStaffHeight;
+    return {
+      element: {
+        type: "bar",
+        bar,
+        elements: [
+          {
+            type: "dot",
+            position: { x: 0, y: UNIT + UNIT / 2 }, // 第2間
+          },
+          {
+            type: "line",
+            position: { x: repeatDotRadius * 2 + dotToLineSeparation, y: 0 },
+            height: bStaffHeight,
+            lineWidth: thinWidth,
+          },
+          {
+            type: "line",
+            position: {
+              x:
+                repeatDotRadius * 2 +
+                dotToLineSeparation +
+                thinWidth +
+                barlineSeparation,
+              y: 0,
+            },
+            height: bStaffHeight,
+            lineWidth: boldWidth,
+          },
+        ],
+      },
+      width,
+      bbox: {
+        left,
+        top,
+        right: left + width,
+        bottom: top + bStaffHeight,
+      },
+    };
   }
-  return {
-    element: { type: "bar", bar, elements },
-    width,
-    height,
-  };
 };
 
 export const pitchToY = (
@@ -787,6 +823,8 @@ const determineBeamStyle = (p: {
   notePositions: { left: number; stemOffsetLeft: number }[];
   linearFunc: (x: number) => number;
   stemDirection: "up" | "down";
+  left: number;
+  top: number;
   duration?: Duration;
   headOrTail?: "head" | "tail";
 }): PaintElementStyle[] => {
@@ -825,19 +863,29 @@ const determineBeamStyle = (p: {
   const offsetY =
     (UNIT * bBeamThickness + UNIT * bBeamSpacing) *
     (numOfBeamsMap.get(duration)! - 1);
+  const shape = getBeamShape({
+    scale: 1,
+    stemDirection,
+    beamLeft,
+    beamRight,
+    stemLinearFunc: linearFunc,
+    offsetY,
+  });
   beams.push({
     element: {
       type: "beam",
-      ...getBeamShape({
-        scale: 1,
-        stemDirection,
-        beamLeft,
-        beamRight,
-        stemLinearFunc: linearFunc,
-        offsetY,
-      }),
+      ...shape,
     },
     width: beamRight - beamLeft,
+    bbox: offsetBBox(
+      {
+        left: shape.sw.x,
+        top: shape.ne.y,
+        right: shape.ne.x,
+        bottom: shape.sw.y,
+      },
+      { x: p.left, y: p.top }
+    ),
   });
   if (duration === 32) {
     return beams;
@@ -896,7 +944,8 @@ const determineBeamedNotesStyle = (
   beamedNotes: Note[],
   duration: Duration,
   elementGap: number,
-  startIdx: number
+  startIdx: number,
+  startLeft: number
 ): PaintElementStyle[] => {
   const allBeamedPitches = beamedNotes
     .flatMap((n) => n.pitches)
@@ -904,15 +953,13 @@ const determineBeamedNotesStyle = (
   const stemDirection = getStemDirection(allBeamedPitches);
   const notePositions: { left: number; stemOffsetLeft: number }[] = [];
   const elements: PaintElementStyle[] = [];
-  const gapEl: PaintElementStyle = {
-    element: { type: "gap" },
-    width: elementGap,
-  };
   let left = 0;
   for (const _i in beamedNotes) {
     const i = Number(_i);
     const noteStyle = determineNoteStyle({
       note: beamedNotes[i],
+      left: startLeft + left,
+      top: 0,
       stemDirection,
       beamed: true,
     });
@@ -920,10 +967,19 @@ const determineBeamedNotesStyle = (
     const caretOption = { index: i + startIdx };
     elements.push({ caretOption, index: i + startIdx, ...noteStyle });
     left += noteStyle.width;
-    elements.push({
-      caretOption: { ...caretOption, index: i + startIdx, defaultWidth: true },
-      ...gapEl,
-    });
+    elements.push(
+      gapElementStyle({
+        left: startLeft + left,
+        top: 0,
+        width: elementGap,
+        height: bStaffHeight,
+        caretOption: {
+          ...caretOption,
+          index: i + startIdx,
+          defaultWidth: true,
+        },
+      })
+    );
     left += elementGap;
   }
   // durationが変わろうが、始点・終点が変わろうが共通
@@ -938,6 +994,8 @@ const determineBeamedNotesStyle = (
     notePositions,
     linearFunc,
     stemDirection,
+    left: startLeft,
+    top: 0,
   });
   for (const i in beamedNotes) {
     const { pitches } = beamedNotes[i];
@@ -953,7 +1011,7 @@ const determineBeamedNotesStyle = (
     }
     // TODO note側のsectionとmergeしないと正しいwidthにならない
     // beam noteだけgapが狭くなりそう。
-    const { elements: el } = determineStemFlagStyle({
+    const stemFlag = determineStemFlagStyle({
       left: notePositions[i].stemOffsetLeft,
       duration,
       direction: stemDirection,
@@ -962,59 +1020,97 @@ const determineBeamedNotesStyle = (
       beamed,
     });
     // gapを考慮したindex
-    const parent = elements[Number(i) * 2].element as NoteStyle;
-    parent.elements.push(...el);
+    const parent = elements[Number(i) * 2];
+    const noteSyle = parent.element as NoteStyle;
+    const stemFlagBB = mergeBBoxes(stemFlag.bboxes);
+    parent.bbox = mergeBBoxes([
+      parent.bbox,
+      offsetBBox(stemFlagBB, { x: notePositions[i].left + startLeft }),
+    ]);
+    noteSyle.elements.push(...stemFlag.elements);
   }
   return [...beams, ...elements];
 };
 
-type 当たり判定 = (point: Point) => boolean;
+type CaretOption = {
+  index: number;
+  defaultWidth?: boolean;
+};
 
 export type PaintElementStyle = {
   element: PaintElement;
   width: number;
-  left?: number;
-  top?: number;
-  height?: number;
+  bbox: BBox;
   index?: number;
-  caretOption?: {
-    index: number;
-    defaultWidth?: boolean;
+  caretOption?: CaretOption;
+};
+
+const gapElementStyle = ({
+  left,
+  top,
+  width,
+  height,
+  caretOption,
+}: {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+  caretOption?: CaretOption;
+}): PaintElementStyle => {
+  return {
+    element: { type: "gap" },
+    width,
+    bbox: { left, top, right: left + width, bottom: top + height },
+    caretOption,
+  };
+};
+
+const clefElementStyle = (
+  left: number,
+  top: number,
+  clef: Clef
+): PaintElementStyle => {
+  const path = getPathBBox(bClefG, UNIT);
+  const g = pitchToY(top, 4, 1);
+  return {
+    element: { type: "clef", clef },
+    width: path.right - path.left,
+    bbox: offsetBBox(path, { x: left, y: g }),
   };
 };
 
 export const determinePaintElementStyle = function* (
   elements: MusicalElement[],
   gapWidth: number,
-  origin: Point,
   headOpts?: { clef: Clef }
 ): Generator<PaintElementStyle> {
-  const gapEl: PaintElementStyle = {
-    element: { type: "gap" },
-    width: gapWidth,
-  };
-  let left = origin.x;
+  let left = 0;
   console.log("left", left);
   if (headOpts) {
-    yield { left, top: origin.y, ...gapEl };
-    left += gapEl.width;
+    yield gapElementStyle({
+      left,
+      top: 0,
+      width: gapWidth,
+      height: bStaffHeight,
+    });
+    left += gapWidth;
     console.log("left", left);
     if (headOpts.clef) {
-      const clef: PaintElementStyle = {
-        element: {
-          type: "clef",
-          clef: headOpts.clef,
-        },
-        width: getPathWidth(bClefG, UNIT),
-      };
+      const clef = clefElementStyle(left, 0, headOpts.clef);
       yield clef;
-      left += clef.width;
+      left = clef.bbox.right;
       console.log("left", left);
     }
   }
-  const caretOption = { index: -1, defaultWidth: true };
-  yield { caretOption, left, top: origin.y, ...gapEl };
-  left += gapEl.width;
+  yield gapElementStyle({
+    left,
+    top: 0,
+    width: gapWidth,
+    height: bStaffHeight,
+    caretOption: { index: -1, defaultWidth: true },
+  });
+  left += gapWidth;
   console.log("left", left);
   let index = 0;
   while (index < elements.length) {
@@ -1036,60 +1132,54 @@ export const determinePaintElementStyle = function* (
           beamedNotes,
           el.duration,
           gapWidth,
-          index
+          index,
+          left
         );
         for (const beamed of beamedStyles) {
           yield beamed;
+          // TODO leftを更新できてない
+          // beam, elements全てを内包するbbを計算してwidthを求める
         }
         index += beamedNotes.length;
       } else {
-        const note = determineNoteStyle({ note: el });
-        yield { caretOption: { index }, index: index, ...note };
-        left += note.width;
-        yield {
-          caretOption: { index, defaultWidth: true },
+        const note = determineNoteStyle({ note: el, left, top: 0 });
+        yield { caretOption: { index }, index, ...note };
+        left = note.bbox.right;
+        yield gapElementStyle({
           left,
-          top: origin.y,
-          ...gapEl,
-        };
-        left += gapEl.width;
+          top: 0,
+          width: gapWidth,
+          height: bStaffHeight,
+          caretOption: { index, defaultWidth: true },
+        });
+        left += gapWidth;
         index++;
       }
     } else if (el.type === "rest") {
-      const rest = determineRestStyle(el, { ...origin, x: origin.x + left });
-      yield {
-        caretOption: { index },
-        index,
-        ...rest,
-        top: origin.y + rest.topTo5th,
+      const rest = determineRestStyle(el, left, 0);
+      yield { caretOption: { index }, index, ...rest };
+      left = rest.bbox.right;
+      yield gapElementStyle({
         left,
-      };
-      left += rest.width;
-      yield {
+        top: 0,
+        width: gapWidth,
+        height: bStaffHeight,
         caretOption: { index, defaultWidth: true },
-        left,
-        top: origin.y,
-        ...gapEl,
-      };
-      left += gapEl.width;
+      });
+      left += gapWidth;
       index++;
     } else if (el.type === "bar") {
-      const bar = determineBarStyle(el);
-      yield {
-        caretOption: { index },
-        index,
-        left,
-        top: origin.y,
-        ...bar,
-      };
+      const bar = determineBarStyle(el, left, 0);
+      yield { caretOption: { index }, index, ...bar };
       left += bar.width;
-      yield {
-        caretOption: { index, defaultWidth: true },
+      yield gapElementStyle({
         left,
-        top: origin.y,
-        ...gapEl,
-      };
-      left += gapEl.width;
+        top: 0,
+        width: gapWidth,
+        height: bStaffHeight,
+        caretOption: { index, defaultWidth: true },
+      });
+      left += gapWidth;
       index++;
     }
   }
@@ -1101,22 +1191,4 @@ const getPathWidth = (path: Path, unit: number): number => {
 
 const getPathHeight = (path: Path, unit: number): number => {
   return (path.bbox.ne.y - path.bbox.sw.y) * unit;
-};
-
-const getPathBBox = (path: Path, unit: number): BBox => {
-  return {
-    left: path.bbox.sw.x * unit,
-    top: path.bbox.ne.y * unit,
-    bottom: path.bbox.sw.y * unit,
-    right: path.bbox.ne.x * unit,
-  };
-};
-
-const offsetBBox = (bbox: BBox, offset?: Partial<BBox>): BBox => {
-  return {
-    left: bbox.left + (offset?.left ?? 0),
-    top: bbox.top + (offset?.top ?? 0),
-    right: bbox.right + (offset?.right ?? 0),
-    bottom: bbox.bottom + (offset?.bottom ?? 0),
-  };
 };

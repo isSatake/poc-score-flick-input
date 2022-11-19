@@ -1,6 +1,7 @@
 import { registerPointerHandlers } from "./ui/pointer-event";
 import {
   initCanvas,
+  paintBBox,
   paintCaret,
   paintStaff,
   paintStyle,
@@ -44,7 +45,7 @@ import {
   determinePaintElementStyle,
   PaintElementStyle,
 } from "./style";
-import { Point } from "./geometry";
+import { BBox, offsetBBox, Point, scalePoint } from "./geometry";
 
 export type BeamModes = "beam" | "lock" | "nobeam";
 const accidentalModes = [undefined, ...accidentals] as const;
@@ -94,14 +95,7 @@ window.onload = () => {
     mainCtx.scale(scale, scale);
     mainCtx.translate(leftOfStaff, topOfStaff);
     paintStaff(mainCtx, 0, 0, UNIT * 100, 1);
-    styles = [
-      ...determinePaintElementStyle(
-        mainElements,
-        UNIT,
-        { x: leftOfStaff, y: topOfStaff },
-        { clef }
-      ),
-    ];
+    styles = [...determinePaintElementStyle(mainElements, UNIT, { clef })];
     for (const style of styles) {
       console.log("style", style);
       const { width, element, caretOption } = style;
@@ -134,6 +128,10 @@ window.onload = () => {
         caret: caretPositions[caretIndex],
       });
     }
+    for (let { bbox } of styles) {
+      console.log(bbox);
+      paintBBox(mainCtx, bbox);
+    }
     mainCtx.restore();
     console.log("main", "end");
   };
@@ -155,9 +153,7 @@ window.onload = () => {
     console.log("preview", preview);
     // B4がcanvasのvertical centerにくるように
     const _topOfStaff = previewHeight / 2 - (bStaffHeight * previewScale) / 2;
-    const styles = [
-      ...determinePaintElementStyle(preview, UNIT, { x: 0, y: _topOfStaff }),
-    ];
+    const styles = [...determinePaintElementStyle(preview, UNIT)];
     const elIdxToX = new Map<number, number>();
     let cursor = 0;
     for (const style of styles) {
@@ -434,14 +430,14 @@ window.onload = () => {
 
   const canvasCallback: CanvasCallback = {
     onMove(htmlPoint: Point) {
-      const x = htmlPoint.x / scale;
-      const y = htmlPoint.y / scale;
       for (const style of styles) {
-        const { left, top, width, height } = style;
-        if (left && top && width && height) {
-          if (left < x && x < left + width && top < y && y < top + height) {
-            console.log(style.element.type);
-          }
+        if (
+          isPointInBBox(
+            scalePoint(htmlPoint, 1 / scale),
+            offsetBBox(style.bbox, { x: leftOfStaff, y: topOfStaff })
+          )
+        ) {
+          console.log(style.element.type);
         }
       }
     },
@@ -662,4 +658,11 @@ const durationByDistance = (
   const _di = Math.round(dx / unitX + durations.indexOf(origin));
   const di = Math.min(Math.max(_di, 0), 6);
   return durations[di];
+};
+
+const isPointInBBox = (
+  { x, y }: Point,
+  { left, top, right, bottom }: BBox
+): boolean => {
+  return left <= x && x <= right && top <= y && y <= bottom;
 };

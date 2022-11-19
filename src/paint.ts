@@ -23,6 +23,7 @@ import {
   pitchToY,
   RestStyle,
 } from "./style";
+import { BBox } from "./geometry";
 
 export const initCanvas = ({
   dpr,
@@ -232,6 +233,18 @@ export const paintStyle = (
   } else if (type === "gap") {
     // no-op
   }
+};
+
+export const paintBBox = (ctx: CanvasRenderingContext2D, bbox: BBox) => {
+  ctx.save();
+  ctx.strokeStyle = "#FF0000";
+  ctx.strokeRect(
+    bbox.left,
+    bbox.top,
+    bbox.right - bbox.left,
+    bbox.bottom - bbox.top
+  );
+  ctx.restore();
 };
 
 export const paintCaret = ({
