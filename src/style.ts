@@ -37,13 +37,13 @@ import {
 import { BBox, getPathBBox, offsetBBox, Point } from "./geometry";
 
 export type CaretStyle = { x: number; y: number; width: number; elIdx: number };
-
+type OptionalColor = { color?: string };
 // 1音
 type NoteStyle = {
   type: "note";
   note: Note;
   elements: NoteStyleElement[];
-};
+} & OptionalColor;
 // 1音に含まれる描画パーツ
 export type NoteStyleElement =
   | { type: "head"; position: Point; duration: Duration }
@@ -66,12 +66,12 @@ export type RestStyle = {
   type: "rest";
   rest: Rest;
   position: Point;
-};
+} & OptionalColor;
 export type BarStyle = {
   type: "bar";
   bar: Bar;
   elements: BarStyleElement[];
-};
+} & OptionalColor;
 export type BarStyleElement =
   | { type: "line"; position: Point; height: number; lineWidth: number }
   | { type: "dot"; position: Point };
@@ -81,13 +81,13 @@ export type BeamStyle = {
   ne: Point;
   sw: Point;
   se: Point;
-};
-type ClefStyle = {
+} & OptionalColor;
+export type ClefStyle = {
   // paintとの分担を考えるとposition持っとくほうがいいかもしれん
   type: "clef";
   clef: Clef;
-};
-type GapStyle = { type: "gap" };
+} & OptionalColor;
+type GapStyle = { type: "gap" } & OptionalColor;
 type PaintElement =
   | NoteStyle
   | RestStyle
@@ -114,14 +114,10 @@ export const calcSection = (
 };
 const determineNoteStyle = ({
   note,
-  left,
-  top,
   stemDirection,
   beamed = false,
 }: {
   note: Note;
-  left: number;
-  top: number;
   stemDirection?: "up" | "down";
   beamed?: boolean;
 }): {
@@ -312,7 +308,7 @@ const determineNoteStyle = ({
     },
     width: bbox.right - bbox.left,
     stemOffsetLeft: leftOfStemOrNotehead,
-    bbox: offsetBBox(bbox, { x: left, y: top }),
+    bbox,
   };
 };
 
@@ -513,14 +509,12 @@ const determineStemFlagStyle = ({
 };
 
 const determineRestStyle = (
-  rest: Rest,
-  left: number,
-  top: number
+  rest: Rest
 ): { element: RestStyle; bbox: BBox; width: number } => {
   const path = restPathMap.get(rest.duration)!;
-  const y = UNIT * path.originUnits + top;
+  const y = UNIT * path.originUnits;
   const pathOrigin = { x: 0, y };
-  const bbox = offsetBBox(getPathBBox(path, UNIT), { x: left, y });
+  const bbox = offsetBBox(getPathBBox(path, UNIT), { y });
   return {
     element: {
       type: "rest",
@@ -533,9 +527,7 @@ const determineRestStyle = (
 };
 
 const determineBarStyle = (
-  bar: Bar,
-  left: number,
-  top: number
+  bar: Bar
 ): { element: BarStyle; bbox: BBox; width: number } => {
   const thinWidth = bThinBarlineThickness * UNIT;
   const barlineSeparation = bBarlineSeparation * UNIT;
@@ -558,10 +550,10 @@ const determineBarStyle = (
       },
       width: thinWidth,
       bbox: {
-        left,
-        top,
-        right: left + thinWidth,
-        bottom: top + bStaffHeight,
+        left: 0,
+        top: 0,
+        right: thinWidth,
+        bottom: bStaffHeight,
       },
     };
   } else if (bar.subtype === "double") {
@@ -586,10 +578,10 @@ const determineBarStyle = (
       },
       width: barlineSeparation + thinWidth * 2,
       bbox: {
-        left,
-        top,
-        right: left + barlineSeparation + thinWidth * 2,
-        bottom: top + bStaffHeight,
+        left: 0,
+        top: 0,
+        right: barlineSeparation + thinWidth * 2,
+        bottom: bStaffHeight,
       },
     };
   } else {
@@ -633,10 +625,10 @@ const determineBarStyle = (
       },
       width,
       bbox: {
-        left,
-        top,
-        right: left + width,
-        bottom: top + bStaffHeight,
+        left: 0,
+        top: 0,
+        right: width,
+        bottom: bStaffHeight,
       },
     };
   }
@@ -958,8 +950,6 @@ const determineBeamedNotesStyle = (
     const i = Number(_i);
     const noteStyle = determineNoteStyle({
       note: beamedNotes[i],
-      left: startLeft + left,
-      top: 0,
       stemDirection,
       beamed: true,
     });
@@ -969,8 +959,6 @@ const determineBeamedNotesStyle = (
     left += noteStyle.width;
     elements.push(
       gapElementStyle({
-        left: startLeft + left,
-        top: 0,
         width: elementGap,
         height: bStaffHeight,
         caretOption: {
@@ -1046,14 +1034,10 @@ export type PaintElementStyle = {
 };
 
 const gapElementStyle = ({
-  left,
-  top,
   width,
   height,
   caretOption,
 }: {
-  left: number;
-  top: number;
   width: number;
   height: number;
   caretOption?: CaretOption;
@@ -1061,22 +1045,18 @@ const gapElementStyle = ({
   return {
     element: { type: "gap" },
     width,
-    bbox: { left, top, right: left + width, bottom: top + height },
+    bbox: { left: 0, top: 0, right: width, bottom: height },
     caretOption,
   };
 };
 
-const clefElementStyle = (
-  left: number,
-  top: number,
-  clef: Clef
-): PaintElementStyle => {
+const clefElementStyle = (clef: Clef): PaintElementStyle => {
   const path = getPathBBox(bClefG, UNIT);
-  const g = pitchToY(top, 4, 1);
+  const g = pitchToY(0, 4, 1);
   return {
     element: { type: "clef", clef },
     width: path.right - path.left,
-    bbox: offsetBBox(path, { x: left, y: g }),
+    bbox: offsetBBox(path, { y: g }),
   };
 };
 
@@ -1085,31 +1065,24 @@ export const determinePaintElementStyle = function* (
   gapWidth: number,
   headOpts?: { clef: Clef }
 ): Generator<PaintElementStyle> {
+  const gapEl = gapElementStyle({
+    width: gapWidth,
+    height: bStaffHeight,
+  });
   let left = 0;
   console.log("left", left);
   if (headOpts) {
-    yield gapElementStyle({
-      left,
-      top: 0,
-      width: gapWidth,
-      height: bStaffHeight,
-    });
+    yield gapEl;
     left += gapWidth;
     console.log("left", left);
     if (headOpts.clef) {
-      const clef = clefElementStyle(left, 0, headOpts.clef);
+      const clef = clefElementStyle(headOpts.clef);
       yield clef;
-      left = clef.bbox.right;
+      left += clef.width;
       console.log("left", left);
     }
   }
-  yield gapElementStyle({
-    left,
-    top: 0,
-    width: gapWidth,
-    height: bStaffHeight,
-    caretOption: { index: -1, defaultWidth: true },
-  });
+  yield { ...gapEl, caretOption: { index: -1, defaultWidth: true } };
   left += gapWidth;
   console.log("left", left);
   let index = 0;
@@ -1142,43 +1115,25 @@ export const determinePaintElementStyle = function* (
         }
         index += beamedNotes.length;
       } else {
-        const note = determineNoteStyle({ note: el, left, top: 0 });
+        const note = determineNoteStyle({ note: el });
         yield { caretOption: { index }, index, ...note };
-        left = note.bbox.right;
-        yield gapElementStyle({
-          left,
-          top: 0,
-          width: gapWidth,
-          height: bStaffHeight,
-          caretOption: { index, defaultWidth: true },
-        });
+        left += note.width;
+        yield { ...gapEl, caretOption: { index, defaultWidth: true } };
         left += gapWidth;
         index++;
       }
     } else if (el.type === "rest") {
-      const rest = determineRestStyle(el, left, 0);
+      const rest = determineRestStyle(el);
       yield { caretOption: { index }, index, ...rest };
-      left = rest.bbox.right;
-      yield gapElementStyle({
-        left,
-        top: 0,
-        width: gapWidth,
-        height: bStaffHeight,
-        caretOption: { index, defaultWidth: true },
-      });
+      left += rest.width;
+      yield { ...gapEl, caretOption: { index, defaultWidth: true } };
       left += gapWidth;
       index++;
     } else if (el.type === "bar") {
-      const bar = determineBarStyle(el, left, 0);
+      const bar = determineBarStyle(el);
       yield { caretOption: { index }, index, ...bar };
       left += bar.width;
-      yield gapElementStyle({
-        left,
-        top: 0,
-        width: gapWidth,
-        height: bStaffHeight,
-        caretOption: { index, defaultWidth: true },
-      });
+      yield { ...gapEl, caretOption: { index, defaultWidth: true } };
       left += gapWidth;
       index++;
     }

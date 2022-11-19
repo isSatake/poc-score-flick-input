@@ -18,12 +18,14 @@ import {
   BarStyle,
   BeamStyle,
   CaretStyle,
+  ClefStyle,
   NoteStyleElement,
   PaintElementStyle,
   pitchToY,
   RestStyle,
 } from "./style";
 import { BBox } from "./geometry";
+import { Clef } from "./notation/types";
 
 export const initCanvas = ({
   dpr,
@@ -57,23 +59,29 @@ const paintBravuraPath = (
   left: number,
   top: number,
   scale: number,
-  path: Path
+  path: Path,
+  color?: string
 ) => {
   ctx.save();
   ctx.rotate((Math.PI / 180) * 180); // もとのパスは回転している
   ctx.translate(-left, -top); // 回転しているため負の値
   ctx.scale(-scale, scale); // もとのパスは五線の高さを1000としているのでスケールする
+  if (color) {
+    console.log(color);
+    ctx.fillStyle = color;
+  }
   ctx.fill(path.path2d);
   ctx.restore();
 };
 
 const paintGClef = (
   ctx: CanvasRenderingContext2D,
+  element: ClefStyle,
   left: number,
   topOfStaff: number
 ) => {
   const g = pitchToY(topOfStaff, 4, 1);
-  paintBravuraPath(ctx, left, g, 1, bClefG);
+  paintBravuraPath(ctx, left, g, 1, bClefG, element.color);
 };
 
 export const paintStaff = (
@@ -197,7 +205,7 @@ const paintRest = ({
   const path = restPathMap.get(rest.duration)!;
   ctx.save();
   ctx.translate(position.x, position.y);
-  paintBravuraPath(ctx, 0, 0, 1, path);
+  if (element.color) paintBravuraPath(ctx, 0, 0, 1, path);
   ctx.restore();
 };
 
@@ -221,7 +229,7 @@ export const paintStyle = (
 ) => {
   const { type } = element;
   if (type === "clef") {
-    paintGClef(ctx, 0, 0);
+    paintGClef(ctx, element, 0, 0);
   } else if (type === "note") {
     paintNote({ ctx, elements: element.elements });
   } else if (type === "rest") {
