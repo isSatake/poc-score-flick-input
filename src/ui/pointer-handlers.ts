@@ -2,6 +2,7 @@ import { PointerHandler } from "./pointer-event";
 import { Point } from "../geometry";
 import {
   BarInputCallback,
+  CanvasCallback,
   CaretInputCallback,
   ChangeAccidentalCallback,
   ChangeBeamCallback,
@@ -12,6 +13,8 @@ import { BarTypes, Duration } from "../notation/types";
 
 class EmptyPointerHandler implements PointerHandler {
   constructor() {}
+
+  onMove(ev: PointerEvent) {}
 
   onDown(ev: PointerEvent) {}
 
@@ -267,5 +270,15 @@ export class ArrowHandler extends EmptyPointerHandler {
     } else if (className.match(/.*toRight.*/)) {
       this.callback.forward();
     }
+  }
+}
+
+export class CanvasPointerHandler extends EmptyPointerHandler {
+  constructor(private callback: CanvasCallback) {
+    super();
+  }
+
+  onMove(ev: PointerEvent) {
+    this.callback.onMove({ x: ev.offsetX, y: ev.offsetY });
   }
 }

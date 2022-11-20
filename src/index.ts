@@ -9,6 +9,7 @@ import {
 import {
   ArrowHandler,
   BarInputHandler,
+  CanvasPointerHandler,
   ChangeAccidentalHandler,
   ChangeBeamHandler,
   ChangeNoteRestHandler,
@@ -30,6 +31,7 @@ import {
 } from "./notation/types";
 import {
   BarInputCallback,
+  CanvasCallback,
   CaretInputCallback,
   ChangeAccidentalCallback,
   ChangeBeamCallback,
@@ -37,7 +39,13 @@ import {
   NoteInputCallback,
 } from "./ui/callbacks";
 import { sortPitches } from "./pitch";
-import { CaretStyle, determinePaintElementStyle } from "./style";
+import {
+  CaretStyle,
+  determinePaintElementStyle,
+  PaintElementStyle,
+  Pointing,
+} from "./style";
+import { BBox, offsetBBox, Point, scalePoint } from "./geometry";
 
 export type BeamModes = "beam" | "lock" | "nobeam";
 const accidentalModes = [undefined, ...accidentals] as const;
@@ -46,8 +54,8 @@ export type AccidentalModes = typeof accidentalModes[number];
 const dpr = window.devicePixelRatio;
 const scale = 0.08;
 const previewScale = 0.08;
-const leftOfStaff = 20;
-const topOfStaff = 2000 * scale;
+const leftOfStaff = 250;
+const topOfStaff = 2000;
 const defaultCaretWidth = 50;
 
 window.onload = () => {
@@ -71,6 +79,9 @@ window.onload = () => {
   let beamMode: BeamModes = "nobeam";
   let accidentalModeIdx = 0;
   let lastEditedIdx: number;
+  let styles: PaintElementStyle[] = [];
+  let elementBBoxes: { bbox: BBox; elIdx?: number }[] = [];
+  let pointing: Pointing | undefined;
   const updateMain = () => {
     console.log("main", "start");
     resetCanvas({
@@ -79,18 +90,22 @@ window.onload = () => {
       height: mainHeight,
       fillStyle: "#fff",
     });
-    const clef: Clef = { type: "g" };
-    let cursor = 0;
     caretPositions = [];
+    elementBBoxes = [];
     mainCtx.save();
-    mainCtx.translate(leftOfStaff, topOfStaff);
     mainCtx.scale(scale, scale);
+    mainCtx.translate(leftOfStaff, topOfStaff);
     paintStaff(mainCtx, 0, 0, UNIT * 100, 1);
-    const styles = determinePaintElementStyle(mainElements, UNIT, { clef });
+    const clef: Clef = { type: "g" };
+    styles = [
+      ...determinePaintElementStyle(mainElements, UNIT, { clef }, pointing),
+    ];
+    let cursor = 0;
     for (const style of styles) {
       console.log("style", style);
-      const { width, element, caretOption } = style;
+      const { width, element, caretOption, bbox, index: elIdx } = style;
       paintStyle(mainCtx, style);
+      elementBBoxes.push({ bbox: offsetBBox(bbox, { x: cursor }), elIdx });
       if (caretOption) {
         const { index: elIdx, defaultWidth } = caretOption;
         const caretWidth = defaultWidth ? defaultCaretWidth : width;
@@ -110,8 +125,8 @@ window.onload = () => {
     console.log("carets", caretPositions);
     console.log("current caret", caretPositions[caretIndex]);
     mainCtx.save();
-    mainCtx.translate(leftOfStaff, topOfStaff);
     mainCtx.scale(scale, scale);
+    mainCtx.translate(leftOfStaff, topOfStaff);
     if (caretPositions[caretIndex]) {
       paintCaret({
         ctx: mainCtx,
@@ -415,6 +430,33 @@ window.onload = () => {
     },
   };
 
+  const canvasCallback: CanvasCallback = {
+    onMove(htmlPoint: Point) {
+      let nextPointing = undefined;
+      for (let i in elementBBoxes) {
+        const { type } = styles[i].element;
+        if (type === "gap" || type === "beam") {
+          continue;
+        }
+        if (
+          isPointInBBox(
+            scalePoint(htmlPoint, 1 / scale),
+            offsetBBox(elementBBoxes[i].bbox, { x: leftOfStaff, y: topOfStaff })
+          )
+        ) {
+          const { elIdx } = elementBBoxes[i];
+          if (elIdx !== undefined) {
+            nextPointing = { index: elIdx, type };
+          }
+        }
+      }
+      if (pointing !== nextPointing) {
+        pointing = nextPointing;
+        updateMain();
+      }
+    },
+  };
+
   // for tablet
   registerPointerHandlers(
     ["keyboardBottom", "keyboardHandle"],
@@ -445,8 +487,11 @@ window.onload = () => {
     ["accidentals"],
     [new ChangeAccidentalHandler(changeAccidentalCallback)]
   );
-  // for screen capture
   registerPointerHandlers([], [new GrayPointerHandler()]);
+  registerPointerHandlers(
+    ["mainCanvas"],
+    [new CanvasPointerHandler(canvasCallback)]
+  );
 
   initCanvas({
     dpr,
@@ -627,4 +672,11 @@ const durationByDistance = (
   const _di = Math.round(dx / unitX + durations.indexOf(origin));
   const di = Math.min(Math.max(_di, 0), 6);
   return durations[di];
+};
+
+const isPointInBBox = (
+  { x, y }: Point,
+  { left, top, right, bottom }: BBox
+): boolean => {
+  return left <= x && x <= right && top <= y && y <= bottom;
 };
