@@ -18,11 +18,13 @@ import {
   BarStyle,
   BeamStyle,
   CaretStyle,
-  NoteStyleElement,
+  ClefStyle,
+  NoteStyle,
   PaintElementStyle,
   pitchToY,
   RestStyle,
 } from "./style";
+import { BBox } from "./geometry";
 
 export const initCanvas = ({
   dpr,
@@ -56,23 +58,26 @@ const paintBravuraPath = (
   left: number,
   top: number,
   scale: number,
-  path: Path
+  path: Path,
+  color?: string
 ) => {
   ctx.save();
   ctx.rotate((Math.PI / 180) * 180); // もとのパスは回転している
   ctx.translate(-left, -top); // 回転しているため負の値
   ctx.scale(-scale, scale); // もとのパスは五線の高さを1000としているのでスケールする
+  ctx.fillStyle = color ? color : "#000";
   ctx.fill(path.path2d);
   ctx.restore();
 };
 
 const paintGClef = (
   ctx: CanvasRenderingContext2D,
+  element: ClefStyle,
   left: number,
   topOfStaff: number
 ) => {
   const g = pitchToY(topOfStaff, 4, 1);
-  paintBravuraPath(ctx, left, g, 1, bClefG);
+  paintBravuraPath(ctx, left, g, 1, bClefG, element.color);
 };
 
 export const paintStaff = (
@@ -101,21 +106,22 @@ export const paintStaff = (
  * 小節線描画
  */
 const paintBarline = (ctx: CanvasRenderingContext2D, element: BarStyle) => {
+  const color = element.color ?? "#000";
   for (const el of element.elements) {
     ctx.save();
     if (el.type === "line") {
       ctx.translate(el.position.x + el.lineWidth / 2, el.position.y);
-      ctx.strokeStyle = "#000";
+      ctx.strokeStyle = color;
       ctx.lineWidth = el.lineWidth;
       ctx.beginPath();
       ctx.moveTo(0, 0);
-      ctx.lineTo(0, bStaffHeight);
+      ctx.lineTo(0, el.height);
       ctx.closePath();
       ctx.stroke();
     } else {
       const rad = repeatDotRadius;
       ctx.translate(el.position.x + rad, el.position.y);
-      ctx.fillStyle = "#000";
+      ctx.fillStyle = color;
       ctx.beginPath();
       ctx.arc(0, 0, rad, 0, Math.PI * 2);
       ctx.fill();
@@ -129,24 +135,25 @@ const paintBarline = (ctx: CanvasRenderingContext2D, element: BarStyle) => {
 
 const paintNote = ({
   ctx,
-  elements,
+  element,
 }: {
   ctx: CanvasRenderingContext2D;
-  elements: NoteStyleElement[];
+  element: NoteStyle;
 }) => {
-  for (const noteEl of elements) {
+  const color = element.color ?? "#000";
+  for (const noteEl of element.elements) {
     if (noteEl.type === "head") {
       const { duration, position } = noteEl;
       ctx.save();
       ctx.translate(position.x, position.y);
       const path = noteHeadByDuration(duration);
-      paintBravuraPath(ctx, 0, 0, 1, path);
+      paintBravuraPath(ctx, 0, 0, 1, path, color);
       ctx.restore();
     } else if (noteEl.type === "ledger") {
       const { width, position } = noteEl;
       ctx.save();
       ctx.translate(position.x, position.y);
-      ctx.strokeStyle = "#000";
+      ctx.strokeStyle = color;
       ctx.lineWidth = bLedgerLineThickness;
       ctx.beginPath();
       ctx.moveTo(0, 0);
@@ -159,7 +166,7 @@ const paintNote = ({
       const path = accidentalPathMap.get(accidental)!;
       ctx.save();
       ctx.translate(position.x, position.y);
-      paintBravuraPath(ctx, 0, 0, 1, path);
+      paintBravuraPath(ctx, 0, 0, 1, path, color);
       ctx.restore();
     } else if (noteEl.type === "flag") {
       const { duration, direction, position } = noteEl;
@@ -168,13 +175,13 @@ const paintNote = ({
           ? upFlagMap.get(duration)
           : downFlagMap.get(duration);
       if (path) {
-        paintBravuraPath(ctx, position.x, position.y, 1, path);
+        paintBravuraPath(ctx, position.x, position.y, 1, path, color);
       }
     } else if (noteEl.type === "stem") {
       const { top, bottom, center, width } = noteEl;
       ctx.save();
       ctx.translate(center, top);
-      ctx.strokeStyle = "#000";
+      ctx.strokeStyle = color;
       ctx.lineWidth = width;
       ctx.beginPath();
       ctx.moveTo(0, 0);
@@ -192,11 +199,11 @@ const paintRest = ({
   ctx: CanvasRenderingContext2D;
   element: RestStyle;
 }) => {
-  const { rest, position } = element;
+  const { rest, position, color } = element;
   const path = restPathMap.get(rest.duration)!;
   ctx.save();
   ctx.translate(position.x, position.y);
-  paintBravuraPath(ctx, 0, 0, 1, path);
+  paintBravuraPath(ctx, 0, 0, 1, path, color);
   ctx.restore();
 };
 
@@ -220,9 +227,9 @@ export const paintStyle = (
 ) => {
   const { type } = element;
   if (type === "clef") {
-    paintGClef(ctx, 0, 0);
+    paintGClef(ctx, element, 0, 0);
   } else if (type === "note") {
-    paintNote({ ctx, elements: element.elements });
+    paintNote({ ctx, element });
   } else if (type === "rest") {
     paintRest({ ctx, element });
   } else if (type === "beam") {
@@ -232,6 +239,19 @@ export const paintStyle = (
   } else if (type === "gap") {
     // no-op
   }
+};
+
+// debug
+export const paintBBox = (ctx: CanvasRenderingContext2D, bbox: BBox) => {
+  ctx.save();
+  ctx.strokeStyle = "#FF0000";
+  ctx.strokeRect(
+    bbox.left,
+    bbox.top,
+    bbox.right - bbox.left,
+    bbox.bottom - bbox.top
+  );
+  ctx.restore();
 };
 
 export const paintCaret = ({

@@ -1,6 +1,7 @@
 import { magnitude, Point } from "../geometry";
 
 export interface PointerHandler {
+  onMove: (ev: PointerEvent) => void;
   onDown: (ev: PointerEvent) => void;
   onUp: (ev: PointerEvent, downPoint: Point) => void;
   onClick: (ev: PointerEvent) => void;
@@ -53,6 +54,7 @@ export class PointerEventListener {
         this.reset();
         return;
       case "pointermove":
+        this.onMove(pointerEvent);
         if (!this.downPoint) {
           return;
         }
@@ -76,24 +78,40 @@ export class PointerEventListener {
     this.isDragging = false;
   }
 
+  private onMove(ev: PointerEvent) {
+    for (const h of this.handlers) {
+      h.onMove(ev);
+    }
+  }
+
   private onDown(ev: PointerEvent) {
-    this.handlers.forEach((h) => h.onDown(ev));
+    for (const h of this.handlers) {
+      h.onDown(ev);
+    }
   }
 
   private onUp(ev: PointerEvent, down: Point) {
-    this.handlers.forEach((h) => h.onUp(ev, down));
+    for (const h of this.handlers) {
+      h.onUp(ev, down);
+    }
   }
 
   private onClick(ev: PointerEvent) {
-    this.handlers.forEach((h) => h.onClick(ev));
+    for (const h of this.handlers) {
+      h.onClick(ev);
+    }
   }
 
   private onLongDown(ev: PointerEvent) {
-    this.handlers.forEach((h) => h.onLongDown(ev));
+    for (const h of this.handlers) {
+      h.onLongDown(ev);
+    }
   }
 
   private onDrag(ev: PointerEvent, down: Point) {
-    this.handlers.forEach((h) => h.onDrag(ev, down));
+    for (const h of this.handlers) {
+      h.onDrag(ev, down);
+    }
   }
 }
 
