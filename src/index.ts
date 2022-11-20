@@ -1,7 +1,6 @@
 import { registerPointerHandlers } from "./ui/pointer-event";
 import {
   initCanvas,
-  paintBBox,
   paintCaret,
   paintStaff,
   paintStyle,
@@ -44,6 +43,7 @@ import {
   CaretStyle,
   determinePaintElementStyle,
   PaintElementStyle,
+  Pointing,
 } from "./style";
 import { BBox, offsetBBox, Point, scalePoint } from "./geometry";
 
@@ -72,7 +72,6 @@ window.onload = () => {
   const noteKeyEls = Array.from(document.getElementsByClassName("note"));
   const changeNoteRestKey =
     document.getElementsByClassName("changeNoteRest")[0];
-  const bboxIdxToElementIdx = new Map<number, number>();
   let mainElements: MusicalElement[] = [];
   let caretPositions: CaretStyle[] = [];
   let caretIndex = 0;
@@ -81,7 +80,8 @@ window.onload = () => {
   let accidentalModeIdx = 0;
   let lastEditedIdx: number;
   let styles: PaintElementStyle[] = [];
-  let elementBBoxes: BBox[] = [];
+  let elementBBoxes: { bbox: BBox; elIdx?: number }[] = [];
+  let pointing: Pointing | undefined;
   const updateMain = () => {
     console.log("main", "start");
     resetCanvas({
@@ -90,21 +90,22 @@ window.onload = () => {
       height: mainHeight,
       fillStyle: "#fff",
     });
-    const clef: Clef = { type: "g" };
-    let cursor = 0;
     caretPositions = [];
+    elementBBoxes = [];
     mainCtx.save();
     mainCtx.scale(scale, scale);
     mainCtx.translate(leftOfStaff, topOfStaff);
     paintStaff(mainCtx, 0, 0, UNIT * 100, 1);
-    styles = [...determinePaintElementStyle(mainElements, UNIT, { clef })];
-    elementBBoxes = [];
+    const clef: Clef = { type: "g" };
+    styles = [
+      ...determinePaintElementStyle(mainElements, UNIT, { clef }, pointing),
+    ];
+    let cursor = 0;
     for (const style of styles) {
       console.log("style", style);
-      const { width, element, caretOption, bbox } = style;
+      const { width, element, caretOption, bbox, index: elIdx } = style;
       paintStyle(mainCtx, style);
-      paintBBox(mainCtx, bbox);
-      elementBBoxes.push(offsetBBox(bbox, { x: cursor }));
+      elementBBoxes.push({ bbox: offsetBBox(bbox, { x: cursor }), elIdx });
       if (caretOption) {
         const { index: elIdx, defaultWidth } = caretOption;
         const caretWidth = defaultWidth ? defaultCaretWidth : width;
@@ -133,8 +134,6 @@ window.onload = () => {
         caret: caretPositions[caretIndex],
       });
     }
-    mainCtx.restore();
-    mainCtx.save();
     mainCtx.restore();
     console.log("main", "end");
   };
@@ -433,16 +432,27 @@ window.onload = () => {
 
   const canvasCallback: CanvasCallback = {
     onMove(htmlPoint: Point) {
+      let nextPointing = undefined;
       for (let i in elementBBoxes) {
+        const { type } = styles[i].element;
+        if (type === "gap" || type === "beam") {
+          continue;
+        }
         if (
           isPointInBBox(
             scalePoint(htmlPoint, 1 / scale),
-            offsetBBox(elementBBoxes[i], { x: leftOfStaff, y: topOfStaff })
+            offsetBBox(elementBBoxes[i].bbox, { x: leftOfStaff, y: topOfStaff })
           )
         ) {
-          styles[i].element.color = "#FF0000";
-          console.log(styles[i].element.type);
+          const { elIdx } = elementBBoxes[i];
+          if (elIdx !== undefined) {
+            nextPointing = { index: elIdx, type };
+          }
         }
+      }
+      if (pointing !== nextPointing) {
+        pointing = nextPointing;
+        updateMain();
       }
     },
   };

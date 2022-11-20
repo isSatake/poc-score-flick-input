@@ -39,7 +39,7 @@ import { BBox, getPathBBox, offsetBBox, Point } from "./geometry";
 export type CaretStyle = { x: number; y: number; width: number; elIdx: number };
 type OptionalColor = { color?: string };
 // 1音
-type NoteStyle = {
+export type NoteStyle = {
   type: "note";
   note: Note;
   elements: NoteStyleElement[];
@@ -95,31 +95,20 @@ type PaintElement =
   | BarStyle
   | ClefStyle
   | GapStyle;
+export type Pointing = { index: number; type: PointingType };
+type PointingType = "note" | "rest" | "bar" | "clef";
+const kPointingColor = "#FF0000";
 
-type Section = {
-  start: number;
-  end: number;
-};
-
-export const createSection = (start: number, end?: number): Section => {
-  return { start, end: end ?? start };
-};
-export const calcSection = (
-  start: number,
-  scale: number,
-  path: Path
-): Section => {
-  const width = getPathWidth(path, UNIT) * scale;
-  return createSection(start, start + width);
-};
 const determineNoteStyle = ({
   note,
   stemDirection,
   beamed = false,
+  pointing,
 }: {
   note: Note;
   stemDirection?: "up" | "down";
   beamed?: boolean;
+  pointing?: Pointing;
 }): {
   element: NoteStyle;
   width: number;
@@ -252,19 +241,18 @@ const determineNoteStyle = ({
   }
   const noteheadStemFlagBBoxes: BBox[] = [];
   for (const p of notesLeftOfStem) {
-    noteheadStemFlagBBoxes.push(
-      offsetBBox(getPathBBox(noteHeadByDuration(note.duration), UNIT), {
-        x: leftOfNotehead,
-      })
-    );
+    const position = {
+      x: leftOfNotehead,
+      y: pitchToY(0, p.pitch, 1),
+    };
     elements.push({
       type: "head",
-      position: {
-        x: leftOfNotehead,
-        y: pitchToY(0, p.pitch, 1),
-      },
+      position,
       duration: note.duration,
     });
+    noteheadStemFlagBBoxes.push(
+      offsetBBox(getPathBBox(noteHeadByDuration(note.duration), UNIT), position)
+    );
   }
   let leftOfStemOrNotehead = leftOfNotehead;
   if (notesLeftOfStem.length > 0) {
@@ -305,6 +293,7 @@ const determineNoteStyle = ({
       type: "note",
       note,
       elements,
+      ...(pointing ? { color: kPointingColor } : undefined),
     },
     width: bbox.right - bbox.left,
     stemOffsetLeft: leftOfStemOrNotehead,
@@ -315,9 +304,7 @@ const determineNoteStyle = ({
 const mergeBBoxes = (bboxes: BBox[]): BBox => {
   let ret: BBox | undefined;
   for (let b of bboxes) {
-    if (!ret) {
-      ret = b;
-    } else {
+    if (ret) {
       if (b.left < ret.left) {
         ret.left = b.left;
       }
@@ -330,6 +317,8 @@ const mergeBBoxes = (bboxes: BBox[]): BBox => {
       if (b.bottom > ret.bottom) {
         ret.bottom = b.bottom;
       }
+    } else {
+      ret = b;
     }
   }
   return ret!;
@@ -404,15 +393,6 @@ const calcStemShape = ({
     bottom += extension;
   }
   return { top, bottom };
-};
-
-const maxSection = (left: number, sections: Section[]): Section => {
-  if (sections.length === 0) {
-    return { start: left, end: left };
-  }
-  const start = Math.min(...sections.map((section) => section?.start ?? left));
-  const end = Math.max(...sections.map((section) => section?.end ?? left));
-  return { start, end };
 };
 
 const gapWithAccidental = (scale: number): number => {
@@ -509,7 +489,8 @@ const determineStemFlagStyle = ({
 };
 
 const determineRestStyle = (
-  rest: Rest
+  rest: Rest,
+  pointing?: Pointing
 ): { element: RestStyle; bbox: BBox; width: number } => {
   const path = restPathMap.get(rest.duration)!;
   const y = UNIT * path.originUnits;
@@ -520,6 +501,7 @@ const determineRestStyle = (
       type: "rest",
       rest,
       position: pathOrigin,
+      ...(pointing ? { color: kPointingColor } : {}),
     },
     bbox,
     width: bbox.right - bbox.left,
@@ -527,18 +509,17 @@ const determineRestStyle = (
 };
 
 const determineBarStyle = (
-  bar: Bar
+  bar: Bar,
+  pointing?: Pointing
 ): { element: BarStyle; bbox: BBox; width: number } => {
   const thinWidth = bThinBarlineThickness * UNIT;
   const barlineSeparation = bBarlineSeparation * UNIT;
-  const elements: BarStyleElement[] = [];
-  let width = 0;
-  let height = 0;
   if (bar.subtype === "single") {
     return {
       element: {
         type: "bar",
         bar,
+        ...(pointing ? { color: kPointingColor } : {}),
         elements: [
           {
             type: "line",
@@ -561,6 +542,7 @@ const determineBarStyle = (
       element: {
         type: "bar",
         bar,
+        ...(pointing ? { color: kPointingColor } : {}),
         elements: [
           {
             type: "line",
@@ -597,6 +579,7 @@ const determineBarStyle = (
       element: {
         type: "bar",
         bar,
+        ...(pointing ? { color: kPointingColor } : {}),
         elements: [
           {
             type: "dot",
@@ -815,8 +798,6 @@ const determineBeamStyle = (p: {
   notePositions: { left: number; stemOffsetLeft: number }[];
   linearFunc: (x: number) => number;
   stemDirection: "up" | "down";
-  left: number;
-  top: number;
   duration?: Duration;
   headOrTail?: "head" | "tail";
 }): PaintElementStyle[] => {
@@ -869,15 +850,12 @@ const determineBeamStyle = (p: {
       ...shape,
     },
     width: beamRight - beamLeft,
-    bbox: offsetBBox(
-      {
-        left: shape.sw.x,
-        top: shape.ne.y,
-        right: shape.ne.x,
-        bottom: shape.sw.y,
-      },
-      { x: p.left, y: p.top }
-    ),
+    bbox: {
+      left: shape.sw.x,
+      top: shape.ne.y,
+      right: shape.ne.x,
+      bottom: shape.sw.y,
+    },
   });
   if (duration === 32) {
     return beams;
@@ -937,7 +915,7 @@ const determineBeamedNotesStyle = (
   duration: Duration,
   elementGap: number,
   startIdx: number,
-  startLeft: number
+  _pointing?: Pointing
 ): PaintElementStyle[] => {
   const allBeamedPitches = beamedNotes
     .flatMap((n) => n.pitches)
@@ -948,10 +926,15 @@ const determineBeamedNotesStyle = (
   let left = 0;
   for (const _i in beamedNotes) {
     const i = Number(_i);
+    const pointing =
+      _pointing?.type === "note" && _pointing.index === i + startIdx
+        ? _pointing
+        : undefined;
     const noteStyle = determineNoteStyle({
       note: beamedNotes[i],
       stemDirection,
       beamed: true,
+      pointing,
     });
     notePositions.push({ left, stemOffsetLeft: noteStyle.stemOffsetLeft });
     const caretOption = { index: i + startIdx };
@@ -982,8 +965,6 @@ const determineBeamedNotesStyle = (
     notePositions,
     linearFunc,
     stemDirection,
-    left: startLeft,
-    top: 0,
   });
   for (const i in beamedNotes) {
     const { pitches } = beamedNotes[i];
@@ -1010,11 +991,7 @@ const determineBeamedNotesStyle = (
     // gapを考慮したindex
     const parent = elements[Number(i) * 2];
     const noteSyle = parent.element as NoteStyle;
-    const stemFlagBB = mergeBBoxes(stemFlag.bboxes);
-    parent.bbox = mergeBBoxes([
-      parent.bbox,
-      offsetBBox(stemFlagBB, { x: notePositions[i].left + startLeft }),
-    ]);
+    parent.bbox = mergeBBoxes([parent.bbox, ...stemFlag.bboxes]);
     noteSyle.elements.push(...stemFlag.elements);
   }
   return [...beams, ...elements];
@@ -1050,20 +1027,30 @@ const gapElementStyle = ({
   };
 };
 
-const clefElementStyle = (clef: Clef): PaintElementStyle => {
+const determineClefStyle = (
+  clef: Clef,
+  index: number,
+  pointing?: Pointing
+): PaintElementStyle => {
   const path = getPathBBox(bClefG, UNIT);
   const g = pitchToY(0, 4, 1);
   return {
-    element: { type: "clef", clef },
+    element: {
+      type: "clef",
+      clef,
+      ...(pointing ? { color: kPointingColor } : {}),
+    },
     width: path.right - path.left,
     bbox: offsetBBox(path, { y: g }),
+    index,
   };
 };
 
 export const determinePaintElementStyle = function* (
   elements: MusicalElement[],
   gapWidth: number,
-  headOpts?: { clef: Clef }
+  headOpts?: { clef: Clef },
+  pointing?: Pointing
 ): Generator<PaintElementStyle> {
   const gapEl = gapElementStyle({
     width: gapWidth,
@@ -1076,7 +1063,8 @@ export const determinePaintElementStyle = function* (
     left += gapWidth;
     console.log("left", left);
     if (headOpts.clef) {
-      const clef = clefElementStyle(headOpts.clef);
+      const _pointing = pointing?.index === -1 ? pointing : undefined;
+      const clef = determineClefStyle(headOpts.clef, -1, _pointing);
       yield clef;
       left += clef.width;
       console.log("left", left);
@@ -1092,12 +1080,16 @@ export const determinePaintElementStyle = function* (
       if (el.beam === "begin") {
         // 連桁
         const beamedNotes: Note[] = [el];
+        let _pointing = pointing?.index === index ? pointing : undefined;
         let nextIdx = index + 1;
         let nextEl = elements[nextIdx];
         while (
           nextEl?.type === "note" &&
           (nextEl.beam === "continue" || nextEl.beam === "end")
         ) {
+          if (!_pointing) {
+            _pointing = pointing?.index === nextIdx ? pointing : undefined;
+          }
           beamedNotes.push(nextEl);
           nextEl = elements[++nextIdx];
         }
@@ -1106,16 +1098,15 @@ export const determinePaintElementStyle = function* (
           el.duration,
           gapWidth,
           index,
-          left
+          _pointing
         );
         for (const beamed of beamedStyles) {
           yield beamed;
-          // TODO leftを更新できてない
-          // beam, elements全てを内包するbbを計算してwidthを求める
         }
         index += beamedNotes.length;
       } else {
-        const note = determineNoteStyle({ note: el });
+        const _pointing = pointing?.index === index ? pointing : undefined;
+        const note = determineNoteStyle({ note: el, pointing: _pointing });
         yield { caretOption: { index }, index, ...note };
         left += note.width;
         yield { ...gapEl, caretOption: { index, defaultWidth: true } };
@@ -1123,14 +1114,16 @@ export const determinePaintElementStyle = function* (
         index++;
       }
     } else if (el.type === "rest") {
-      const rest = determineRestStyle(el);
+      const _pointing = pointing?.index === index ? pointing : undefined;
+      const rest = determineRestStyle(el, _pointing);
       yield { caretOption: { index }, index, ...rest };
       left += rest.width;
       yield { ...gapEl, caretOption: { index, defaultWidth: true } };
       left += gapWidth;
       index++;
     } else if (el.type === "bar") {
-      const bar = determineBarStyle(el);
+      const _pointing = pointing?.index === index ? pointing : undefined;
+      const bar = determineBarStyle(el, _pointing);
       yield { caretOption: { index }, index, ...bar };
       left += bar.width;
       yield { ...gapEl, caretOption: { index, defaultWidth: true } };
@@ -1138,12 +1131,4 @@ export const determinePaintElementStyle = function* (
       index++;
     }
   }
-};
-
-const getPathWidth = (path: Path, unit: number): number => {
-  return (path.bbox.ne.x - path.bbox.sw.x) * unit;
-};
-
-const getPathHeight = (path: Path, unit: number): number => {
-  return (path.bbox.ne.y - path.bbox.sw.y) * unit;
 };
