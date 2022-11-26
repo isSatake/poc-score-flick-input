@@ -1,6 +1,7 @@
 import { registerPointerHandlers } from "./ui/pointer-event";
 import {
   initCanvas,
+  paintBBox,
   paintCaret,
   paintStaff,
   paintStyle,
@@ -42,6 +43,7 @@ import { sortPitches } from "./pitch";
 import {
   CaretStyle,
   determinePaintElementStyle,
+  PaintElement,
   PaintElementStyle,
   Pointing,
 } from "./style";
@@ -72,14 +74,17 @@ window.onload = () => {
   const noteKeyEls = Array.from(document.getElementsByClassName("note"));
   const changeNoteRestKey =
     document.getElementsByClassName("changeNoteRest")[0];
-  let mainElements: MusicalElement[] = [];
+  let mainElements: MusicalElement[] = [
+    { type: "note", duration: 8, pitches: [{ pitch: 0 }], tie: "start" },
+    { type: "note", duration: 8, pitches: [{ pitch: 0 }], tie: "stop" },
+  ];
   let caretPositions: CaretStyle[] = [];
   let caretIndex = 0;
   let isNoteInputMode = true;
   let beamMode: BeamModes = "nobeam";
   let accidentalModeIdx = 0;
   let lastEditedIdx: number;
-  let styles: PaintElementStyle[] = [];
+  let styles: PaintElementStyle<PaintElement>[] = [];
   let elementBBoxes: { bbox: BBox; elIdx?: number }[] = [];
   let pointing: Pointing | undefined;
   const updateMain = () => {
@@ -97,15 +102,15 @@ window.onload = () => {
     mainCtx.translate(leftOfStaff, topOfStaff);
     paintStaff(mainCtx, 0, 0, UNIT * 100, 1);
     const clef: Clef = { type: "g" };
-    styles = [
-      ...determinePaintElementStyle(mainElements, UNIT, { clef }, pointing),
-    ];
+    styles = determinePaintElementStyle(mainElements, UNIT, { clef }, pointing);
     let cursor = 0;
     for (const style of styles) {
       console.log("style", style);
       const { width, element, caretOption, bbox, index: elIdx } = style;
       paintStyle(mainCtx, style);
-      elementBBoxes.push({ bbox: offsetBBox(bbox, { x: cursor }), elIdx });
+      const _bbox = offsetBBox(bbox, { x: cursor });
+      elementBBoxes.push({ bbox: _bbox, elIdx });
+      paintBBox(mainCtx, bbox); // debug
       if (caretOption) {
         const { index: elIdx, defaultWidth } = caretOption;
         const caretWidth = defaultWidth ? defaultCaretWidth : width;
@@ -116,7 +121,7 @@ window.onload = () => {
           elIdx,
         });
       }
-      if (element.type !== "beam") {
+      if (element.type !== "beam" && element.type !== "tie") {
         cursor += width;
         mainCtx.translate(width, 0);
       }
@@ -435,7 +440,7 @@ window.onload = () => {
       let nextPointing = undefined;
       for (let i in elementBBoxes) {
         const { type } = styles[i].element;
-        if (type === "gap" || type === "beam") {
+        if (type === "gap" || type === "beam" || type === "tie") {
           continue;
         }
         if (

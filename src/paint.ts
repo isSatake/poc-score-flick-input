@@ -20,9 +20,11 @@ import {
   CaretStyle,
   ClefStyle,
   NoteStyle,
+  PaintElement,
   PaintElementStyle,
   pitchToY,
   RestStyle,
+  TieStyle,
 } from "./style";
 import { BBox } from "./geometry";
 
@@ -178,14 +180,14 @@ const paintNote = ({
         paintBravuraPath(ctx, position.x, position.y, 1, path, color);
       }
     } else if (noteEl.type === "stem") {
-      const { top, bottom, center, width } = noteEl;
+      const { position, width, height } = noteEl;
       ctx.save();
-      ctx.translate(center, top);
+      ctx.translate(position.x + width / 2, position.y);
       ctx.strokeStyle = color;
       ctx.lineWidth = width;
       ctx.beginPath();
       ctx.moveTo(0, 0);
-      ctx.lineTo(0, bottom - top);
+      ctx.lineTo(0, height);
       ctx.stroke();
       ctx.restore();
     }
@@ -217,13 +219,24 @@ const paintBeam = (ctx: CanvasRenderingContext2D, beam: BeamStyle) => {
   ctx.lineTo(beam.ne.x, beam.ne.y);
   ctx.closePath();
   ctx.fill();
+  ctx.restore();
+};
 
+const paintTie = (ctx: CanvasRenderingContext2D, tie: TieStyle) => {
+  ctx.save();
+  ctx.fillStyle = "#000";
+  ctx.translate(tie.position.x, tie.position.y);
+  ctx.moveTo(0, 0);
+  ctx.quadraticCurveTo(tie.cpLow.x, tie.cpLow.y, tie.end.x, tie.end.y);
+  ctx.quadraticCurveTo(tie.cpHigh.x, tie.cpHigh.y, 0, 0);
+  ctx.closePath();
+  ctx.fill();
   ctx.restore();
 };
 
 export const paintStyle = (
   ctx: CanvasRenderingContext2D,
-  { element }: PaintElementStyle
+  { element }: PaintElementStyle<PaintElement>
 ) => {
   const { type } = element;
   if (type === "clef") {
@@ -234,6 +247,8 @@ export const paintStyle = (
     paintRest({ ctx, element });
   } else if (type === "beam") {
     paintBeam(ctx, element);
+  } else if (type === "tie") {
+    paintTie(ctx, element);
   } else if (type === "bar") {
     paintBarline(ctx, element);
   } else if (type === "gap") {
