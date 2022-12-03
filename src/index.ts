@@ -18,6 +18,7 @@ import {
   KeyboardDragHandler,
   KeyPressHandler,
   NoteInputHandler,
+  TieHandler,
 } from "./ui/pointer-handlers";
 import { bStaffHeight, UNIT } from "./bravura";
 import {
@@ -37,6 +38,7 @@ import {
   ChangeAccidentalCallback,
   ChangeBeamCallback,
   ChangeNoteRestCallback,
+  ChangeTieCallback,
   NoteInputCallback,
 } from "./ui/callbacks";
 import { sortPitches } from "./pitch";
@@ -50,6 +52,7 @@ import {
 import { BBox, offsetBBox, Point, scalePoint } from "./geometry";
 
 export type BeamModes = "beam" | "lock" | "nobeam";
+export type TieModes = "tie" | "lock" | undefined;
 const accidentalModes = [undefined, ...accidentals] as const;
 export type AccidentalModes = typeof accidentalModes[number];
 
@@ -75,13 +78,14 @@ window.onload = () => {
   const changeNoteRestKey =
     document.getElementsByClassName("changeNoteRest")[0];
   let mainElements: MusicalElement[] = [
-    { type: "note", duration: 8, pitches: [{ pitch: 0 }], tie: "start" },
-    { type: "note", duration: 8, pitches: [{ pitch: 0 }], tie: "stop" },
+    { type: "note", duration: 4, pitches: [{ pitch: 1 }], tie: "start" },
+    { type: "note", duration: 4, pitches: [{ pitch: 1 }], tie: "stop" },
   ];
   let caretPositions: CaretStyle[] = [];
   let caretIndex = 0;
   let isNoteInputMode = true;
   let beamMode: BeamModes = "nobeam";
+  let tieMode: TieModes;
   let accidentalModeIdx = 0;
   let lastEditedIdx: number;
   let styles: PaintElementStyle<PaintElement>[] = [];
@@ -110,7 +114,7 @@ window.onload = () => {
       paintStyle(mainCtx, style);
       const _bbox = offsetBBox(bbox, { x: cursor });
       elementBBoxes.push({ bbox: _bbox, elIdx });
-      paintBBox(mainCtx, bbox); // debug
+      // paintBBox(mainCtx, bbox); // debug
       if (caretOption) {
         const { index: elIdx, defaultWidth } = caretOption;
         const caretWidth = defaultWidth ? defaultCaretWidth : width;
@@ -252,6 +256,14 @@ window.onload = () => {
         accidentalModeIdx === accidentalModes.length - 1
           ? 0
           : accidentalModeIdx + 1;
+    },
+  };
+  const changeTieCallback: ChangeTieCallback = {
+    getMode() {
+      return tieMode;
+    },
+    change(next: TieModes) {
+      tieMode = next;
     },
   };
   const noteInputCallback: NoteInputCallback = {
@@ -497,6 +509,7 @@ window.onload = () => {
     ["mainCanvas"],
     [new CanvasPointerHandler(canvasCallback)]
   );
+  registerPointerHandlers(["tie"], [new TieHandler(changeTieCallback)]);
 
   initCanvas({
     dpr,

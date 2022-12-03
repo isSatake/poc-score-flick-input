@@ -1033,7 +1033,7 @@ const determineTieStyle = (
   return {
     element: {
       type: "tie",
-      position: startHead.tie,
+      position: { ...startHead.tie, y: startHead.tie.y - 70 },
       cpLow: { x: width / 2, y: 120 },
       cpHigh: { x: width / 2, y: 180 },
       end: { x: width, y: 0 },
