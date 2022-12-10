@@ -431,6 +431,18 @@ body {
   background-size: 25%;
 }
 
+.notie > div {
+  background-color: grey;
+}
+
+.tie > div {
+  background-color: black;
+}
+
+.changeTie > .buttonImage {
+  -webkit-mask: url("img/tie.svg") no-repeat center center / 50% 50%;
+}
+
 .keyboardBottom {
   display: flex;
   width: 100%;

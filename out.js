@@ -1025,7 +1025,7 @@
     return {
       element: {
         type: "tie",
-        position: startHead.tie,
+        position: {...startHead.tie, y: startHead.tie.y - 70},
         cpLow: {x: width / 2, y: 120},
         cpHigh: {x: width / 2, y: 180},
         end: {x: width, y: 0}
@@ -1333,12 +1333,6 @@
     } else if (type === "gap") {
     }
   };
-  var paintBBox = (ctx, bbox) => {
-    ctx.save();
-    ctx.strokeStyle = "#FF0000";
-    ctx.strokeRect(bbox.left, bbox.top, bbox.right - bbox.left, bbox.bottom - bbox.top);
-    ctx.restore();
-  };
   var paintCaret = ({
     ctx,
     scale: scale2,
@@ -1584,6 +1578,19 @@
       this.callback.onMove({x: ev.offsetX, y: ev.offsetY});
     }
   };
+  var TieHandler = class extends EmptyPointerHandler {
+    constructor(callback) {
+      super();
+      this.callback = callback;
+      this.tieEl = document.querySelector(".changeTie");
+    }
+    onClick(ev) {
+      const current = this.callback.getMode();
+      const next = !current ? "tie" : void 0;
+      this.callback.change(next);
+      this.tieEl.className = this.tieEl.className.replace(next ? "notie" : "tie", next ? "tie" : "notie");
+    }
+  };
 
   // src/notation/types.ts
   var accidentals = ["sharp", "natural", "flat"];
@@ -1629,13 +1636,14 @@
     const noteKeyEls = Array.from(document.getElementsByClassName("note"));
     const changeNoteRestKey = document.getElementsByClassName("changeNoteRest")[0];
     let mainElements = [
-      {type: "note", duration: 8, pitches: [{pitch: 0}], tie: "start"},
-      {type: "note", duration: 8, pitches: [{pitch: 0}], tie: "stop"}
+      {type: "note", duration: 4, pitches: [{pitch: 1}], tie: "start"},
+      {type: "note", duration: 4, pitches: [{pitch: 1}], tie: "stop"}
     ];
     let caretPositions = [];
     let caretIndex = 0;
     let isNoteInputMode = true;
     let beamMode = "nobeam";
+    let tieMode;
     let accidentalModeIdx = 0;
     let lastEditedIdx;
     let styles = [];
@@ -1664,7 +1672,6 @@
         paintStyle(mainCtx, style);
         const _bbox = offsetBBox(bbox, {x: cursor});
         elementBBoxes.push({bbox: _bbox, elIdx});
-        paintBBox(mainCtx, bbox);
         if (caretOption) {
           const {index: elIdx2, defaultWidth} = caretOption;
           const caretWidth = defaultWidth ? defaultCaretWidth : width;
@@ -1784,6 +1791,14 @@
       },
       next() {
         accidentalModeIdx = accidentalModeIdx === accidentalModes.length - 1 ? 0 : accidentalModeIdx + 1;
+      }
+    };
+    const changeTieCallback = {
+      getMode() {
+        return tieMode;
+      },
+      change(next) {
+        tieMode = next;
       }
     };
     const noteInputCallback = {
@@ -1980,6 +1995,7 @@
     registerPointerHandlers(["accidentals"], [new ChangeAccidentalHandler(changeAccidentalCallback)]);
     registerPointerHandlers([], [new GrayPointerHandler()]);
     registerPointerHandlers(["mainCanvas"], [new CanvasPointerHandler(canvasCallback)]);
+    registerPointerHandlers(["changeTie"], [new TieHandler(changeTieCallback)]);
     initCanvas({
       dpr,
       leftPx: 0,

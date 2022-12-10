@@ -509,7 +509,7 @@ window.onload = () => {
     ["mainCanvas"],
     [new CanvasPointerHandler(canvasCallback)]
   );
-  registerPointerHandlers(["tie"], [new TieHandler(changeTieCallback)]);
+  registerPointerHandlers(["changeTie"], [new TieHandler(changeTieCallback)]);
 
   initCanvas({
     dpr,
