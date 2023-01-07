@@ -21,18 +21,19 @@ import { sortPitches } from "./pitch";
 import {
   addCaret,
   addCaretIndex,
-  getCurrentCaret,
+  flipIsNoteInputMode,
+  getBeamMode,
   getCaretIndex,
   getCaretPositions,
+  getCurrentCaret,
+  getIsNoteInputMode,
   getMainElements,
   initCaretPositions,
+  setBeamMode,
   setCaretIndex,
   setMainElements,
-  getIsNoteInputMode,
-  flipIsNoteInputMode,
 } from "./score-states";
 import {
-  CaretStyle,
   determinePaintElementStyle,
   PaintElement,
   PaintElementStyle,
@@ -82,8 +83,6 @@ window.onload = () => {
   const previewCtx = previewCanvas.getContext("2d")!;
 
   // 楽譜のステート
-  // let isNoteInputMode = true;
-  let beamMode: BeamModes = "nobeam";
   let tieMode: TieModes;
   let accidentalModeIdx = 0;
   let lastEditedIdx: number;
@@ -243,7 +242,7 @@ window.onload = () => {
   };
   const changeBeamCallback: ChangeBeamCallback = {
     getMode() {
-      return beamMode;
+      return getBeamMode();
     },
     change(mode: BeamModes) {
       noteKeyEls.forEach((el) => {
@@ -252,7 +251,7 @@ window.onload = () => {
           mode === "nobeam" ? "nobeam" : "beamed"
         );
       });
-      beamMode = mode;
+      setBeamMode(mode);
       const lastEl = getMainElements()[lastEditedIdx];
       if (lastEl) {
         const left = getMainElements()[lastEditedIdx - 1];
@@ -338,7 +337,7 @@ window.onload = () => {
           element.pitches = sortPitches([...oldEl.pitches, ...element.pitches]);
         }
       }
-      updatePreview(copiedElements, beamMode, element);
+      updatePreview(copiedElements, getBeamMode(), element);
       previewCanvas.style.visibility = "visible";
     },
     updatePreview(duration: Duration, dy: number) {
@@ -381,7 +380,7 @@ window.onload = () => {
           element.pitches = sortPitches([...oldEl.pitches, ...element.pitches]);
         }
       }
-      updatePreview(copiedElements, beamMode, element);
+      updatePreview(copiedElements, getBeamMode(), element);
     },
     commit(duration: Duration, dy?: number) {
       let newElement: MusicalElement;
@@ -418,7 +417,7 @@ window.onload = () => {
         caretIndex: getCaretIndex(),
         elements: getMainElements(),
         newElement,
-        beamMode,
+        beamMode: getBeamMode(),
       });
       lastEditedIdx = insertedIndex;
       addCaretIndex(caretAdvance);
@@ -500,7 +499,7 @@ window.onload = () => {
         caretIndex: getCaretIndex(),
         elements: getMainElements(),
         newElement: bar,
-        beamMode,
+        beamMode: getBeamMode(),
       });
       lastEditedIdx = insertedIndex;
       addCaretIndex(caretAdvance);

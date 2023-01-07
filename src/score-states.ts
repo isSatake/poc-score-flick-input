@@ -24,6 +24,11 @@ export function flipIsNoteInputMode() {
 }
 
 let beamMode: BeamModes = "nobeam";
+export const getBeamMode = () => beamMode;
+export const setBeamMode = (v: BeamModes) => {
+  beamMode = v;
+};
+
 let tieMode: TieModes;
 let accidentalModeIdx = 0;
 let lastEditedIdx: number;
