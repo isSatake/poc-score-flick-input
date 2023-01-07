@@ -20,10 +20,13 @@ import {
 import { sortPitches } from "./pitch";
 import {
   addCaret,
-  getCaretByIndex,
+  addCaretIndex,
+  getCurrentCaret,
+  getCaretIndex,
   getCaretPositions,
   getMainElements,
   initCaretPositions,
+  setCaretIndex,
   setMainElements,
 } from "./score-states";
 import {
@@ -77,8 +80,6 @@ window.onload = () => {
   const previewCtx = previewCanvas.getContext("2d")!;
 
   // 楽譜のステート
-  // let caretPositions: CaretStyle[] = [];
-  let caretIndex = 0;
   let isNoteInputMode = true;
   let beamMode: BeamModes = "nobeam";
   let tieMode: TieModes;
@@ -134,15 +135,15 @@ window.onload = () => {
     }
     mainCtx.restore();
     console.log("carets", getCaretPositions());
-    console.log("current caret", getCaretByIndex(caretIndex));
+    console.log("current caret", getCurrentCaret());
     mainCtx.save();
     mainCtx.scale(scale, scale);
     mainCtx.translate(leftOfStaff, topOfStaff);
-    if (getCaretByIndex(caretIndex)) {
+    if (getCurrentCaret()) {
       paintCaret({
         ctx: mainCtx,
         scale: 1,
-        caret: getCaretByIndex(caretIndex),
+        caret: getCurrentCaret(),
       });
     }
     mainCtx.restore();
@@ -161,7 +162,7 @@ window.onload = () => {
       fillStyle: "#fff",
     });
     const { elements: preview, insertedIndex } = inputMusicalElement({
-      caretIndex,
+      caretIndex: getCaretIndex(),
       elements: baseElements,
       newElement,
       beamMode,
@@ -302,8 +303,8 @@ window.onload = () => {
         accidental: kAccidentalModes[accidentalModeIdx],
       };
       let tie: Tie | undefined;
-      if (tieMode && caretIndex > 0 && caretIndex % 2 === 0) {
-        const prevEl = copiedElements[caretIndex / 2 - 1];
+      if (tieMode && getCaretIndex() > 0 && getCaretIndex() % 2 === 0) {
+        const prevEl = copiedElements[getCaretIndex() / 2 - 1];
         if (
           prevEl?.type === "note" &&
           prevEl.pitches[0].pitch === newPitch.pitch &&
@@ -324,8 +325,8 @@ window.onload = () => {
             type: "rest",
             duration,
           };
-      if (caretIndex > 0 && caretIndex % 2 !== 0) {
-        const oldIdx = caretIndex === 1 ? 0 : (caretIndex - 1) / 2;
+      if (getCaretIndex() > 0 && getCaretIndex() % 2 !== 0) {
+        const oldIdx = getCaretIndex() === 1 ? 0 : (getCaretIndex() - 1) / 2;
         const oldEl = copiedElements[oldIdx];
         if (
           element.type === "note" &&
@@ -345,8 +346,8 @@ window.onload = () => {
         accidental: kAccidentalModes[accidentalModeIdx],
       };
       let tie: Tie | undefined;
-      if (tieMode && caretIndex > 0 && caretIndex % 2 === 0) {
-        const prevEl = copiedElements[caretIndex / 2 - 1];
+      if (tieMode && getCaretIndex() > 0 && getCaretIndex() % 2 === 0) {
+        const prevEl = copiedElements[getCaretIndex() / 2 - 1];
         if (
           prevEl?.type === "note" &&
           prevEl.pitches[0].pitch === newPitch.pitch &&
@@ -367,8 +368,8 @@ window.onload = () => {
             type: "rest",
             duration,
           };
-      if (caretIndex > 0 && caretIndex % 2 !== 0) {
-        const oldIdx = caretIndex === 1 ? 0 : (caretIndex - 1) / 2;
+      if (getCaretIndex() > 0 && getCaretIndex() % 2 !== 0) {
+        const oldIdx = getCaretIndex() === 1 ? 0 : (getCaretIndex() - 1) / 2;
         const oldEl = copiedElements[oldIdx];
         if (
           element.type === "note" &&
@@ -387,8 +388,8 @@ window.onload = () => {
         accidental: kAccidentalModes[accidentalModeIdx],
       };
       let tie: Tie | undefined;
-      if (tieMode && caretIndex > 0 && caretIndex % 2 === 0) {
-        const prevEl = getMainElements()[caretIndex / 2 - 1];
+      if (tieMode && getCaretIndex() > 0 && getCaretIndex() % 2 === 0) {
+        const prevEl = getMainElements()[getCaretIndex() / 2 - 1];
         if (
           prevEl?.type === "note" &&
           prevEl.pitches[0].pitch === newPitch.pitch &&
@@ -412,19 +413,19 @@ window.onload = () => {
         };
       }
       const { elements, insertedIndex, caretAdvance } = inputMusicalElement({
-        caretIndex,
+        caretIndex: getCaretIndex(),
         elements: getMainElements(),
         newElement,
         beamMode,
       });
       lastEditedIdx = insertedIndex;
-      caretIndex += caretAdvance;
+      addCaretIndex(caretAdvance);
       setMainElements(elements);
       updateMain();
       copiedElements = [];
     },
     backspace() {
-      const targetElIdx = getCaretByIndex(caretIndex).elIdx;
+      const targetElIdx = getCurrentCaret().elIdx;
       if (targetElIdx < 0) {
         return;
       }
@@ -440,13 +441,13 @@ window.onload = () => {
       }
 
       // 削除後のcaret位置を計算
-      let t = caretIndex - 1;
+      let t = getCaretIndex() - 1;
       while (t > -1) {
         if (t === 0) {
-          caretIndex = 0;
+          setCaretIndex(0);
           t = -1;
-        } else if (getCaretByIndex(t).elIdx !== targetElIdx) {
-          caretIndex = t;
+        } else if (getCurrentCaret().elIdx !== targetElIdx) {
+          setCaretIndex(t);
           t = -1;
         } else {
           t--;
@@ -462,8 +463,8 @@ window.onload = () => {
 
   const caretMoveCallback: CaretInputCallback = {
     back() {
-      if (caretIndex % 2 !== 0) {
-        const idx = caretIndex === 1 ? 0 : (caretIndex - 1) / 2;
+      if (getCaretIndex() % 2 !== 0) {
+        const idx = getCaretIndex() === 1 ? 0 : (getCaretIndex() - 1) / 2;
         if (idx === lastEditedIdx) {
           const lastEl = getMainElements()[lastEditedIdx];
           const left = getMainElements()[idx - 1];
@@ -471,12 +472,12 @@ window.onload = () => {
           applyBeamForLastEdited(lastEl, left, right);
         }
       }
-      caretIndex = Math.max(caretIndex - 1, 0);
+      setCaretIndex(Math.max(getCaretIndex() - 1, 0));
       updateMain();
     },
     forward() {
-      if (caretIndex % 2 === 0) {
-        const idx = caretIndex / 2 - 1;
+      if (getCaretIndex() % 2 === 0) {
+        const idx = getCaretIndex() / 2 - 1;
         if (idx === lastEditedIdx) {
           const lastEl = getMainElements()[lastEditedIdx];
           const left = getMainElements()[idx - 1];
@@ -484,7 +485,9 @@ window.onload = () => {
           applyBeamForLastEdited(lastEl, left, right);
         }
       }
-      caretIndex = Math.min(caretIndex + 1, getCaretPositions().length - 1);
+      setCaretIndex(
+        Math.min(getCaretIndex() + 1, getCaretPositions().length - 1)
+      );
       updateMain();
     },
   };
@@ -492,13 +495,13 @@ window.onload = () => {
   const barInputCallback: BarInputCallback = {
     commit(bar: Bar) {
       const { elements, insertedIndex, caretAdvance } = inputMusicalElement({
-        caretIndex,
+        caretIndex: getCaretIndex(),
         elements: getMainElements(),
         newElement: bar,
         beamMode,
       });
       lastEditedIdx = insertedIndex;
-      caretIndex += caretAdvance;
+      addCaretIndex(caretAdvance);
       setMainElements(elements);
       updateMain();
     },
