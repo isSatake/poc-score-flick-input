@@ -30,6 +30,7 @@ import {
   MusicalElement,
   Note,
   Pitch,
+  Tie,
 } from "./notation/types";
 import {
   BarInputCallback,
@@ -146,7 +147,11 @@ window.onload = () => {
     mainCtx.restore();
     console.log("main", "end");
   };
-  const updatePreview = (beamMode: BeamModes, newElement: MusicalElement) => {
+  const updatePreview = (
+    baseElements: MusicalElement[],
+    beamMode: BeamModes,
+    newElement: MusicalElement
+  ) => {
     console.log("preview", "start");
     resetCanvas({
       ctx: previewCtx,
@@ -156,7 +161,7 @@ window.onload = () => {
     });
     const { elements: preview, insertedIndex } = inputMusicalElement({
       caretIndex,
-      elements: mainElements,
+      elements: baseElements,
       newElement,
       beamMode,
     });
@@ -173,7 +178,7 @@ window.onload = () => {
       if (index !== undefined) {
         elIdxToX.set(index, cursor + width / 2);
       }
-      if (element.type !== "beam") {
+      if (element.type !== "beam" && element.type !== "tie") {
         cursor += width;
       }
     }
@@ -198,9 +203,12 @@ window.onload = () => {
     console.log("centerX", centerX);
     previewCtx.translate(-centerX, 0);
     for (const style of styles) {
-      const { width, element } = style;
+      const { width, element, bbox, index } = style;
       paintStyle(previewCtx, style);
-      if (element.type !== "beam") {
+      const _bbox = offsetBBox(bbox, { x: cursor });
+      elementBBoxes.push({ bbox: _bbox, elIdx: index });
+      // paintBBox(previewCtx, bbox);
+      if (element.type !== "beam" && element.type !== "tie") {
         previewCtx.translate(width, 0);
       }
     }
@@ -266,7 +274,13 @@ window.onload = () => {
       tieMode = next;
     },
   };
+  let copiedElements;
   const noteInputCallback: NoteInputCallback = {
+    // (start|update)Preview, commitを共通化したい。
+    // 基本的にelementを生成するだけだが
+    // tieでは直前の音をいじるので
+    // 「音を追加」「音を変更」をデータ化できるといいんだけど。reducerみたく
+    // applyBeamももうちょいスマートに書けるんじゃないかな？
     startPreview(duration: Duration, downX: number, downY: number) {
       const left = downX - previewWidth / 2;
       const top = downY - previewHeight / 2;
@@ -278,16 +292,29 @@ window.onload = () => {
         height: previewHeight,
         _canvas: previewCanvas,
       });
+      copiedElements = [...mainElements];
+      const newPitch = {
+        pitch: pitchByDistance(previewScale, 0, 6),
+        accidental: accidentalModes[accidentalModeIdx],
+      };
+      let tie: Tie | undefined;
+      if (tieMode && caretIndex > 0 && caretIndex % 2 === 0) {
+        const prevEl = copiedElements[caretIndex / 2 - 1];
+        if (
+          prevEl?.type === "note" &&
+          prevEl.pitches[0].pitch === newPitch.pitch &&
+          prevEl.pitches[0].accidental === newPitch.accidental
+        ) {
+          prevEl.tie = "start";
+          tie = "stop";
+        }
+      }
       const element: MusicalElement = isNoteInputMode
         ? {
             type: "note",
             duration,
-            pitches: [
-              {
-                pitch: pitchByDistance(previewScale, 0, 6),
-                accidental: accidentalModes[accidentalModeIdx],
-              },
-            ],
+            pitches: [newPitch],
+            tie,
           }
         : {
             type: "rest",
@@ -295,7 +322,7 @@ window.onload = () => {
           };
       if (caretIndex > 0 && caretIndex % 2 !== 0) {
         const oldIdx = caretIndex === 1 ? 0 : (caretIndex - 1) / 2;
-        const oldEl = mainElements[oldIdx];
+        const oldEl = copiedElements[oldIdx];
         if (
           element.type === "note" &&
           oldEl.type === "note" &&
@@ -304,20 +331,33 @@ window.onload = () => {
           element.pitches = sortPitches([...oldEl.pitches, ...element.pitches]);
         }
       }
-      updatePreview(beamMode, element);
+      updatePreview(copiedElements, beamMode, element);
       previewCanvas.style.visibility = "visible";
     },
     updatePreview(duration: Duration, dy: number) {
+      copiedElements = [...mainElements];
+      const newPitch = {
+        pitch: pitchByDistance(previewScale, dy, 6),
+        accidental: accidentalModes[accidentalModeIdx],
+      };
+      let tie: Tie | undefined;
+      if (tieMode && caretIndex > 0 && caretIndex % 2 === 0) {
+        const prevEl = copiedElements[caretIndex / 2 - 1];
+        if (
+          prevEl?.type === "note" &&
+          prevEl.pitches[0].pitch === newPitch.pitch &&
+          prevEl.pitches[0].accidental === newPitch.accidental
+        ) {
+          prevEl.tie = "start";
+          tie = "stop";
+        }
+      }
       const element: MusicalElement = isNoteInputMode
         ? {
             type: "note",
             duration,
-            pitches: [
-              {
-                pitch: pitchByDistance(previewScale, dy, 6),
-                accidental: accidentalModes[accidentalModeIdx],
-              },
-            ],
+            pitches: [newPitch],
+            tie,
           }
         : {
             type: "rest",
@@ -325,7 +365,7 @@ window.onload = () => {
           };
       if (caretIndex > 0 && caretIndex % 2 !== 0) {
         const oldIdx = caretIndex === 1 ? 0 : (caretIndex - 1) / 2;
-        const oldEl = mainElements[oldIdx];
+        const oldEl = copiedElements[oldIdx];
         if (
           element.type === "note" &&
           oldEl.type === "note" &&
@@ -334,20 +374,32 @@ window.onload = () => {
           element.pitches = sortPitches([...oldEl.pitches, ...element.pitches]);
         }
       }
-      updatePreview(beamMode, element);
+      updatePreview(copiedElements, beamMode, element);
     },
     commit(duration: Duration, dy?: number) {
       let newElement: MusicalElement;
+      const newPitch = {
+        pitch: pitchByDistance(previewScale, dy ?? 0, 6),
+        accidental: accidentalModes[accidentalModeIdx],
+      };
+      let tie: Tie | undefined;
+      if (tieMode && caretIndex > 0 && caretIndex % 2 === 0) {
+        const prevEl = mainElements[caretIndex / 2 - 1];
+        if (
+          prevEl?.type === "note" &&
+          prevEl.pitches[0].pitch === newPitch.pitch &&
+          prevEl.pitches[0].accidental === newPitch.accidental
+        ) {
+          prevEl.tie = "start";
+          tie = "stop";
+        }
+      }
       if (isNoteInputMode) {
         newElement = {
           type: "note",
           duration,
-          pitches: [
-            {
-              pitch: pitchByDistance(previewScale, dy ?? 0, 6),
-              accidental: accidentalModes[accidentalModeIdx],
-            },
-          ],
+          pitches: [newPitch],
+          tie,
         };
       } else {
         newElement = {
@@ -365,6 +417,7 @@ window.onload = () => {
       caretIndex += caretAdvance;
       mainElements = elements;
       updateMain();
+      copiedElements = [];
     },
     backspace() {
       const targetElIdx = caretPositions[caretIndex].elIdx;

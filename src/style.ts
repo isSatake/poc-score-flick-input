@@ -1182,7 +1182,6 @@ export const determinePaintElementStyle = (
     const i = Number(_i);
     const style = styles[i];
     if (style.element.type === "note" && style.element.note.tie === "start") {
-      let stopStyle;
       let distance = style.width;
       for (let j = i + 1; j < styles.length; j++) {
         const _style = styles[j];

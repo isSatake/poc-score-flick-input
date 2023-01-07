@@ -1134,7 +1134,6 @@
       const i = Number(_i);
       const style = styles[i];
       if (style.element.type === "note" && style.element.note.tie === "start") {
-        let stopStyle;
         let distance = style.width;
         for (let j = i + 1; j < styles.length; j++) {
           const _style = styles[j];
@@ -1703,7 +1702,7 @@
       mainCtx.restore();
       console.log("main", "end");
     };
-    const updatePreview = (beamMode2, newElement) => {
+    const updatePreview = (baseElements, beamMode2, newElement) => {
       console.log("preview", "start");
       resetCanvas({
         ctx: previewCtx,
@@ -1713,7 +1712,7 @@
       });
       const {elements: preview, insertedIndex} = inputMusicalElement({
         caretIndex,
-        elements: mainElements,
+        elements: baseElements,
         newElement,
         beamMode: beamMode2
       });
@@ -1729,7 +1728,7 @@
         if (index !== void 0) {
           elIdxToX.set(index, cursor + width / 2);
         }
-        if (element.type !== "beam") {
+        if (element.type !== "beam" && element.type !== "tie") {
           cursor += width;
         }
       }
@@ -1746,9 +1745,11 @@
       console.log("centerX", centerX);
       previewCtx.translate(-centerX, 0);
       for (const style of styles2) {
-        const {width, element} = style;
+        const {width, element, bbox, index} = style;
         paintStyle(previewCtx, style);
-        if (element.type !== "beam") {
+        const _bbox = offsetBBox(bbox, {x: cursor});
+        elementBBoxes.push({bbox: _bbox, elIdx: index});
+        if (element.type !== "beam" && element.type !== "tie") {
           previewCtx.translate(width, 0);
         }
       }
@@ -1801,6 +1802,7 @@
         tieMode = next;
       }
     };
+    let copiedElements;
     const noteInputCallback = {
       startPreview(duration, downX, downY) {
         const left = downX - previewWidth / 2;
@@ -1813,64 +1815,90 @@
           height: previewHeight,
           _canvas: previewCanvas
         });
+        copiedElements = [...mainElements];
+        const newPitch = {
+          pitch: pitchByDistance(previewScale, 0, 6),
+          accidental: accidentalModes[accidentalModeIdx]
+        };
+        let tie;
+        if (tieMode && caretIndex > 0 && caretIndex % 2 === 0) {
+          const prevEl = copiedElements[caretIndex / 2 - 1];
+          if (prevEl?.type === "note" && prevEl.pitches[0].pitch === newPitch.pitch && prevEl.pitches[0].accidental === newPitch.accidental) {
+            prevEl.tie = "start";
+            tie = "stop";
+          }
+        }
         const element = isNoteInputMode ? {
           type: "note",
           duration,
-          pitches: [
-            {
-              pitch: pitchByDistance(previewScale, 0, 6),
-              accidental: accidentalModes[accidentalModeIdx]
-            }
-          ]
+          pitches: [newPitch],
+          tie
         } : {
           type: "rest",
           duration
         };
         if (caretIndex > 0 && caretIndex % 2 !== 0) {
           const oldIdx = caretIndex === 1 ? 0 : (caretIndex - 1) / 2;
-          const oldEl = mainElements[oldIdx];
+          const oldEl = copiedElements[oldIdx];
           if (element.type === "note" && oldEl.type === "note" && element.duration === oldEl.duration) {
             element.pitches = sortPitches([...oldEl.pitches, ...element.pitches]);
           }
         }
-        updatePreview(beamMode, element);
+        updatePreview(copiedElements, beamMode, element);
         previewCanvas.style.visibility = "visible";
       },
       updatePreview(duration, dy) {
+        copiedElements = [...mainElements];
+        const newPitch = {
+          pitch: pitchByDistance(previewScale, dy, 6),
+          accidental: accidentalModes[accidentalModeIdx]
+        };
+        let tie;
+        if (tieMode && caretIndex > 0 && caretIndex % 2 === 0) {
+          const prevEl = copiedElements[caretIndex / 2 - 1];
+          if (prevEl?.type === "note" && prevEl.pitches[0].pitch === newPitch.pitch && prevEl.pitches[0].accidental === newPitch.accidental) {
+            prevEl.tie = "start";
+            tie = "stop";
+          }
+        }
         const element = isNoteInputMode ? {
           type: "note",
           duration,
-          pitches: [
-            {
-              pitch: pitchByDistance(previewScale, dy, 6),
-              accidental: accidentalModes[accidentalModeIdx]
-            }
-          ]
+          pitches: [newPitch],
+          tie
         } : {
           type: "rest",
           duration
         };
         if (caretIndex > 0 && caretIndex % 2 !== 0) {
           const oldIdx = caretIndex === 1 ? 0 : (caretIndex - 1) / 2;
-          const oldEl = mainElements[oldIdx];
+          const oldEl = copiedElements[oldIdx];
           if (element.type === "note" && oldEl.type === "note" && element.duration === oldEl.duration) {
             element.pitches = sortPitches([...oldEl.pitches, ...element.pitches]);
           }
         }
-        updatePreview(beamMode, element);
+        updatePreview(copiedElements, beamMode, element);
       },
       commit(duration, dy) {
         let newElement;
+        const newPitch = {
+          pitch: pitchByDistance(previewScale, dy ?? 0, 6),
+          accidental: accidentalModes[accidentalModeIdx]
+        };
+        let tie;
+        if (tieMode && caretIndex > 0 && caretIndex % 2 === 0) {
+          const prevEl = mainElements[caretIndex / 2 - 1];
+          if (prevEl?.type === "note" && prevEl.pitches[0].pitch === newPitch.pitch && prevEl.pitches[0].accidental === newPitch.accidental) {
+            prevEl.tie = "start";
+            tie = "stop";
+          }
+        }
         if (isNoteInputMode) {
           newElement = {
             type: "note",
             duration,
-            pitches: [
-              {
-                pitch: pitchByDistance(previewScale, dy ?? 0, 6),
-                accidental: accidentalModes[accidentalModeIdx]
-              }
-            ]
+            pitches: [newPitch],
+            tie
           };
         } else {
           newElement = {
@@ -1888,6 +1916,7 @@
         caretIndex += caretAdvance;
         mainElements = elements;
         updateMain();
+        copiedElements = [];
       },
       backspace() {
         const targetElIdx = caretPositions[caretIndex].elIdx;
