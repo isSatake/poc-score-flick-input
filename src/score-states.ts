@@ -1,7 +1,7 @@
 import { BBox } from "./geometry";
 import { MusicalElement } from "./notation/types";
 import { PaintElementStyle, PaintElement, Pointing } from "./style";
-import { BeamModes, TieModes } from "./ui/types";
+import { BeamModes, kAccidentalModes, TieModes } from "./ui/types";
 export * from "./caret-states";
 
 let mainElements: MusicalElement[] = [
@@ -36,6 +36,13 @@ export const setTieMode = (v: TieModes) => {
 };
 
 let accidentalModeIdx = 0;
+export const getAccidentalMode = () => kAccidentalModes[accidentalModeIdx];
+export const changeAccidentalMode = () => {
+  accidentalModeIdx =
+    accidentalModeIdx === kAccidentalModes.length - 1
+      ? 0
+      : accidentalModeIdx + 1;
+};
 let lastEditedIdx: number;
 let styles: PaintElementStyle<PaintElement>[] = [];
 let elementBBoxes: { bbox: BBox; elIdx?: number }[] = [];

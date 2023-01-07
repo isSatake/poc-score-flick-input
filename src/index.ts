@@ -21,7 +21,9 @@ import { sortPitches } from "./pitch";
 import {
   addCaret,
   addCaretIndex,
+  changeAccidentalMode,
   flipIsNoteInputMode,
+  getAccidentalMode,
   getBeamMode,
   getCaretIndex,
   getCaretPositions,
@@ -85,7 +87,6 @@ window.onload = () => {
   const previewCtx = previewCanvas.getContext("2d")!;
 
   // 楽譜のステート
-  let accidentalModeIdx = 0;
   let lastEditedIdx: number;
   let styles: PaintElementStyle<PaintElement>[] = [];
   let elementBBoxes: { bbox: BBox; elIdx?: number }[] = [];
@@ -261,15 +262,8 @@ window.onload = () => {
     },
   };
   const changeAccidentalCallback: ChangeAccidentalCallback = {
-    getMode() {
-      return kAccidentalModes[accidentalModeIdx];
-    },
-    next() {
-      accidentalModeIdx =
-        accidentalModeIdx === kAccidentalModes.length - 1
-          ? 0
-          : accidentalModeIdx + 1;
-    },
+    getMode: getAccidentalMode,
+    next: changeAccidentalMode,
   };
   const changeTieCallback: ChangeTieCallback = {
     getMode: getTieMode,
@@ -296,7 +290,7 @@ window.onload = () => {
       copiedElements = [...getMainElements()];
       const newPitch = {
         pitch: pitchByDistance(previewScale, 0, 6),
-        accidental: kAccidentalModes[accidentalModeIdx],
+        accidental: getAccidentalMode(),
       };
       let tie: Tie | undefined;
       if (getTieMode() && getCaretIndex() > 0 && getCaretIndex() % 2 === 0) {
@@ -339,7 +333,7 @@ window.onload = () => {
       copiedElements = [...getMainElements()];
       const newPitch = {
         pitch: pitchByDistance(previewScale, dy, 6),
-        accidental: kAccidentalModes[accidentalModeIdx],
+        accidental: getAccidentalMode(),
       };
       let tie: Tie | undefined;
       if (getTieMode() && getCaretIndex() > 0 && getCaretIndex() % 2 === 0) {
@@ -381,7 +375,7 @@ window.onload = () => {
       let newElement: MusicalElement;
       const newPitch = {
         pitch: pitchByDistance(previewScale, dy ?? 0, 6),
-        accidental: kAccidentalModes[accidentalModeIdx],
+        accidental: getAccidentalMode(),
       };
       let tie: Tie | undefined;
       if (getTieMode() && getCaretIndex() > 0 && getCaretIndex() % 2 === 0) {
