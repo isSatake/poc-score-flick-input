@@ -13,12 +13,14 @@ export type PitchAcc = {
 };
 
 export type Beam = "begin" | "continue" | "end";
+export type Tie = "start" | "stop"
 
 export type Note = {
   type: "note";
   duration: Duration;
   pitches: PitchAcc[]; // sort pitch by asc
   beam?: Beam;
+  tie?: Tie;
 };
 
 export type Rest = {
