@@ -30,6 +30,11 @@ export const setBeamMode = (v: BeamModes) => {
 };
 
 let tieMode: TieModes;
+export const getTieMode = () => tieMode;
+export const setTieMode = (v: TieModes) => {
+  tieMode = v;
+};
+
 let accidentalModeIdx = 0;
 let lastEditedIdx: number;
 let styles: PaintElementStyle<PaintElement>[] = [];

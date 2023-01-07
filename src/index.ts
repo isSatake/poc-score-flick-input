@@ -28,10 +28,12 @@ import {
   getCurrentCaret,
   getIsNoteInputMode,
   getMainElements,
+  getTieMode,
   initCaretPositions,
   setBeamMode,
   setCaretIndex,
   setMainElements,
+  setTieMode,
 } from "./score-states";
 import {
   determinePaintElementStyle,
@@ -83,7 +85,6 @@ window.onload = () => {
   const previewCtx = previewCanvas.getContext("2d")!;
 
   // 楽譜のステート
-  let tieMode: TieModes;
   let accidentalModeIdx = 0;
   let lastEditedIdx: number;
   let styles: PaintElementStyle<PaintElement>[] = [];
@@ -241,9 +242,7 @@ window.onload = () => {
     },
   };
   const changeBeamCallback: ChangeBeamCallback = {
-    getMode() {
-      return getBeamMode();
-    },
+    getMode: getBeamMode,
     change(mode: BeamModes) {
       noteKeyEls.forEach((el) => {
         el.className = el.className.replace(
@@ -273,12 +272,8 @@ window.onload = () => {
     },
   };
   const changeTieCallback: ChangeTieCallback = {
-    getMode() {
-      return tieMode;
-    },
-    change(next: TieModes) {
-      tieMode = next;
-    },
+    getMode: getTieMode,
+    change: setTieMode,
   };
   let copiedElements;
   const noteInputCallback: NoteInputCallback = {
@@ -304,7 +299,7 @@ window.onload = () => {
         accidental: kAccidentalModes[accidentalModeIdx],
       };
       let tie: Tie | undefined;
-      if (tieMode && getCaretIndex() > 0 && getCaretIndex() % 2 === 0) {
+      if (getTieMode() && getCaretIndex() > 0 && getCaretIndex() % 2 === 0) {
         const prevEl = copiedElements[getCaretIndex() / 2 - 1];
         if (
           prevEl?.type === "note" &&
@@ -347,7 +342,7 @@ window.onload = () => {
         accidental: kAccidentalModes[accidentalModeIdx],
       };
       let tie: Tie | undefined;
-      if (tieMode && getCaretIndex() > 0 && getCaretIndex() % 2 === 0) {
+      if (getTieMode() && getCaretIndex() > 0 && getCaretIndex() % 2 === 0) {
         const prevEl = copiedElements[getCaretIndex() / 2 - 1];
         if (
           prevEl?.type === "note" &&
@@ -389,7 +384,7 @@ window.onload = () => {
         accidental: kAccidentalModes[accidentalModeIdx],
       };
       let tie: Tie | undefined;
-      if (tieMode && getCaretIndex() > 0 && getCaretIndex() % 2 === 0) {
+      if (getTieMode() && getCaretIndex() > 0 && getCaretIndex() % 2 === 0) {
         const prevEl = getMainElements()[getCaretIndex() / 2 - 1];
         if (
           prevEl?.type === "note" &&
