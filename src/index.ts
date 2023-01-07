@@ -18,7 +18,14 @@ import {
   resetCanvas,
 } from "./paint";
 import { sortPitches } from "./pitch";
-import { getMainElements, setMainElements } from "./score-states";
+import {
+  addCaret,
+  getCaretByIndex,
+  getCaretPositions,
+  getMainElements,
+  initCaretPositions,
+  setMainElements,
+} from "./score-states";
 import {
   CaretStyle,
   determinePaintElementStyle,
@@ -70,7 +77,7 @@ window.onload = () => {
   const previewCtx = previewCanvas.getContext("2d")!;
 
   // 楽譜のステート
-  let caretPositions: CaretStyle[] = [];
+  // let caretPositions: CaretStyle[] = [];
   let caretIndex = 0;
   let isNoteInputMode = true;
   let beamMode: BeamModes = "nobeam";
@@ -89,7 +96,7 @@ window.onload = () => {
       height: window.innerHeight,
       fillStyle: "#fff",
     });
-    caretPositions = [];
+    initCaretPositions();
     elementBBoxes = [];
     mainCtx.save();
     mainCtx.scale(scale, scale);
@@ -113,7 +120,7 @@ window.onload = () => {
       if (caretOption) {
         const { index: elIdx, defaultWidth } = caretOption;
         const caretWidth = defaultWidth ? defaultCaretWidth : width;
-        caretPositions.push({
+        addCaret({
           x: cursor + (defaultWidth ? width / 2 - caretWidth / 2 : 0),
           y: 0,
           width: caretWidth,
@@ -126,16 +133,16 @@ window.onload = () => {
       }
     }
     mainCtx.restore();
-    console.log("carets", caretPositions);
-    console.log("current caret", caretPositions[caretIndex]);
+    console.log("carets", getCaretPositions());
+    console.log("current caret", getCaretByIndex(caretIndex));
     mainCtx.save();
     mainCtx.scale(scale, scale);
     mainCtx.translate(leftOfStaff, topOfStaff);
-    if (caretPositions[caretIndex]) {
+    if (getCaretByIndex(caretIndex)) {
       paintCaret({
         ctx: mainCtx,
         scale: 1,
-        caret: caretPositions[caretIndex],
+        caret: getCaretByIndex(caretIndex),
       });
     }
     mainCtx.restore();
@@ -417,7 +424,7 @@ window.onload = () => {
       copiedElements = [];
     },
     backspace() {
-      const targetElIdx = caretPositions[caretIndex].elIdx;
+      const targetElIdx = getCaretByIndex(caretIndex).elIdx;
       if (targetElIdx < 0) {
         return;
       }
@@ -438,7 +445,7 @@ window.onload = () => {
         if (t === 0) {
           caretIndex = 0;
           t = -1;
-        } else if (caretPositions[t].elIdx !== targetElIdx) {
+        } else if (getCaretByIndex(t).elIdx !== targetElIdx) {
           caretIndex = t;
           t = -1;
         } else {
@@ -477,7 +484,7 @@ window.onload = () => {
           applyBeamForLastEdited(lastEl, left, right);
         }
       }
-      caretIndex = Math.min(caretIndex + 1, caretPositions.length - 1);
+      caretIndex = Math.min(caretIndex + 1, getCaretPositions().length - 1);
       updateMain();
     },
   };

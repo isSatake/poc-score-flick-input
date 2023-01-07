@@ -15,6 +15,18 @@ export function setMainElements(v: MusicalElement[]) {
 }
 
 let caretPositions: CaretStyle[] = [];
+export function initCaretPositions() {
+  caretPositions = [];
+}
+export function getCaretPositions() {
+  return caretPositions;
+}
+export function addCaret(v: CaretStyle) {
+  caretPositions.push(v);
+}
+export function getCaretByIndex(i: number) {
+  return caretPositions[i];
+}
 let caretIndex = 0;
 let isNoteInputMode = true;
 let beamMode: BeamModes = "nobeam";
