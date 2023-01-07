@@ -16,6 +16,13 @@ export function setMainElements(v: MusicalElement[]) {
 }
 
 let isNoteInputMode = true;
+export function getIsNoteInputMode() {
+  return isNoteInputMode;
+}
+export function flipIsNoteInputMode() {
+  isNoteInputMode = !isNoteInputMode;
+}
+
 let beamMode: BeamModes = "nobeam";
 let tieMode: TieModes;
 let accidentalModeIdx = 0;

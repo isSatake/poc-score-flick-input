@@ -28,6 +28,8 @@ import {
   initCaretPositions,
   setCaretIndex,
   setMainElements,
+  getIsNoteInputMode,
+  flipIsNoteInputMode,
 } from "./score-states";
 import {
   CaretStyle,
@@ -80,7 +82,7 @@ window.onload = () => {
   const previewCtx = previewCanvas.getContext("2d")!;
 
   // 楽譜のステート
-  let isNoteInputMode = true;
+  // let isNoteInputMode = true;
   let beamMode: BeamModes = "nobeam";
   let tieMode: TieModes;
   let accidentalModeIdx = 0;
@@ -223,7 +225,7 @@ window.onload = () => {
     document.getElementsByClassName("changeNoteRest")[0];
   const changeNoteRestCallback: IChangeNoteRestCallback = {
     isNoteInputMode() {
-      return isNoteInputMode;
+      return getIsNoteInputMode();
     },
     change() {
       noteKeyEls.forEach((el) => {
@@ -236,7 +238,7 @@ window.onload = () => {
         this.isNoteInputMode() ? "rest" : "note",
         this.isNoteInputMode() ? "note" : "rest"
       );
-      isNoteInputMode = !isNoteInputMode;
+      flipIsNoteInputMode();
     },
   };
   const changeBeamCallback: ChangeBeamCallback = {
@@ -314,7 +316,7 @@ window.onload = () => {
           tie = "stop";
         }
       }
-      const element: MusicalElement = isNoteInputMode
+      const element: MusicalElement = getIsNoteInputMode()
         ? {
             type: "note",
             duration,
@@ -357,7 +359,7 @@ window.onload = () => {
           tie = "stop";
         }
       }
-      const element: MusicalElement = isNoteInputMode
+      const element: MusicalElement = getIsNoteInputMode()
         ? {
             type: "note",
             duration,
@@ -399,7 +401,7 @@ window.onload = () => {
           tie = "stop";
         }
       }
-      if (isNoteInputMode) {
+      if (getIsNoteInputMode()) {
         newElement = {
           type: "note",
           duration,
