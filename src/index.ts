@@ -1,12 +1,42 @@
-import { registerPointerHandlers } from "./ui/pointer-event";
+import { bStaffHeight, UNIT } from "./bravura";
+import { BBox, offsetBBox, Point, scalePoint } from "./geometry";
+import {
+  Bar,
+  Clef,
+  Duration,
+  durations,
+  MusicalElement,
+  Note,
+  Pitch,
+  Tie,
+} from "./notation/types";
 import {
   initCanvas,
-  paintBBox,
   paintCaret,
   paintStaff,
   paintStyle,
   resetCanvas,
 } from "./paint";
+import { sortPitches } from "./pitch";
+import { getMainElements, setMainElements } from "./score-states";
+import {
+  CaretStyle,
+  determinePaintElementStyle,
+  PaintElement,
+  PaintElementStyle,
+  Pointing,
+} from "./style";
+import { registerPointerHandlers } from "./ui/pointer-event";
+import {
+  BarInputCallback,
+  CanvasCallback,
+  CaretInputCallback,
+  ChangeAccidentalCallback,
+  ChangeBeamCallback,
+  ChangeTieCallback,
+  IChangeNoteRestCallback,
+  NoteInputCallback,
+} from "./ui/pointer-handler-callbacks/types";
 import {
   ArrowHandler,
   BarInputHandler,
@@ -20,42 +50,7 @@ import {
   NoteInputHandler,
   TieHandler,
 } from "./ui/pointer-handlers";
-import { bStaffHeight, UNIT } from "./bravura";
-import {
-  accidentals,
-  Bar,
-  Clef,
-  Duration,
-  durations,
-  MusicalElement,
-  Note,
-  Pitch,
-  Tie,
-} from "./notation/types";
-import {
-  BarInputCallback,
-  CanvasCallback,
-  CaretInputCallback,
-  ChangeAccidentalCallback,
-  ChangeBeamCallback,
-  ChangeNoteRestCallback,
-  ChangeTieCallback,
-  NoteInputCallback,
-} from "./ui/callbacks";
-import { sortPitches } from "./pitch";
-import {
-  CaretStyle,
-  determinePaintElementStyle,
-  PaintElement,
-  PaintElementStyle,
-  Pointing,
-} from "./style";
-import { BBox, offsetBBox, Point, scalePoint } from "./geometry";
-
-export type BeamModes = "beam" | "lock" | "nobeam";
-export type TieModes = "tie" | "lock" | undefined;
-const accidentalModes = [undefined, ...accidentals] as const;
-export type AccidentalModes = typeof accidentalModes[number];
+import { BeamModes, kAccidentalModes, TieModes } from "./ui/types";
 
 const dpr = window.devicePixelRatio;
 const scale = 0.08;
@@ -63,25 +58,18 @@ const previewScale = 0.08;
 const leftOfStaff = 250;
 const topOfStaff = 2000;
 const defaultCaretWidth = 50;
+const previewWidth = 300;
+const previewHeight = 400;
 
 window.onload = () => {
-  const mainWidth = window.innerWidth;
-  const mainHeight = window.innerHeight;
-  const previewWidth = 300;
-  const previewHeight = 400;
   const mainCanvas = document.getElementById("mainCanvas") as HTMLCanvasElement;
   const previewCanvas = document.getElementById(
     "previewCanvas"
   ) as HTMLCanvasElement;
   const mainCtx = mainCanvas.getContext("2d")!;
   const previewCtx = previewCanvas.getContext("2d")!;
-  const noteKeyEls = Array.from(document.getElementsByClassName("note"));
-  const changeNoteRestKey =
-    document.getElementsByClassName("changeNoteRest")[0];
-  let mainElements: MusicalElement[] = [
-    { type: "note", duration: 4, pitches: [{ pitch: 1 }], tie: "start" },
-    { type: "note", duration: 4, pitches: [{ pitch: 1 }], tie: "stop" },
-  ];
+
+  // 楽譜のステート
   let caretPositions: CaretStyle[] = [];
   let caretIndex = 0;
   let isNoteInputMode = true;
@@ -92,12 +80,13 @@ window.onload = () => {
   let styles: PaintElementStyle<PaintElement>[] = [];
   let elementBBoxes: { bbox: BBox; elIdx?: number }[] = [];
   let pointing: Pointing | undefined;
+
   const updateMain = () => {
     console.log("main", "start");
     resetCanvas({
       ctx: mainCtx,
-      width: mainWidth,
-      height: mainHeight,
+      width: window.innerWidth,
+      height: window.innerHeight,
       fillStyle: "#fff",
     });
     caretPositions = [];
@@ -107,7 +96,12 @@ window.onload = () => {
     mainCtx.translate(leftOfStaff, topOfStaff);
     paintStaff(mainCtx, 0, 0, UNIT * 100, 1);
     const clef: Clef = { type: "g" };
-    styles = determinePaintElementStyle(mainElements, UNIT, { clef }, pointing);
+    styles = determinePaintElementStyle(
+      getMainElements(),
+      UNIT,
+      { clef },
+      pointing
+    );
     let cursor = 0;
     for (const style of styles) {
       console.log("style", style);
@@ -216,7 +210,10 @@ window.onload = () => {
     console.log("preview", "end");
   };
 
-  const changeNoteRestCallback: ChangeNoteRestCallback = {
+  const noteKeyEls = Array.from(document.getElementsByClassName("note"));
+  const changeNoteRestKey =
+    document.getElementsByClassName("changeNoteRest")[0];
+  const changeNoteRestCallback: IChangeNoteRestCallback = {
     isNoteInputMode() {
       return isNoteInputMode;
     },
@@ -238,7 +235,7 @@ window.onload = () => {
     getMode() {
       return beamMode;
     },
-    change(mode) {
+    change(mode: BeamModes) {
       noteKeyEls.forEach((el) => {
         el.className = el.className.replace(
           mode === "nobeam" ? "beamed" : "nobeam",
@@ -246,10 +243,10 @@ window.onload = () => {
         );
       });
       beamMode = mode;
-      const lastEl = mainElements[lastEditedIdx];
+      const lastEl = getMainElements()[lastEditedIdx];
       if (lastEl) {
-        const left = mainElements[lastEditedIdx - 1];
-        const right = mainElements[lastEditedIdx + 1];
+        const left = getMainElements()[lastEditedIdx - 1];
+        const right = getMainElements()[lastEditedIdx + 1];
         applyBeamForLastEdited(lastEl, left, right);
         updateMain();
       }
@@ -257,11 +254,11 @@ window.onload = () => {
   };
   const changeAccidentalCallback: ChangeAccidentalCallback = {
     getMode() {
-      return accidentalModes[accidentalModeIdx];
+      return kAccidentalModes[accidentalModeIdx];
     },
     next() {
       accidentalModeIdx =
-        accidentalModeIdx === accidentalModes.length - 1
+        accidentalModeIdx === kAccidentalModes.length - 1
           ? 0
           : accidentalModeIdx + 1;
     },
@@ -292,10 +289,10 @@ window.onload = () => {
         height: previewHeight,
         _canvas: previewCanvas,
       });
-      copiedElements = [...mainElements];
+      copiedElements = [...getMainElements()];
       const newPitch = {
         pitch: pitchByDistance(previewScale, 0, 6),
-        accidental: accidentalModes[accidentalModeIdx],
+        accidental: kAccidentalModes[accidentalModeIdx],
       };
       let tie: Tie | undefined;
       if (tieMode && caretIndex > 0 && caretIndex % 2 === 0) {
@@ -335,10 +332,10 @@ window.onload = () => {
       previewCanvas.style.visibility = "visible";
     },
     updatePreview(duration: Duration, dy: number) {
-      copiedElements = [...mainElements];
+      copiedElements = [...getMainElements()];
       const newPitch = {
         pitch: pitchByDistance(previewScale, dy, 6),
-        accidental: accidentalModes[accidentalModeIdx],
+        accidental: kAccidentalModes[accidentalModeIdx],
       };
       let tie: Tie | undefined;
       if (tieMode && caretIndex > 0 && caretIndex % 2 === 0) {
@@ -380,11 +377,11 @@ window.onload = () => {
       let newElement: MusicalElement;
       const newPitch = {
         pitch: pitchByDistance(previewScale, dy ?? 0, 6),
-        accidental: accidentalModes[accidentalModeIdx],
+        accidental: kAccidentalModes[accidentalModeIdx],
       };
       let tie: Tie | undefined;
       if (tieMode && caretIndex > 0 && caretIndex % 2 === 0) {
-        const prevEl = mainElements[caretIndex / 2 - 1];
+        const prevEl = getMainElements()[caretIndex / 2 - 1];
         if (
           prevEl?.type === "note" &&
           prevEl.pitches[0].pitch === newPitch.pitch &&
@@ -409,13 +406,13 @@ window.onload = () => {
       }
       const { elements, insertedIndex, caretAdvance } = inputMusicalElement({
         caretIndex,
-        elements: mainElements,
+        elements: getMainElements(),
         newElement,
         beamMode,
       });
       lastEditedIdx = insertedIndex;
       caretIndex += caretAdvance;
-      mainElements = elements;
+      setMainElements(elements);
       updateMain();
       copiedElements = [];
     },
@@ -424,10 +421,10 @@ window.onload = () => {
       if (targetElIdx < 0) {
         return;
       }
-      const deleted = mainElements.splice(targetElIdx, 1)[0];
+      const deleted = getMainElements().splice(targetElIdx, 1)[0];
       if (deleted.type === "note") {
-        const left = mainElements[targetElIdx - 1];
-        const right = mainElements[targetElIdx];
+        const left = getMainElements()[targetElIdx - 1];
+        const right = getMainElements()[targetElIdx];
         if (deleted.beam === "begin" && right) {
           (right as Note).beam = "begin";
         } else if (deleted.beam === "end" && left) {
@@ -461,9 +458,9 @@ window.onload = () => {
       if (caretIndex % 2 !== 0) {
         const idx = caretIndex === 1 ? 0 : (caretIndex - 1) / 2;
         if (idx === lastEditedIdx) {
-          const lastEl = mainElements[lastEditedIdx];
-          const left = mainElements[idx - 1];
-          const right = mainElements[idx + 1];
+          const lastEl = getMainElements()[lastEditedIdx];
+          const left = getMainElements()[idx - 1];
+          const right = getMainElements()[idx + 1];
           applyBeamForLastEdited(lastEl, left, right);
         }
       }
@@ -474,9 +471,9 @@ window.onload = () => {
       if (caretIndex % 2 === 0) {
         const idx = caretIndex / 2 - 1;
         if (idx === lastEditedIdx) {
-          const lastEl = mainElements[lastEditedIdx];
-          const left = mainElements[idx - 1];
-          const right = mainElements[idx + 1];
+          const lastEl = getMainElements()[lastEditedIdx];
+          const left = getMainElements()[idx - 1];
+          const right = getMainElements()[idx + 1];
           applyBeamForLastEdited(lastEl, left, right);
         }
       }
@@ -489,13 +486,13 @@ window.onload = () => {
     commit(bar: Bar) {
       const { elements, insertedIndex, caretAdvance } = inputMusicalElement({
         caretIndex,
-        elements: mainElements,
+        elements: getMainElements(),
         newElement: bar,
         beamMode,
       });
       lastEditedIdx = insertedIndex;
       caretIndex += caretAdvance;
-      mainElements = elements;
+      setMainElements(elements);
       updateMain();
     },
   };

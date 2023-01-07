@@ -6,10 +6,10 @@ import {
   CaretInputCallback,
   ChangeAccidentalCallback,
   ChangeBeamCallback,
-  ChangeNoteRestCallback,
+  IChangeNoteRestCallback,
   ChangeTieCallback,
   NoteInputCallback,
-} from "./callbacks";
+} from "./pointer-handler-callbacks/types";
 import { BarTypes, Duration } from "../notation/types";
 
 class EmptyPointerHandler implements PointerHandler {
@@ -84,7 +84,7 @@ export class GrayPointerHandler extends EmptyPointerHandler {
 export class ChangeNoteRestHandler extends EmptyPointerHandler {
   private changeButton = document.getElementsByClassName("changeNoteRest")[0];
 
-  constructor(private callback: ChangeNoteRestCallback) {
+  constructor(private callback: IChangeNoteRestCallback) {
     super();
   }
 
