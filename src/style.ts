@@ -1,15 +1,4 @@
 import {
-  Accidental,
-  Bar,
-  Clef,
-  Duration,
-  MusicalElement,
-  Note,
-  Pitch,
-  PitchAcc,
-  Rest,
-} from "./notation/types";
-import {
   bBarlineSeparation,
   bBeamSpacing,
   bBeamThickness,
@@ -21,10 +10,10 @@ import {
   bThickBarlineThickness,
   bThinBarlineThickness,
   EXTENSION_LEDGER_LINE,
-  Path,
   repeatDotRadius,
   UNIT,
 } from "./bravura";
+import { BBox, getPathBBox, offsetBBox, Point } from "./geometry";
 import {
   accidentalPathMap,
   downFlagMap,
@@ -34,7 +23,17 @@ import {
   restPathMap,
   upFlagMap,
 } from "./notation/notation";
-import { addPoint, BBox, getPathBBox, offsetBBox, Point } from "./geometry";
+import {
+  Accidental,
+  Bar,
+  Clef,
+  Duration,
+  MusicalElement,
+  Note,
+  Pitch,
+  PitchAcc,
+  Rest,
+} from "./notation/types";
 
 export type CaretStyle = { x: number; y: number; width: number; elIdx: number };
 type OptionalColor = { color?: string };

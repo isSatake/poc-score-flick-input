@@ -43,7 +43,13 @@ export const changeAccidentalMode = () => {
       ? 0
       : accidentalModeIdx + 1;
 };
+
 let lastEditedIdx: number;
+export const getLastEditedIndex = () => lastEditedIdx;
+export const setLastEditedIndex = (v: number) => {
+  lastEditedIdx = v;
+};
+
 let styles: PaintElementStyle<PaintElement>[] = [];
 let elementBBoxes: { bbox: BBox; elIdx?: number }[] = [];
 let pointing: Pointing | undefined;

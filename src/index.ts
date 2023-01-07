@@ -29,11 +29,13 @@ import {
   getCaretPositions,
   getCurrentCaret,
   getIsNoteInputMode,
+  getLastEditedIndex,
   getMainElements,
   getTieMode,
   initCaretPositions,
   setBeamMode,
   setCaretIndex,
+  setLastEditedIndex,
   setMainElements,
   setTieMode,
 } from "./score-states";
@@ -67,7 +69,7 @@ import {
   NoteInputHandler,
   TieHandler,
 } from "./ui/pointer-handlers";
-import { BeamModes, kAccidentalModes, TieModes } from "./ui/types";
+import { BeamModes } from "./ui/types";
 
 const dpr = window.devicePixelRatio;
 const scale = 0.08;
@@ -87,7 +89,6 @@ window.onload = () => {
   const previewCtx = previewCanvas.getContext("2d")!;
 
   // 楽譜のステート
-  let lastEditedIdx: number;
   let styles: PaintElementStyle<PaintElement>[] = [];
   let elementBBoxes: { bbox: BBox; elIdx?: number }[] = [];
   let pointing: Pointing | undefined;
@@ -252,10 +253,10 @@ window.onload = () => {
         );
       });
       setBeamMode(mode);
-      const lastEl = getMainElements()[lastEditedIdx];
+      const lastEl = getMainElements()[getLastEditedIndex()];
       if (lastEl) {
-        const left = getMainElements()[lastEditedIdx - 1];
-        const right = getMainElements()[lastEditedIdx + 1];
+        const left = getMainElements()[getLastEditedIndex() - 1];
+        const right = getMainElements()[getLastEditedIndex() + 1];
         applyBeamForLastEdited(lastEl, left, right);
         updateMain();
       }
@@ -408,7 +409,7 @@ window.onload = () => {
         newElement,
         beamMode: getBeamMode(),
       });
-      lastEditedIdx = insertedIndex;
+      setLastEditedIndex(insertedIndex);
       addCaretIndex(caretAdvance);
       setMainElements(elements);
       updateMain();
@@ -455,8 +456,8 @@ window.onload = () => {
     back() {
       if (getCaretIndex() % 2 !== 0) {
         const idx = getCaretIndex() === 1 ? 0 : (getCaretIndex() - 1) / 2;
-        if (idx === lastEditedIdx) {
-          const lastEl = getMainElements()[lastEditedIdx];
+        if (idx === getLastEditedIndex()) {
+          const lastEl = getMainElements()[getLastEditedIndex()];
           const left = getMainElements()[idx - 1];
           const right = getMainElements()[idx + 1];
           applyBeamForLastEdited(lastEl, left, right);
@@ -468,8 +469,8 @@ window.onload = () => {
     forward() {
       if (getCaretIndex() % 2 === 0) {
         const idx = getCaretIndex() / 2 - 1;
-        if (idx === lastEditedIdx) {
-          const lastEl = getMainElements()[lastEditedIdx];
+        if (idx === getLastEditedIndex()) {
+          const lastEl = getMainElements()[getLastEditedIndex()];
           const left = getMainElements()[idx - 1];
           const right = getMainElements()[idx + 1];
           applyBeamForLastEdited(lastEl, left, right);
@@ -490,7 +491,7 @@ window.onload = () => {
         newElement: bar,
         beamMode: getBeamMode(),
       });
-      lastEditedIdx = insertedIndex;
+      setLastEditedIndex(insertedIndex);
       addCaretIndex(caretAdvance);
       setMainElements(elements);
       updateMain();
