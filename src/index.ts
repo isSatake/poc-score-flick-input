@@ -25,6 +25,7 @@ import {
   flipIsNoteInputMode,
   getAccidentalMode,
   getBeamMode,
+  getCaretByIndex,
   getCaretIndex,
   getCaretPositions,
   getCurrentCaret,
@@ -437,7 +438,7 @@ window.onload = () => {
         if (t === 0) {
           setCaretIndex(0);
           t = -1;
-        } else if (getCurrentCaret().elIdx !== targetElIdx) {
+        } else if (getCaretByIndex(t).elIdx !== targetElIdx) {
           setCaretIndex(t);
           t = -1;
         } else {

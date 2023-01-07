@@ -21,6 +21,7 @@ export function getCaretPositions() {
 export function addCaret(v: CaretStyle) {
   caretPositions.push(v);
 }
+export const getCaretByIndex = (i: number) => caretPositions[i];
 export function getCurrentCaret() {
   return caretPositions[caretIndex];
 }
