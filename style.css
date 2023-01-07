@@ -3,7 +3,8 @@ root {
   --keyHeight: 49px;
 }
 
-html, body {
+html,
+body {
   width: 100%;
   height: 100%;
   margin: 0;
@@ -301,7 +302,7 @@ html, body {
   background-position: center;
   background-repeat: no-repeat;
   background-size: 37%;
-  background-position-x: 57%
+  background-position-x: 57%;
 }
 
 .changeBeam.beam {
@@ -407,9 +408,10 @@ html, body {
 }
 
 .returnKey {
-  grid-row-start: span 2;
+  /* grid-row-start: span 2; */
   background-image: url("./img/keyboard_return_black_24dp.svg");
-  background-position: center;
+  background-position-x: center;
+  background-position-y: 55%;
   background-repeat: no-repeat;
   background-size: 30%;
 }
@@ -427,6 +429,18 @@ html, body {
 .fermata {
   background-image: url("./img/fermata.svg");
   background-size: 25%;
+}
+
+.notie > div {
+  background-color: grey;
+}
+
+.tie > div {
+  background-color: black;
+}
+
+.changeTie > .buttonImage {
+  -webkit-mask: url("img/tie.svg") no-repeat center center / 50% 50%;
 }
 
 .keyboardBottom {

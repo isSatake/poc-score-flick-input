@@ -15,6 +15,10 @@ export const scalePoint = (p: Point, scale: number): Point => {
   return { x: p.x * scale, y: p.y * scale };
 };
 
+export const addPoint = (p1: Point, p2: Point): Point => {
+  return { x: p1.x + p2.x, y: p1.y + p2.y };
+};
+
 export const offsetBBox = (bbox: BBox, offset?: Partial<Point>): BBox => {
   const x = typeof offset?.x === "number" ? offset.x : 0;
   const y = typeof offset?.y === "number" ? offset.y : 0;

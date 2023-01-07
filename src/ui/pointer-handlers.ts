@@ -7,6 +7,7 @@ import {
   ChangeAccidentalCallback,
   ChangeBeamCallback,
   ChangeNoteRestCallback,
+  ChangeTieCallback,
   NoteInputCallback,
 } from "./callbacks";
 import { BarTypes, Duration } from "../notation/types";
@@ -280,5 +281,22 @@ export class CanvasPointerHandler extends EmptyPointerHandler {
 
   onMove(ev: PointerEvent) {
     this.callback.onMove({ x: ev.offsetX, y: ev.offsetY });
+  }
+}
+
+export class TieHandler extends EmptyPointerHandler {
+  private tieEl = document.querySelector(".changeTie") as HTMLDivElement;
+  constructor(private callback: ChangeTieCallback) {
+    super();
+  }
+
+  onClick(ev: PointerEvent) {
+    const current = this.callback.getMode();
+    const next = !current ? "tie" : undefined;
+    this.callback.change(next);
+    this.tieEl.className = this.tieEl.className.replace(
+      next ? "notie" : "tie",
+      next ? "tie" : "notie"
+    );
   }
 }

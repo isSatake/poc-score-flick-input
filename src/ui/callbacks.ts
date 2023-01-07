@@ -1,5 +1,5 @@
 import { Bar, Duration } from "../notation/types";
-import { AccidentalModes, BeamModes } from "../index";
+import { AccidentalModes, BeamModes, TieModes } from "../index";
 import { Point } from "../geometry";
 
 export interface ChangeNoteRestCallback {
@@ -45,4 +45,10 @@ export interface BarInputCallback {
 
 export interface CanvasCallback {
   onMove(htmlPoint: Point): void;
+}
+
+export interface ChangeTieCallback {
+  getMode(): TieModes;
+
+  change(next: TieModes): void;
 }
