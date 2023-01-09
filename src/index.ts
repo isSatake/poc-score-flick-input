@@ -21,6 +21,7 @@ import { sortPitches } from "./pitch";
 import {
   addCaret,
   addCaretIndex,
+  addElementBBoxes,
   changeAccidentalMode,
   flipIsNoteInputMode,
   getAccidentalMode,
@@ -29,12 +30,14 @@ import {
   getCaretIndex,
   getCaretPositions,
   getCurrentCaret,
+  getElementBBoxes,
   getIsNoteInputMode,
   getLastEditedIndex,
   getMainElements,
   getStyles,
   getTieMode,
   initCaretPositions,
+  initElementBBoxes,
   setBeamMode,
   setCaretIndex,
   setLastEditedIndex,
@@ -92,7 +95,6 @@ window.onload = () => {
   const previewCtx = previewCanvas.getContext("2d")!;
 
   // 楽譜のステート
-  let elementBBoxes: { bbox: BBox; elIdx?: number }[] = [];
   let pointing: Pointing | undefined;
 
   const updateMain = () => {
@@ -104,7 +106,7 @@ window.onload = () => {
       fillStyle: "#fff",
     });
     initCaretPositions();
-    elementBBoxes = [];
+    initElementBBoxes();
     mainCtx.save();
     mainCtx.scale(scale, scale);
     mainCtx.translate(leftOfStaff, topOfStaff);
@@ -119,7 +121,7 @@ window.onload = () => {
       const { width, element, caretOption, bbox, index: elIdx } = style;
       paintStyle(mainCtx, style);
       const _bbox = offsetBBox(bbox, { x: cursor });
-      elementBBoxes.push({ bbox: _bbox, elIdx });
+      addElementBBoxes({ bbox: _bbox, elIdx });
       // paintBBox(mainCtx, bbox); // debug
       if (caretOption) {
         const { index: elIdx, defaultWidth } = caretOption;
@@ -208,11 +210,8 @@ window.onload = () => {
     console.log("centerX", centerX);
     previewCtx.translate(-centerX, 0);
     for (const style of styles) {
-      const { width, element, bbox, index } = style;
+      const { width, element } = style;
       paintStyle(previewCtx, style);
-      const _bbox = offsetBBox(bbox, { x: cursor });
-      elementBBoxes.push({ bbox: _bbox, elIdx: index });
-      // paintBBox(previewCtx, bbox);
       if (element.type !== "beam" && element.type !== "tie") {
         previewCtx.translate(width, 0);
       }
@@ -500,7 +499,7 @@ window.onload = () => {
   const canvasCallback: CanvasCallback = {
     onMove(htmlPoint: Point) {
       let nextPointing = undefined;
-      for (let i in elementBBoxes) {
+      for (let i in getElementBBoxes()) {
         const { type } = getStyles()[i].element;
         if (type === "gap" || type === "beam" || type === "tie") {
           continue;
@@ -508,10 +507,13 @@ window.onload = () => {
         if (
           isPointInBBox(
             scalePoint(htmlPoint, 1 / scale),
-            offsetBBox(elementBBoxes[i].bbox, { x: leftOfStaff, y: topOfStaff })
+            offsetBBox(getElementBBoxes()[i].bbox, {
+              x: leftOfStaff,
+              y: topOfStaff,
+            })
           )
         ) {
-          const { elIdx } = elementBBoxes[i];
+          const { elIdx } = getElementBBoxes()[i];
           if (elIdx !== undefined) {
             nextPointing = { index: elIdx, type };
           }
