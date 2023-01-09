@@ -83,6 +83,131 @@ const defaultCaretWidth = 50;
 const previewWidth = 300;
 const previewHeight = 400;
 
+const updateMain = (mainCtx: CanvasRenderingContext2D) => {
+  console.log("main", "start");
+  resetCanvas({
+    ctx: mainCtx,
+    width: window.innerWidth,
+    height: window.innerHeight,
+    fillStyle: "#fff",
+  });
+  initCaretPositions();
+  initElementBBoxes();
+  mainCtx.save();
+  mainCtx.scale(scale, scale);
+  mainCtx.translate(leftOfStaff, topOfStaff);
+  paintStaff(mainCtx, 0, 0, UNIT * 100, 1);
+  const clef: Clef = { type: "g" };
+  setStyles(
+    determinePaintElementStyle(getMainElements(), UNIT, { clef }, getPointing())
+  );
+  let cursor = 0;
+  for (const style of getStyles()) {
+    console.log("style", style);
+    const { width, element, caretOption, bbox, index: elIdx } = style;
+    paintStyle(mainCtx, style);
+    const _bbox = offsetBBox(bbox, { x: cursor });
+    addElementBBoxes({ bbox: _bbox, elIdx });
+    // paintBBox(mainCtx, bbox); // debug
+    if (caretOption) {
+      const { index: elIdx, defaultWidth } = caretOption;
+      const caretWidth = defaultWidth ? defaultCaretWidth : width;
+      addCaret({
+        x: cursor + (defaultWidth ? width / 2 - caretWidth / 2 : 0),
+        y: 0,
+        width: caretWidth,
+        elIdx,
+      });
+    }
+    if (element.type !== "beam" && element.type !== "tie") {
+      cursor += width;
+      mainCtx.translate(width, 0);
+    }
+  }
+  mainCtx.restore();
+  console.log("carets", getCaretPositions());
+  console.log("current caret", getCurrentCaret());
+  mainCtx.save();
+  mainCtx.scale(scale, scale);
+  mainCtx.translate(leftOfStaff, topOfStaff);
+  if (getCurrentCaret()) {
+    paintCaret({
+      ctx: mainCtx,
+      scale: 1,
+      caret: getCurrentCaret(),
+    });
+  }
+  mainCtx.restore();
+  console.log("main", "end");
+};
+
+const updatePreview = (
+  previewCtx: CanvasRenderingContext2D,
+  baseElements: MusicalElement[],
+  beamMode: BeamModes,
+  newElement: MusicalElement
+) => {
+  console.log("preview", "start");
+  resetCanvas({
+    ctx: previewCtx,
+    width: previewWidth,
+    height: previewHeight,
+    fillStyle: "#fff",
+  });
+  const { elements: preview, insertedIndex } = inputMusicalElement({
+    caretIndex: getCaretIndex(),
+    elements: baseElements,
+    newElement,
+    beamMode,
+  });
+  console.log("insertedIdx", insertedIndex);
+  console.log("preview", preview);
+  // B4がcanvasのvertical centerにくるように
+  const _topOfStaff = previewHeight / 2 - (bStaffHeight * previewScale) / 2;
+  const styles = [...determinePaintElementStyle(preview, UNIT)];
+  const elIdxToX = new Map<number, number>();
+  let cursor = 0;
+  for (const style of styles) {
+    const { width, element, index } = style;
+    console.log("style", style);
+    if (index !== undefined) {
+      elIdxToX.set(index, cursor + width / 2);
+    }
+    if (element.type !== "beam" && element.type !== "tie") {
+      cursor += width;
+    }
+  }
+
+  console.log("elIdxToX", elIdxToX);
+
+  // paint staff
+  previewCtx.save();
+  // x: 左端 y: 中心
+  previewCtx.translate(0, _topOfStaff);
+  previewCtx.scale(previewScale, previewScale);
+  paintStaff(previewCtx, 0, 0, UNIT * 100, 1);
+  previewCtx.restore();
+
+  // paint elements
+  previewCtx.save();
+  // x: 中心, y: 中心
+  previewCtx.translate(previewWidth / 2, _topOfStaff);
+  previewCtx.scale(previewScale, previewScale);
+  // x: previewの中心
+  const centerX = elIdxToX.get(insertedIndex)!;
+  console.log("centerX", centerX);
+  previewCtx.translate(-centerX, 0);
+  for (const style of styles) {
+    const { width, element } = style;
+    paintStyle(previewCtx, style);
+    if (element.type !== "beam" && element.type !== "tie") {
+      previewCtx.translate(width, 0);
+    }
+  }
+  previewCtx.restore();
+  console.log("preview", "end");
+};
+
 window.onload = () => {
   const mainCanvas = document.getElementById("mainCanvas") as HTMLCanvasElement;
   const previewCanvas = document.getElementById(
@@ -90,133 +215,6 @@ window.onload = () => {
   ) as HTMLCanvasElement;
   const mainCtx = mainCanvas.getContext("2d")!;
   const previewCtx = previewCanvas.getContext("2d")!;
-  const updateMain = () => {
-    console.log("main", "start");
-    resetCanvas({
-      ctx: mainCtx,
-      width: window.innerWidth,
-      height: window.innerHeight,
-      fillStyle: "#fff",
-    });
-    initCaretPositions();
-    initElementBBoxes();
-    mainCtx.save();
-    mainCtx.scale(scale, scale);
-    mainCtx.translate(leftOfStaff, topOfStaff);
-    paintStaff(mainCtx, 0, 0, UNIT * 100, 1);
-    const clef: Clef = { type: "g" };
-    setStyles(
-      determinePaintElementStyle(
-        getMainElements(),
-        UNIT,
-        { clef },
-        getPointing()
-      )
-    );
-    let cursor = 0;
-    for (const style of getStyles()) {
-      console.log("style", style);
-      const { width, element, caretOption, bbox, index: elIdx } = style;
-      paintStyle(mainCtx, style);
-      const _bbox = offsetBBox(bbox, { x: cursor });
-      addElementBBoxes({ bbox: _bbox, elIdx });
-      // paintBBox(mainCtx, bbox); // debug
-      if (caretOption) {
-        const { index: elIdx, defaultWidth } = caretOption;
-        const caretWidth = defaultWidth ? defaultCaretWidth : width;
-        addCaret({
-          x: cursor + (defaultWidth ? width / 2 - caretWidth / 2 : 0),
-          y: 0,
-          width: caretWidth,
-          elIdx,
-        });
-      }
-      if (element.type !== "beam" && element.type !== "tie") {
-        cursor += width;
-        mainCtx.translate(width, 0);
-      }
-    }
-    mainCtx.restore();
-    console.log("carets", getCaretPositions());
-    console.log("current caret", getCurrentCaret());
-    mainCtx.save();
-    mainCtx.scale(scale, scale);
-    mainCtx.translate(leftOfStaff, topOfStaff);
-    if (getCurrentCaret()) {
-      paintCaret({
-        ctx: mainCtx,
-        scale: 1,
-        caret: getCurrentCaret(),
-      });
-    }
-    mainCtx.restore();
-    console.log("main", "end");
-  };
-  const updatePreview = (
-    baseElements: MusicalElement[],
-    beamMode: BeamModes,
-    newElement: MusicalElement
-  ) => {
-    console.log("preview", "start");
-    resetCanvas({
-      ctx: previewCtx,
-      width: previewWidth,
-      height: previewHeight,
-      fillStyle: "#fff",
-    });
-    const { elements: preview, insertedIndex } = inputMusicalElement({
-      caretIndex: getCaretIndex(),
-      elements: baseElements,
-      newElement,
-      beamMode,
-    });
-    console.log("insertedIdx", insertedIndex);
-    console.log("preview", preview);
-    // B4がcanvasのvertical centerにくるように
-    const _topOfStaff = previewHeight / 2 - (bStaffHeight * previewScale) / 2;
-    const styles = [...determinePaintElementStyle(preview, UNIT)];
-    const elIdxToX = new Map<number, number>();
-    let cursor = 0;
-    for (const style of styles) {
-      const { width, element, index } = style;
-      console.log("style", style);
-      if (index !== undefined) {
-        elIdxToX.set(index, cursor + width / 2);
-      }
-      if (element.type !== "beam" && element.type !== "tie") {
-        cursor += width;
-      }
-    }
-
-    console.log("elIdxToX", elIdxToX);
-
-    // paint staff
-    previewCtx.save();
-    // x: 左端 y: 中心
-    previewCtx.translate(0, _topOfStaff);
-    previewCtx.scale(previewScale, previewScale);
-    paintStaff(previewCtx, 0, 0, UNIT * 100, 1);
-    previewCtx.restore();
-
-    // paint elements
-    previewCtx.save();
-    // x: 中心, y: 中心
-    previewCtx.translate(previewWidth / 2, _topOfStaff);
-    previewCtx.scale(previewScale, previewScale);
-    // x: previewの中心
-    const centerX = elIdxToX.get(insertedIndex)!;
-    console.log("centerX", centerX);
-    previewCtx.translate(-centerX, 0);
-    for (const style of styles) {
-      const { width, element } = style;
-      paintStyle(previewCtx, style);
-      if (element.type !== "beam" && element.type !== "tie") {
-        previewCtx.translate(width, 0);
-      }
-    }
-    previewCtx.restore();
-    console.log("preview", "end");
-  };
 
   const noteKeyEls = Array.from(document.getElementsByClassName("note"));
   const changeNoteRestKey =
@@ -254,7 +252,7 @@ window.onload = () => {
         const left = getMainElements()[getLastEditedIndex() - 1];
         const right = getMainElements()[getLastEditedIndex() + 1];
         applyBeamForLastEdited(lastEl, left, right);
-        updateMain();
+        updateMain(mainCtx);
       }
     },
   };
@@ -322,7 +320,7 @@ window.onload = () => {
           element.pitches = sortPitches([...oldEl.pitches, ...element.pitches]);
         }
       }
-      updatePreview(copiedElements, getBeamMode(), element);
+      updatePreview(previewCtx, copiedElements, getBeamMode(), element);
       previewCanvas.style.visibility = "visible";
     },
     updatePreview(duration: Duration, dy: number) {
@@ -365,7 +363,7 @@ window.onload = () => {
           element.pitches = sortPitches([...oldEl.pitches, ...element.pitches]);
         }
       }
-      updatePreview(copiedElements, getBeamMode(), element);
+      updatePreview(previewCtx, copiedElements, getBeamMode(), element);
     },
     commit(duration: Duration, dy?: number) {
       let newElement: MusicalElement;
@@ -407,7 +405,7 @@ window.onload = () => {
       setLastEditedIndex(insertedIndex);
       addCaretIndex(caretAdvance);
       setMainElements(elements);
-      updateMain();
+      updateMain(mainCtx);
       copiedElements = [];
     },
     backspace() {
@@ -440,7 +438,7 @@ window.onload = () => {
         }
       }
 
-      updateMain();
+      updateMain(mainCtx);
     },
     finish() {
       previewCanvas.style.visibility = "hidden";
@@ -459,7 +457,7 @@ window.onload = () => {
         }
       }
       setCaretIndex(Math.max(getCaretIndex() - 1, 0));
-      updateMain();
+      updateMain(mainCtx);
     },
     forward() {
       if (getCaretIndex() % 2 === 0) {
@@ -474,7 +472,7 @@ window.onload = () => {
       setCaretIndex(
         Math.min(getCaretIndex() + 1, getCaretPositions().length - 1)
       );
-      updateMain();
+      updateMain(mainCtx);
     },
   };
 
@@ -489,7 +487,7 @@ window.onload = () => {
       setLastEditedIndex(insertedIndex);
       addCaretIndex(caretAdvance);
       setMainElements(elements);
-      updateMain();
+      updateMain(mainCtx);
     },
   };
 
@@ -518,7 +516,7 @@ window.onload = () => {
       }
       if (getPointing() !== nextPointing) {
         setPointing(nextPointing);
-        updateMain();
+        updateMain(mainCtx);
       }
     },
   };
@@ -574,7 +572,7 @@ window.onload = () => {
     height: previewHeight,
     _canvas: previewCanvas,
   });
-  updateMain();
+  updateMain(mainCtx);
 };
 
 /**
