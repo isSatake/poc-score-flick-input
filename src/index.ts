@@ -74,7 +74,6 @@ import {
 } from "./ui/pointer-handlers";
 import { BeamModes } from "./ui/types";
 
-const dpr = window.devicePixelRatio;
 const scale = 0.08;
 const previewScale = 0.08;
 const leftOfStaff = 250;
@@ -277,7 +276,6 @@ window.onload = () => {
       const left = downX - previewWidth / 2;
       const top = downY - previewHeight / 2;
       initCanvas({
-        dpr,
         leftPx: left,
         topPx: top,
         width: previewWidth,
@@ -562,7 +560,6 @@ window.onload = () => {
   registerPointerHandlers(["changeTie"], [new TieHandler(changeTieCallback)]);
 
   initCanvas({
-    dpr,
     leftPx: 0,
     topPx: 0,
     width: window.innerWidth,
@@ -570,7 +567,6 @@ window.onload = () => {
     _canvas: mainCanvas,
   });
   initCanvas({
-    dpr,
     leftPx: 0,
     topPx: 0,
     width: previewWidth,

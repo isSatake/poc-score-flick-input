@@ -29,14 +29,12 @@ import {
 import { BBox } from "./geometry";
 
 export const initCanvas = ({
-  dpr,
   leftPx,
   topPx,
   width,
   height,
   _canvas,
 }: {
-  dpr: number;
   leftPx: number;
   topPx: number;
   width: number;
@@ -49,10 +47,10 @@ export const initCanvas = ({
   canvas.style.left = `${leftPx}px`;
   canvas.style.width = `${width}px`;
   // https://developer.mozilla.org/en-US/docs/Web/API/Canvas_API/Tutorial/Optimizing_canvas#scaling_for_high_resolution_displays
-  canvas.width = width * dpr;
-  canvas.height = height * dpr;
+  canvas.width = width * devicePixelRatio;
+  canvas.height = height * devicePixelRatio;
   canvas.style.height = `${height}px`;
-  canvas.getContext("2d")?.scale(dpr, dpr);
+  canvas.getContext("2d")?.scale(devicePixelRatio, devicePixelRatio);
 };
 
 const paintBravuraPath = (
