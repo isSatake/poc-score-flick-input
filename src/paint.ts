@@ -7,6 +7,7 @@ import {
   repeatDotRadius,
   UNIT,
 } from "./bravura";
+import { BBox } from "./geometry";
 import {
   accidentalPathMap,
   downFlagMap,
@@ -14,6 +15,7 @@ import {
   restPathMap,
   upFlagMap,
 } from "./notation/notation";
+import { pitchToY } from "./style/style";
 import {
   BarStyle,
   BeamStyle,
@@ -22,11 +24,9 @@ import {
   NoteStyle,
   PaintElement,
   PaintElementStyle,
-  pitchToY,
   RestStyle,
   TieStyle,
-} from "./style/style";
-import { BBox } from "./geometry";
+} from "./style/types";
 
 export const initCanvas = ({
   leftPx,

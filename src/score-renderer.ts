@@ -25,6 +25,7 @@ import {
 import { determinePaintElementStyle } from "./style/style";
 
 export const updateMain = (mainCtx: CanvasRenderingContext2D) => {
+  // canvas・各種ステートの初期化、五線の描画
   console.log("main", "start");
   resetCanvas({
     ctx: mainCtx,
@@ -38,10 +39,16 @@ export const updateMain = (mainCtx: CanvasRenderingContext2D) => {
   mainCtx.scale(getScale(), getScale());
   mainCtx.translate(getLeftOfStaff(), getTopOfStaff());
   paintStaff(mainCtx, 0, 0, UNIT * 100, 1);
-  const clef: Clef = { type: "g" };
+  // style生成
   setStyles(
-    determinePaintElementStyle(getMainElements(), UNIT, { clef }, getPointing())
+    determinePaintElementStyle(
+      getMainElements(),
+      UNIT,
+      { clef: { type: "g" } },
+      getPointing()
+    )
   );
+  // style描画、当たり判定用bbox生成、キャレット生成
   let cursor = 0;
   for (const style of getStyles()) {
     console.log("style", style);
@@ -65,6 +72,7 @@ export const updateMain = (mainCtx: CanvasRenderingContext2D) => {
       mainCtx.translate(width, 0);
     }
   }
+  // キャレット描画
   mainCtx.restore();
   console.log("carets", getCaretPositions());
   console.log("current caret", getCurrentCaret());

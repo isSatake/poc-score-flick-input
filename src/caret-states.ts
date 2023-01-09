@@ -1,4 +1,4 @@
-import { CaretStyle } from "./style/style";
+import { CaretStyle } from "./style/types";
 
 let caretIndex = 0;
 export function getCaretIndex() {
