@@ -1,6 +1,6 @@
 import { BBox } from "./geometry";
 import { MusicalElement } from "./notation/types";
-import { PaintElementStyle, PaintElement, Pointing } from "./style";
+import { PaintElement, PaintElementStyle, Pointing } from "./style";
 import { BeamModes, kAccidentalModes, TieModes } from "./ui/types";
 export * from "./caret-states";
 
@@ -63,4 +63,9 @@ export const addElementBBoxes = (v: { bbox: BBox; elIdx?: number }) => {
 export const initElementBBoxes = () => {
   elementBBoxes = [];
 };
+
 let pointing: Pointing | undefined;
+export const getPointing = () => pointing;
+export const setPointing = (v?: Pointing) => {
+  pointing = v;
+};

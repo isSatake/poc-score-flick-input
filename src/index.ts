@@ -34,6 +34,7 @@ import {
   getIsNoteInputMode,
   getLastEditedIndex,
   getMainElements,
+  getPointing,
   getStyles,
   getTieMode,
   initCaretPositions,
@@ -42,15 +43,11 @@ import {
   setCaretIndex,
   setLastEditedIndex,
   setMainElements,
+  setPointing,
   setStyles,
   setTieMode,
 } from "./score-states";
-import {
-  determinePaintElementStyle,
-  PaintElement,
-  PaintElementStyle,
-  Pointing,
-} from "./style";
+import { determinePaintElementStyle } from "./style";
 import { registerPointerHandlers } from "./ui/pointer-event";
 import {
   BarInputCallback,
@@ -93,10 +90,6 @@ window.onload = () => {
   ) as HTMLCanvasElement;
   const mainCtx = mainCanvas.getContext("2d")!;
   const previewCtx = previewCanvas.getContext("2d")!;
-
-  // 楽譜のステート
-  let pointing: Pointing | undefined;
-
   const updateMain = () => {
     console.log("main", "start");
     resetCanvas({
@@ -113,7 +106,12 @@ window.onload = () => {
     paintStaff(mainCtx, 0, 0, UNIT * 100, 1);
     const clef: Clef = { type: "g" };
     setStyles(
-      determinePaintElementStyle(getMainElements(), UNIT, { clef }, pointing)
+      determinePaintElementStyle(
+        getMainElements(),
+        UNIT,
+        { clef },
+        getPointing()
+      )
     );
     let cursor = 0;
     for (const style of getStyles()) {
@@ -519,8 +517,8 @@ window.onload = () => {
           }
         }
       }
-      if (pointing !== nextPointing) {
-        pointing = nextPointing;
+      if (getPointing() !== nextPointing) {
+        setPointing(nextPointing);
         updateMain();
       }
     },
