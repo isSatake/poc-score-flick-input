@@ -1,6 +1,6 @@
 import { BBox } from "./geometry";
 import { MusicalElement } from "./notation/types";
-import { PaintElement, PaintElementStyle, Pointing } from "./style/style";
+import { PaintElementStyle, PaintElement, Pointing } from "./style/types";
 import { BeamModes, kAccidentalModes, TieModes } from "./ui/types";
 export * from "./caret-states";
 
