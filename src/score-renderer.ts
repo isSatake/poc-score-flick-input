@@ -72,20 +72,21 @@ export const updateMain = (mainCtx: CanvasRenderingContext2D) => {
       mainCtx.translate(width, 0);
     }
   }
-  // キャレット描画
   mainCtx.restore();
+  updateCaret(mainCtx);
+  console.log("main", "end");
+};
+
+const updateCaret = (mainCtx: CanvasRenderingContext2D) => {
   console.log("carets", getCaretPositions());
   console.log("current caret", getCurrentCaret());
   mainCtx.save();
   mainCtx.scale(getScale(), getScale());
   mainCtx.translate(getLeftOfStaff(), getTopOfStaff());
-  if (getCurrentCaret()) {
-    paintCaret({
-      ctx: mainCtx,
-      scale: 1,
-      caret: getCurrentCaret(),
-    });
-  }
+  paintCaret({
+    ctx: mainCtx,
+    scale: 1,
+    caret: getCurrentCaret(),
+  });
   mainCtx.restore();
-  console.log("main", "end");
 };
