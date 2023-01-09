@@ -20,6 +20,15 @@ import {
 } from "./paint";
 import { sortPitches } from "./pitch";
 import {
+  getLeftOfStaff,
+  getPreviewHeight,
+  getPreviewScale,
+  getPreviewWidth,
+  getScale,
+  getTopOfStaff,
+  kDefaultCaretWidth,
+} from "./score-preferences";
+import {
   addCaret,
   addCaretIndex,
   addElementBBoxes,
@@ -75,15 +84,6 @@ import {
 } from "./ui/pointer-handlers";
 import { BeamModes } from "./ui/types";
 
-// score preference
-const scale = 0.08;
-const previewScale = 0.08;
-const leftOfStaff = 250;
-const topOfStaff = 2000;
-const defaultCaretWidth = 50;
-const previewWidth = 300;
-const previewHeight = 400;
-
 const updateMain = (mainCtx: CanvasRenderingContext2D) => {
   console.log("main", "start");
   resetCanvas({
@@ -95,8 +95,8 @@ const updateMain = (mainCtx: CanvasRenderingContext2D) => {
   initCaretPositions();
   initElementBBoxes();
   mainCtx.save();
-  mainCtx.scale(scale, scale);
-  mainCtx.translate(leftOfStaff, topOfStaff);
+  mainCtx.scale(getScale(), getScale());
+  mainCtx.translate(getLeftOfStaff(), getTopOfStaff());
   paintStaff(mainCtx, 0, 0, UNIT * 100, 1);
   const clef: Clef = { type: "g" };
   setStyles(
@@ -112,7 +112,7 @@ const updateMain = (mainCtx: CanvasRenderingContext2D) => {
     // paintBBox(mainCtx, bbox); // debug
     if (caretOption) {
       const { index: elIdx, defaultWidth } = caretOption;
-      const caretWidth = defaultWidth ? defaultCaretWidth : width;
+      const caretWidth = defaultWidth ? kDefaultCaretWidth : width;
       addCaret({
         x: cursor + (defaultWidth ? width / 2 - caretWidth / 2 : 0),
         y: 0,
@@ -129,8 +129,8 @@ const updateMain = (mainCtx: CanvasRenderingContext2D) => {
   console.log("carets", getCaretPositions());
   console.log("current caret", getCurrentCaret());
   mainCtx.save();
-  mainCtx.scale(scale, scale);
-  mainCtx.translate(leftOfStaff, topOfStaff);
+  mainCtx.scale(getScale(), getScale());
+  mainCtx.translate(getLeftOfStaff(), getTopOfStaff());
   if (getCurrentCaret()) {
     paintCaret({
       ctx: mainCtx,
@@ -151,8 +151,8 @@ const updatePreview = (
   console.log("preview", "start");
   resetCanvas({
     ctx: previewCtx,
-    width: previewWidth,
-    height: previewHeight,
+    width: getPreviewWidth(),
+    height: getPreviewHeight(),
     fillStyle: "#fff",
   });
   const { elements: preview, insertedIndex } = inputMusicalElement({
@@ -164,7 +164,8 @@ const updatePreview = (
   console.log("insertedIdx", insertedIndex);
   console.log("preview", preview);
   // B4がcanvasのvertical centerにくるように
-  const _topOfStaff = previewHeight / 2 - (bStaffHeight * previewScale) / 2;
+  const _topOfStaff =
+    getPreviewHeight() / 2 - (bStaffHeight * getPreviewScale()) / 2;
   const styles = [...determinePaintElementStyle(preview, UNIT)];
   const elIdxToX = new Map<number, number>();
   let cursor = 0;
@@ -185,15 +186,15 @@ const updatePreview = (
   previewCtx.save();
   // x: 左端 y: 中心
   previewCtx.translate(0, _topOfStaff);
-  previewCtx.scale(previewScale, previewScale);
+  previewCtx.scale(getPreviewScale(), getPreviewScale());
   paintStaff(previewCtx, 0, 0, UNIT * 100, 1);
   previewCtx.restore();
 
   // paint elements
   previewCtx.save();
   // x: 中心, y: 中心
-  previewCtx.translate(previewWidth / 2, _topOfStaff);
-  previewCtx.scale(previewScale, previewScale);
+  previewCtx.translate(getPreviewWidth() / 2, _topOfStaff);
+  previewCtx.scale(getPreviewScale(), getPreviewScale());
   // x: previewの中心
   const centerX = elIdxToX.get(insertedIndex)!;
   console.log("centerX", centerX);
@@ -269,18 +270,18 @@ window.onload = () => {
     // 「音を追加」「音を変更」をデータ化できるといいんだけど。reducerみたく
     // applyBeamももうちょいスマートに書けるんじゃないかな？
     startPreview(duration: Duration, downX: number, downY: number) {
-      const left = downX - previewWidth / 2;
-      const top = downY - previewHeight / 2;
+      const left = downX - getPreviewWidth() / 2;
+      const top = downY - getPreviewHeight() / 2;
       initCanvas({
         leftPx: left,
         topPx: top,
-        width: previewWidth,
-        height: previewHeight,
+        width: getPreviewWidth(),
+        height: getPreviewHeight(),
         _canvas: previewCanvas,
       });
       copiedElements = [...getMainElements()];
       const newPitch = {
-        pitch: pitchByDistance(previewScale, 0, 6),
+        pitch: pitchByDistance(getPreviewScale(), 0, 6),
         accidental: getAccidentalMode(),
       };
       let tie: Tie | undefined;
@@ -323,7 +324,7 @@ window.onload = () => {
     updatePreview(duration: Duration, dy: number) {
       copiedElements = [...getMainElements()];
       const newPitch = {
-        pitch: pitchByDistance(previewScale, dy, 6),
+        pitch: pitchByDistance(getPreviewScale(), dy, 6),
         accidental: getAccidentalMode(),
       };
       let tie: Tie | undefined;
@@ -365,7 +366,7 @@ window.onload = () => {
     commit(duration: Duration, dy?: number) {
       let newElement: MusicalElement;
       const newPitch = {
-        pitch: pitchByDistance(previewScale, dy ?? 0, 6),
+        pitch: pitchByDistance(getPreviewScale(), dy ?? 0, 6),
         accidental: getAccidentalMode(),
       };
       let tie: Tie | undefined;
@@ -498,10 +499,10 @@ window.onload = () => {
         }
         if (
           isPointInBBox(
-            scalePoint(htmlPoint, 1 / scale),
+            scalePoint(htmlPoint, 1 / getScale()),
             offsetBBox(getElementBBoxes()[i].bbox, {
-              x: leftOfStaff,
-              y: topOfStaff,
+              x: getLeftOfStaff(),
+              y: getTopOfStaff(),
             })
           )
         ) {
@@ -565,8 +566,8 @@ window.onload = () => {
   initCanvas({
     leftPx: 0,
     topPx: 0,
-    width: previewWidth,
-    height: previewHeight,
+    width: getPreviewWidth(),
+    height: getPreviewHeight(),
     _canvas: previewCanvas,
   });
   updateMain(mainCtx);
