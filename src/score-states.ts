@@ -51,5 +51,9 @@ export const setLastEditedIndex = (v: number) => {
 };
 
 let styles: PaintElementStyle<PaintElement>[] = [];
+export const getStyles = () => styles;
+export const setStyles = (v: PaintElementStyle<PaintElement>[]) => {
+  styles = v;
+}
 let elementBBoxes: { bbox: BBox; elIdx?: number }[] = [];
 let pointing: Pointing | undefined;

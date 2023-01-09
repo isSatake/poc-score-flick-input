@@ -32,12 +32,14 @@ import {
   getIsNoteInputMode,
   getLastEditedIndex,
   getMainElements,
+  getStyles,
   getTieMode,
   initCaretPositions,
   setBeamMode,
   setCaretIndex,
   setLastEditedIndex,
   setMainElements,
+  setStyles,
   setTieMode,
 } from "./score-states";
 import {
@@ -90,7 +92,6 @@ window.onload = () => {
   const previewCtx = previewCanvas.getContext("2d")!;
 
   // 楽譜のステート
-  let styles: PaintElementStyle<PaintElement>[] = [];
   let elementBBoxes: { bbox: BBox; elIdx?: number }[] = [];
   let pointing: Pointing | undefined;
 
@@ -109,14 +110,11 @@ window.onload = () => {
     mainCtx.translate(leftOfStaff, topOfStaff);
     paintStaff(mainCtx, 0, 0, UNIT * 100, 1);
     const clef: Clef = { type: "g" };
-    styles = determinePaintElementStyle(
-      getMainElements(),
-      UNIT,
-      { clef },
-      pointing
+    setStyles(
+      determinePaintElementStyle(getMainElements(), UNIT, { clef }, pointing)
     );
     let cursor = 0;
-    for (const style of styles) {
+    for (const style of getStyles()) {
       console.log("style", style);
       const { width, element, caretOption, bbox, index: elIdx } = style;
       paintStyle(mainCtx, style);
@@ -503,7 +501,7 @@ window.onload = () => {
     onMove(htmlPoint: Point) {
       let nextPointing = undefined;
       for (let i in elementBBoxes) {
-        const { type } = styles[i].element;
+        const { type } = getStyles()[i].element;
         if (type === "gap" || type === "beam" || type === "tie") {
           continue;
         }
