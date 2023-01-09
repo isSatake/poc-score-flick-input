@@ -6,12 +6,10 @@ import {
   initCaretPositions,
 } from "./caret-states";
 import { offsetBBox } from "./geometry";
-import { Clef } from "./notation/types";
 import { paintCaret, paintStaff, paintStyle, resetCanvas } from "./paint";
 import {
-  getLeftOfStaff,
   getScale,
-  getTopOfStaff,
+  getStaffOrigin,
   kDefaultCaretWidth,
 } from "./score-preferences";
 import {
@@ -37,7 +35,7 @@ export const updateMain = (mainCtx: CanvasRenderingContext2D) => {
   initElementBBoxes();
   mainCtx.save();
   mainCtx.scale(getScale(), getScale());
-  mainCtx.translate(getLeftOfStaff(), getTopOfStaff());
+  mainCtx.translate(getStaffOrigin().x, getStaffOrigin().y);
   paintStaff(mainCtx, 0, 0, UNIT * 100, 1);
   // style生成
   setStyles(
@@ -82,7 +80,7 @@ const updateCaret = (mainCtx: CanvasRenderingContext2D) => {
   console.log("current caret", getCurrentCaret());
   mainCtx.save();
   mainCtx.scale(getScale(), getScale());
-  mainCtx.translate(getLeftOfStaff(), getTopOfStaff());
+  mainCtx.translate(getStaffOrigin().x, getStaffOrigin().y);
   paintCaret({
     ctx: mainCtx,
     scale: 1,

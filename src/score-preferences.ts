@@ -6,11 +6,8 @@ export const getScale = () => scale;
 const previewScale = 0.08;
 export const getPreviewScale = () => previewScale;
 
-const leftOfStaff = 250;
-export const getLeftOfStaff = () => leftOfStaff;
-
-const topOfStaff = 2000;
-export const getTopOfStaff = () => topOfStaff;
+const staffOrigin = { x: 250, y: 2000 };
+export const getStaffOrigin = () => staffOrigin;
 
 const previewWidth = 300;
 export const getPreviewWidth = () => previewWidth;

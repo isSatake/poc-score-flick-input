@@ -13,12 +13,11 @@ import {
 import { initCanvas, paintStaff, paintStyle, resetCanvas } from "./paint";
 import { sortPitches } from "./pitch";
 import {
-  getLeftOfStaff,
   getPreviewHeight,
   getPreviewScale,
   getPreviewWidth,
   getScale,
-  getTopOfStaff,
+  getStaffOrigin,
 } from "./score-preferences";
 import { updateMain } from "./score-renderer";
 import {
@@ -430,10 +429,7 @@ window.onload = () => {
         if (
           isPointInBBox(
             scalePoint(htmlPoint, 1 / getScale()),
-            offsetBBox(getElementBBoxes()[i].bbox, {
-              x: getLeftOfStaff(),
-              y: getTopOfStaff(),
-            })
+            offsetBBox(getElementBBoxes()[i].bbox, getStaffOrigin())
           )
         ) {
           const { elIdx } = getElementBBoxes()[i];
