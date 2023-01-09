@@ -47,7 +47,7 @@ import {
   setStyles,
   setTieMode,
 } from "./score-states";
-import { determinePaintElementStyle } from "./style";
+import { determinePaintElementStyle } from "./style/style";
 import { registerPointerHandlers } from "./ui/pointer-event";
 import {
   BarInputCallback,
@@ -74,6 +74,7 @@ import {
 } from "./ui/pointer-handlers";
 import { BeamModes } from "./ui/types";
 
+// score preference
 const scale = 0.08;
 const previewScale = 0.08;
 const leftOfStaff = 250;

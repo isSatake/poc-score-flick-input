@@ -25,7 +25,7 @@ import {
   pitchToY,
   RestStyle,
   TieStyle,
-} from "./style";
+} from "./style/style";
 import { BBox } from "./geometry";
 
 export const initCanvas = ({

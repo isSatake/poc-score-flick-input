@@ -12,8 +12,8 @@ import {
   EXTENSION_LEDGER_LINE,
   repeatDotRadius,
   UNIT,
-} from "./bravura";
-import { BBox, getPathBBox, offsetBBox, Point } from "./geometry";
+} from "../bravura";
+import { BBox, getPathBBox, offsetBBox, Point } from "../geometry";
 import {
   accidentalPathMap,
   downFlagMap,
@@ -22,9 +22,8 @@ import {
   numOfBeamsMap,
   restPathMap,
   upFlagMap,
-} from "./notation/notation";
+} from "../notation/notation";
 import {
-  Accidental,
   Bar,
   Clef,
   Duration,
@@ -33,82 +32,21 @@ import {
   Pitch,
   PitchAcc,
   Rest,
-} from "./notation/types";
+} from "../notation/types";
+import {
+  BarStyle,
+  BeamStyle,
+  ClefStyle,
+  GapStyle,
+  NoteHeadElement,
+  NoteStyle,
+  NoteStyleElement,
+  PaintElement,
+  Pointing,
+  RestStyle,
+  TieStyle,
+} from "./types";
 
-export type CaretStyle = { x: number; y: number; width: number; elIdx: number };
-type OptionalColor = { color?: string };
-// 1音
-export type NoteStyle = {
-  type: "note";
-  note: Note;
-  elements: NoteStyleElement[];
-} & OptionalColor;
-// 1音に含まれる描画パーツ
-export type NoteHeadElement = {
-  type: "head";
-  position: Point;
-  duration: Duration;
-  tie: Point;
-};
-export type NoteStyleElement =
-  | NoteHeadElement
-  | { type: "accidental"; position: Point; accidental: Accidental }
-  | { type: "ledger"; position: Point; width: number }
-  | {
-      type: "flag";
-      position: Point;
-      duration: Duration;
-      direction: "up" | "down";
-    }
-  | {
-      type: "stem";
-      position: Point;
-      width: number;
-      height: number;
-    };
-export type RestStyle = {
-  type: "rest";
-  rest: Rest;
-  position: Point;
-} & OptionalColor;
-export type BarStyle = {
-  type: "bar";
-  bar: Bar;
-  elements: BarStyleElement[];
-} & OptionalColor;
-export type BarStyleElement =
-  | { type: "line"; position: Point; height: number; lineWidth: number }
-  | { type: "dot"; position: Point };
-export type BeamStyle = {
-  type: "beam";
-  nw: Point;
-  ne: Point;
-  sw: Point;
-  se: Point;
-} & OptionalColor;
-export type ClefStyle = {
-  // paintとの分担を考えるとposition持っとくほうがいいかもしれん
-  type: "clef";
-  clef: Clef;
-} & OptionalColor;
-type GapStyle = { type: "gap" } & OptionalColor;
-export type TieStyle = {
-  type: "tie";
-  position: Point;
-  cpLow: Point; // 弧線の曲率が小さい方
-  cpHigh: Point;
-  end: Point;
-} & OptionalColor;
-export type PaintElement =
-  | NoteStyle
-  | RestStyle
-  | BeamStyle
-  | BarStyle
-  | ClefStyle
-  | GapStyle
-  | TieStyle;
-export type Pointing = { index: number; type: PointingType };
-type PointingType = "note" | "rest" | "bar" | "clef";
 const kPointingColor = "#FF0000";
 
 const tiePosition = (noteHeadPos: Point, noteHeadBBox: BBox): Point => {
