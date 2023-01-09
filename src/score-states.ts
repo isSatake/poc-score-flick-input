@@ -55,6 +55,7 @@ export const getStyles = () => styles;
 export const setStyles = (v: PaintElementStyle<PaintElement>[]) => {
   styles = v;
 };
+
 let elementBBoxes: { bbox: BBox; elIdx?: number }[] = [];
 export const getElementBBoxes = () => elementBBoxes;
 export const addElementBBoxes = (v: { bbox: BBox; elIdx?: number }) => {
