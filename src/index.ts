@@ -145,7 +145,6 @@ const updatePreview = (
 };
 
 window.onload = () => {
-  const { canvas: mainCanvas, ctx: mainCtx } = getCanvasById("mainCanvas");
   const { canvas: previewCanvas, ctx: previewCtx } =
     getCanvasById("previewCanvas");
   const noteKeyEls = Array.from(document.getElementsByClassName("note"));
@@ -487,6 +486,7 @@ window.onload = () => {
   );
   registerPointerHandlers(["changeTie"], [new TieHandler(changeTieCallback)]);
 
+  const { canvas: mainCanvas, ctx: mainCtx } = getCanvasById("mainCanvas");
   initCanvas({
     leftPx: 0,
     topPx: 0,
