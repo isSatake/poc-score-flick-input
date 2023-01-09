@@ -7,11 +7,7 @@ import {
 } from "./caret-states";
 import { offsetBBox } from "./geometry";
 import { paintCaret, paintStaff, paintStyle, resetCanvas } from "./paint";
-import {
-  getScale,
-  getStaffOrigin,
-  kDefaultCaretWidth,
-} from "./score-preferences";
+import { getScale, getStaffOrigin } from "./score-preferences";
 import {
   addElementBBoxes,
   getMainElements,
@@ -20,24 +16,15 @@ import {
   initElementBBoxes,
   setStyles,
 } from "./score-states";
-import { determinePaintElementStyle } from "./style/style";
+import { determineCaretStyle, determinePaintElementStyle } from "./style/style";
 
-export const updateMain = (mainCtx: CanvasRenderingContext2D) => {
-  // canvas・各種ステートの初期化、五線の描画
-  console.log("main", "start");
-  resetCanvas({
-    ctx: mainCtx,
-    width: window.innerWidth,
-    height: window.innerHeight,
-    fillStyle: "#fff",
-  });
-  initCaretPositions();
-  initElementBBoxes();
-  mainCtx.save();
-  mainCtx.scale(getScale(), getScale());
-  mainCtx.translate(getStaffOrigin().x, getStaffOrigin().y);
-  paintStaff(mainCtx, 0, 0, UNIT * 100, 1);
-  // style生成
+let isUpdated = false;
+export const getShouldRender = () => isUpdated;
+export const setUpdated = (v: boolean) => {
+  isUpdated = v;
+};
+
+export const updateMain = () => {
   setStyles(
     determinePaintElementStyle(
       getMainElements(),
@@ -46,36 +33,46 @@ export const updateMain = (mainCtx: CanvasRenderingContext2D) => {
       getPointing()
     )
   );
-  // style描画、当たり判定用bbox生成、キャレット生成
+  initCaretPositions();
+  initElementBBoxes();
   let cursor = 0;
   for (const style of getStyles()) {
     console.log("style", style);
     const { width, element, caretOption, bbox, index: elIdx } = style;
-    paintStyle(mainCtx, style);
-    const _bbox = offsetBBox(bbox, { x: cursor });
-    addElementBBoxes({ bbox: _bbox, elIdx });
-    // paintBBox(mainCtx, bbox); // debug
+    addElementBBoxes({ bbox: offsetBBox(bbox, { x: cursor }), elIdx });
     if (caretOption) {
-      const { index: elIdx, defaultWidth } = caretOption;
-      const caretWidth = defaultWidth ? kDefaultCaretWidth : width;
-      addCaret({
-        x: cursor + (defaultWidth ? width / 2 - caretWidth / 2 : 0),
-        y: 0,
-        width: caretWidth,
-        elIdx,
-      });
+      addCaret(determineCaretStyle(caretOption, width, cursor));
     }
     if (element.type !== "beam" && element.type !== "tie") {
       cursor += width;
-      mainCtx.translate(width, 0);
     }
   }
-  mainCtx.restore();
-  updateCaret(mainCtx);
-  console.log("main", "end");
+  setUpdated(true);
 };
 
-const updateCaret = (mainCtx: CanvasRenderingContext2D) => {
+export const renderScore = (ctx: CanvasRenderingContext2D) => {
+  resetCanvas({
+    ctx,
+    width: window.innerWidth,
+    height: window.innerHeight,
+    fillStyle: "#fff",
+  });
+  ctx.save();
+  ctx.scale(getScale(), getScale());
+  ctx.translate(getStaffOrigin().x, getStaffOrigin().y);
+  paintStaff(ctx, 0, 0, UNIT * 100, 1);
+  for (const style of getStyles()) {
+    paintStyle(ctx, style);
+    // paintBBox(ctx, style.bbox); // debug
+    if (style.element.type !== "beam" && style.element.type !== "tie") {
+      ctx.translate(style.width, 0);
+    }
+  }
+  ctx.restore();
+  renderCaret(ctx);
+};
+
+const renderCaret = (mainCtx: CanvasRenderingContext2D) => {
   console.log("carets", getCaretPositions());
   console.log("current caret", getCurrentCaret());
   mainCtx.save();

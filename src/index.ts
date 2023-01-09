@@ -19,7 +19,12 @@ import {
   getScale,
   getStaffOrigin,
 } from "./score-preferences";
-import { updateMain } from "./score-renderer";
+import {
+  getShouldRender,
+  renderScore,
+  setUpdated,
+  updateMain,
+} from "./score-renderer";
 import {
   addCaretIndex,
   changeAccidentalMode,
@@ -179,7 +184,7 @@ window.onload = () => {
         const left = getMainElements()[getLastEditedIndex() - 1];
         const right = getMainElements()[getLastEditedIndex() + 1];
         applyBeamForLastEdited(lastEl, left, right);
-        updateMain(mainCtx);
+        updateMain();
       }
     },
   };
@@ -332,7 +337,7 @@ window.onload = () => {
       setLastEditedIndex(insertedIndex);
       addCaretIndex(caretAdvance);
       setMainElements(elements);
-      updateMain(mainCtx);
+      updateMain();
       copiedElements = [];
     },
     backspace() {
@@ -365,7 +370,7 @@ window.onload = () => {
         }
       }
 
-      updateMain(mainCtx);
+      updateMain();
     },
     finish() {
       previewCanvas.style.visibility = "hidden";
@@ -384,7 +389,7 @@ window.onload = () => {
         }
       }
       setCaretIndex(Math.max(getCaretIndex() - 1, 0));
-      updateMain(mainCtx);
+      updateMain();
     },
     forward() {
       if (getCaretIndex() % 2 === 0) {
@@ -399,7 +404,7 @@ window.onload = () => {
       setCaretIndex(
         Math.min(getCaretIndex() + 1, getCaretPositions().length - 1)
       );
-      updateMain(mainCtx);
+      updateMain();
     },
   };
 
@@ -414,7 +419,7 @@ window.onload = () => {
       setLastEditedIndex(insertedIndex);
       addCaretIndex(caretAdvance);
       setMainElements(elements);
-      updateMain(mainCtx);
+      updateMain();
     },
   };
 
@@ -440,7 +445,7 @@ window.onload = () => {
       }
       if (getPointing() !== nextPointing) {
         setPointing(nextPointing);
-        updateMain(mainCtx);
+        updateMain();
       }
     },
   };
@@ -496,7 +501,18 @@ window.onload = () => {
     height: getPreviewHeight(),
     _canvas: previewCanvas,
   });
-  updateMain(mainCtx);
+  updateMain();
+  scheduleRenderScore(mainCtx);
+};
+
+const scheduleRenderScore = (ctx: CanvasRenderingContext2D) => {
+  requestAnimationFrame(() => {
+    if (getShouldRender()) {
+      renderScore(ctx);
+      setUpdated(false);
+    }
+    scheduleRenderScore(ctx);
+  });
 };
 
 /**
