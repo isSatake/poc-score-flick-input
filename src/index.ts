@@ -1,4 +1,5 @@
 import { bStaffHeight, UNIT } from "./bravura";
+import { getCanvasById } from "./canvas/canvas";
 import { BBox, offsetBBox, Point, scalePoint } from "./geometry";
 import {
   Bar,
@@ -209,13 +210,9 @@ const updatePreview = (
 };
 
 window.onload = () => {
-  const mainCanvas = document.getElementById("mainCanvas") as HTMLCanvasElement;
-  const previewCanvas = document.getElementById(
-    "previewCanvas"
-  ) as HTMLCanvasElement;
-  const mainCtx = mainCanvas.getContext("2d")!;
-  const previewCtx = previewCanvas.getContext("2d")!;
-
+  const { canvas: mainCanvas, ctx: mainCtx } = getCanvasById("mainCanvas");
+  const { canvas: previewCanvas, ctx: previewCtx } =
+    getCanvasById("previewCanvas");
   const noteKeyEls = Array.from(document.getElementsByClassName("note"));
   const changeNoteRestKey =
     document.getElementsByClassName("changeNoteRest")[0];
