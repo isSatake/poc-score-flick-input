@@ -36,12 +36,14 @@ import {
 import {
   BarStyle,
   BeamStyle,
+  CaretOption,
   ClefStyle,
   GapStyle,
   NoteHeadElement,
   NoteStyle,
   NoteStyleElement,
   PaintElement,
+  PaintElementStyle,
   Pointing,
   RestStyle,
   TieStyle,
@@ -978,19 +980,6 @@ const determineTieStyle = (
     width,
     bbox: { left: 0, top: 0, right: 0, bottom: 0 },
   };
-};
-
-type CaretOption = {
-  index: number;
-  defaultWidth?: boolean;
-};
-
-export type PaintElementStyle<T> = {
-  element: T;
-  width: number;
-  bbox: BBox;
-  index?: number;
-  caretOption?: CaretOption;
 };
 
 const gapElementStyle = ({

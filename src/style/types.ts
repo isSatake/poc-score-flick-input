@@ -1,4 +1,4 @@
-import { Point } from "../geometry";
+import { BBox, Point } from "../geometry";
 import { Accidental, Bar, Clef, Duration, Note, Rest } from "../notation/types";
 
 export type CaretStyle = { x: number; y: number; width: number; elIdx: number };
@@ -75,3 +75,14 @@ export type PaintElement =
   | TieStyle;
 export type Pointing = { index: number; type: PointingType };
 type PointingType = "note" | "rest" | "bar" | "clef";
+export type CaretOption = {
+  index: number;
+  defaultWidth?: boolean;
+};
+export type PaintElementStyle<T> = {
+  element: T;
+  width: number;
+  bbox: BBox;
+  index?: number;
+  caretOption?: CaretOption;
+};
