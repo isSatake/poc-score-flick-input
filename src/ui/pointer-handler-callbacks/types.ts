@@ -2,12 +2,6 @@ import { Bar, Duration } from "../../notation/types";
 import { AccidentalModes, BeamModes, TieModes } from "../types";
 import { Point } from "../../geometry";
 
-export interface ChangeAccidentalCallback {
-  getMode(): AccidentalModes;
-
-  next(): void;
-}
-
 // このコールバックはキーハンドラだけじゃなくてMIDIキーとか普通のキーボードとかからも使う想定
 export interface NoteInputCallback {
   startPreview(duration: Duration, downX: number, downY: number): void;

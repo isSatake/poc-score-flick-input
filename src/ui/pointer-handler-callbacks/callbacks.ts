@@ -9,6 +9,7 @@ import {
   setCaretIndex,
 } from "../../caret-states";
 import { BBox, offsetBBox, Point, scalePoint } from "../../geometry";
+import { applyBeamForLastEdited } from "../../notation/notation";
 import {
   Bar,
   Duration,
@@ -28,7 +29,6 @@ import {
 } from "../../score-preferences";
 import { updateMain } from "../../score-renderer";
 import {
-  changeAccidentalMode,
   getAccidentalMode,
   getBeamMode,
   getElementBBoxes,
@@ -38,7 +38,6 @@ import {
   getPointing,
   getStyles,
   getTieMode,
-  setBeamMode,
   setLastEditedIndex,
   setMainElements,
   setPointing,
@@ -46,14 +45,6 @@ import {
 } from "../../score-states";
 import { determinePaintElementStyle } from "../../style/style";
 import { registerPointerHandlers } from "../pointer-event";
-import {
-  BarInputCallback,
-  CanvasCallback,
-  CaretInputCallback,
-  ChangeAccidentalCallback,
-  ChangeTieCallback,
-  NoteInputCallback,
-} from "./types";
 import {
   ArrowHandler,
   BarInputHandler,
@@ -68,21 +59,26 @@ import {
   TieHandler,
 } from "../pointer-handlers";
 import { BeamModes } from "../types";
-import { ChangeNoteRestCallback } from "./change-note-rest";
+import { ChangeAccidentalCallback } from "./change-accidental";
 import { ChangeBeamCallback } from "./change-beam";
-import { applyBeamForLastEdited } from "../../notation/notation";
+import { ChangeNoteRestCallback } from "./change-note-rest";
+import {
+  BarInputCallback,
+  CanvasCallback,
+  CaretInputCallback,
+  ChangeTieCallback,
+  NoteInputCallback,
+} from "./types";
 
 export const registerCallbacks = () => {
   const { canvas: previewCanvas, ctx: previewCtx } =
     CanvasManager.getById("previewCanvas");
-  const changeAccidentalCallback: ChangeAccidentalCallback = {
-    getMode: getAccidentalMode,
-    next: changeAccidentalMode,
-  };
+
   const changeTieCallback: ChangeTieCallback = {
     getMode: getTieMode,
     change: setTieMode,
   };
+
   let copiedElements;
   const noteInputCallback: NoteInputCallback = {
     // (start|update)Preview, commitを共通化したい。
@@ -365,7 +361,7 @@ export const registerCallbacks = () => {
   );
   registerPointerHandlers(
     ["accidentals"],
-    [new ChangeAccidentalHandler(changeAccidentalCallback)]
+    [new ChangeAccidentalHandler(new ChangeAccidentalCallback())]
   );
   registerPointerHandlers([], [new GrayPointerHandler()]);
   registerPointerHandlers(

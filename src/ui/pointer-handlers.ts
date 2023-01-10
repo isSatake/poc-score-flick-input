@@ -4,7 +4,7 @@ import {
   BarInputCallback,
   CanvasCallback,
   CaretInputCallback,
-  ChangeAccidentalCallback,
+  IChangeAccidentalCallback,
   ChangeBeamCallback,
   IChangeNoteRestCallback,
   ChangeTieCallback,
@@ -168,7 +168,7 @@ export class BarInputHandler extends EmptyPointerHandler {
 
 export class ChangeAccidentalHandler extends EmptyPointerHandler {
   private elMap: Map<"sharp" | "natural" | "flat", HTMLDivElement>;
-  constructor(private callback: ChangeAccidentalCallback) {
+  constructor(private callback: IChangeAccidentalCallback) {
     super();
     this.elMap = new Map([
       ["sharp", document.querySelector(".sharp") as HTMLDivElement],
