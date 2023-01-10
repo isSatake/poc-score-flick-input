@@ -1,4 +1,4 @@
-import { getIsNoteInputMode, flipIsNoteInputMode } from "../../score-states";
+import { getIsNoteInputMode, flipIsNoteInputMode } from "../score-states";
 
 export interface IChangeNoteRestCallback {
   isNoteInputMode(): boolean;

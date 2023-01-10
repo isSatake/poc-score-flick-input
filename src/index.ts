@@ -1,4 +1,4 @@
-import { registerCallbacks } from "./ui/pointer-handler-callbacks/callbacks";
+import { registerCallbacks } from "./ui/register-pointer-handlers";
 import { CanvasManager } from "./canvas";
 import { initCanvas } from "./paint";
 import { getPreviewHeight, getPreviewWidth } from "./score-preferences";

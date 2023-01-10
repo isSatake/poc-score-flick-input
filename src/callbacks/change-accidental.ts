@@ -1,5 +1,5 @@
-import { changeAccidentalMode, getAccidentalMode } from "../../score-states";
-import { AccidentalModes } from "../types";
+import { changeAccidentalMode, getAccidentalMode } from "../score-states";
+import { AccidentalModes } from "../ui/types"; // TODO UIには依存したくないかも
 
 export interface IChangeAccidentalCallback {
   getMode(): AccidentalModes;

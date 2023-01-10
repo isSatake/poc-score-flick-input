@@ -1,12 +1,12 @@
-import { applyBeamForLastEdited } from "../../notation/notation";
-import { updateMain } from "../../score-renderer";
+import { applyBeamForLastEdited } from "../notation/notation";
+import { updateMain } from "../score-renderer";
 import {
   getBeamMode,
   setBeamMode,
   getMainElements,
   getLastEditedIndex,
-} from "../../score-states";
-import { BeamModes } from "../types";
+} from "../score-states";
+import { BeamModes } from "../ui/types"; // TODO UIには依存したくない
 
 export interface IChangeBeamCallback {
   getMode(): BeamModes;

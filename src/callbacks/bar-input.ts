@@ -1,5 +1,5 @@
-import { Bar } from "../../notation/types";
-import { updateMain } from "../../score-renderer";
+import { Bar } from "../notation/types";
+import { updateMain } from "../score-renderer";
 import {
   getCaretIndex,
   getMainElements,
@@ -7,8 +7,8 @@ import {
   addCaretIndex,
   setLastEditedIndex,
   setMainElements,
-} from "../../score-states";
-import { inputMusicalElement } from "../../score-updater";
+} from "../score-states";
+import { inputMusicalElement } from "../score-updater";
 
 export interface IBarInputCallback {
   commit(bar: Bar): void;

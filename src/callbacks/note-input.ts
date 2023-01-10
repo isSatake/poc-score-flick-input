@@ -1,14 +1,22 @@
-import { bStaffHeight, UNIT } from "../../bravura";
-import { CanvasManager } from "../../canvas";
-import { Duration, MusicalElement, Pitch, Tie } from "../../notation/types";
-import { initCanvas, paintStaff, paintStyle, resetCanvas } from "../../paint";
-import { sortPitches } from "../../pitch";
+import { inputMusicalElement } from "../score-updater";
+import { determinePaintElementStyle } from "../style/style";
+import { bStaffHeight, UNIT } from "../bravura";
+import { CanvasManager } from "../canvas";
+import {
+  Duration,
+  durations,
+  MusicalElement,
+  Pitch,
+  Tie,
+} from "../notation/types";
+import { initCanvas, paintStaff, paintStyle, resetCanvas } from "../paint";
+import { sortPitches } from "../pitch";
 import {
   getPreviewHeight,
   getPreviewScale,
   getPreviewWidth,
-} from "../../score-preferences";
-import { updateMain } from "../../score-renderer";
+} from "../score-preferences";
+import { updateMain } from "../score-renderer";
 import {
   addCaretIndex,
   getAccidentalMode,
@@ -22,10 +30,8 @@ import {
   setCaretIndex,
   setLastEditedIndex,
   setMainElements,
-} from "../../score-states";
-import { inputMusicalElement } from "../../score-updater";
-import { determinePaintElementStyle } from "../../style/style";
-import { BeamModes } from "../types";
+} from "../score-states";
+import { BeamModes } from "../ui/types"; // TODO UIには依存したくない
 
 // このコールバックはキーハンドラだけじゃなくてMIDIキーとか普通のキーボードとかからも使う想定
 export interface INoteInputCallback {
@@ -237,6 +243,17 @@ export class NoteInputCallback implements INoteInputCallback {
 const pitchByDistance = (scale: number, dy: number, origin: Pitch): Pitch => {
   const unitY = (UNIT / 2) * scale;
   return Math.round(dy / unitY + origin);
+};
+
+const durationByDistance = (
+  scale: number,
+  dx: number,
+  origin: Duration
+): Duration => {
+  const unitX = UNIT * 2 * scale;
+  const _di = Math.round(dx / unitX + durations.indexOf(origin));
+  const di = Math.min(Math.max(_di, 0), 6);
+  return durations[di];
 };
 
 const updatePreview = (

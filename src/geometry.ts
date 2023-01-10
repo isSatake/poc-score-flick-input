@@ -39,3 +39,10 @@ export const getPathBBox = (path: Path, unit: number): BBox => {
     right: path.bbox.ne.x * unit,
   };
 };
+
+export const isPointInBBox = (
+  { x, y }: Point,
+  { left, top, right, bottom }: BBox
+): boolean => {
+  return left <= x && x <= right && top <= y && y <= bottom;
+};

@@ -1,12 +1,12 @@
-import { applyBeamForLastEdited } from "../../notation/notation";
-import { updateMain } from "../../score-renderer";
+import { applyBeamForLastEdited } from "../notation/notation";
+import { updateMain } from "../score-renderer";
 import {
   getCaretIndex,
   getLastEditedIndex,
   getMainElements,
   setCaretIndex,
   getCaretPositions,
-} from "../../score-states";
+} from "../score-states";
 
 export interface IMoveCaretCallback {
   back(): void;
