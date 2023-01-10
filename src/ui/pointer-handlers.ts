@@ -1,7 +1,7 @@
 import { PointerHandler } from "./pointer-event";
 import { Point } from "../geometry";
 import {
-  BarInputCallback,
+  IBarInputCallback,
   CanvasCallback,
   IMoveCaretCallback,
   IChangeAccidentalCallback,
@@ -143,7 +143,7 @@ export class KeyPressHandler extends EmptyPointerHandler {
 
 export class BarInputHandler extends EmptyPointerHandler {
   private candidateContainer: HTMLDivElement;
-  constructor(private callback: BarInputCallback) {
+  constructor(private callback: IBarInputCallback) {
     super();
     this.candidateContainer = document.querySelector(
       ".bars .candidateContainer"

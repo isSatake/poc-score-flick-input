@@ -32,27 +32,16 @@ import {
   NoteInputHandler,
   TieHandler,
 } from "../pointer-handlers";
+import { BarInputCallback } from "./bar-input";
 import { ChangeAccidentalCallback } from "./change-accidental";
 import { ChangeBeamCallback } from "./change-beam";
 import { ChangeNoteRestCallback } from "./change-note-rest";
 import { ChangeTieCallback } from "./change-tie";
 import { MoveCaretCallback } from "./move-caret";
 import { NoteInputCallback } from "./note-input";
-import { BarInputCallback, CanvasCallback } from "./types";
+import { CanvasCallback } from "./types";
 
 export const registerCallbacks = () => {
-  const barInputCallback: BarInputCallback = {
-    commit(bar: Bar) {
-      inputMusicalElement({
-        caretIndex: getCaretIndex(),
-        elements: getMainElements(),
-        newElement: bar,
-        beamMode: getBeamMode(),
-      });
-      updateMain();
-    },
-  };
-
   const canvasCallback: CanvasCallback = {
     onMove(htmlPoint: Point) {
       let nextPointing = undefined;
@@ -104,7 +93,7 @@ export const registerCallbacks = () => {
   );
   registerPointerHandlers(
     ["bars", "candidate"],
-    [new BarInputHandler(barInputCallback)]
+    [new BarInputHandler(new BarInputCallback())]
   );
   registerPointerHandlers(
     ["accidentals"],
