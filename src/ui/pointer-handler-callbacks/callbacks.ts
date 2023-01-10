@@ -1,5 +1,5 @@
-import { bStaffHeight, UNIT } from "./bravura";
-import { CanvasManager } from "./canvas";
+import { bStaffHeight, UNIT } from "../../bravura";
+import { CanvasManager } from "../../canvas";
 import {
   addCaretIndex,
   getCaretByIndex,
@@ -7,8 +7,8 @@ import {
   getCaretPositions,
   getCurrentCaret,
   setCaretIndex,
-} from "./caret-states";
-import { BBox, offsetBBox, Point, scalePoint } from "./geometry";
+} from "../../caret-states";
+import { BBox, offsetBBox, Point, scalePoint } from "../../geometry";
 import {
   Bar,
   Duration,
@@ -16,20 +16,19 @@ import {
   MusicalElement,
   Pitch,
   Tie,
-} from "./notation/types";
-import { initCanvas, paintStaff, paintStyle, resetCanvas } from "./paint";
-import { sortPitches } from "./pitch";
+} from "../../notation/types";
+import { initCanvas, paintStaff, paintStyle, resetCanvas } from "../../paint";
+import { sortPitches } from "../../pitch";
 import {
   getPreviewHeight,
   getPreviewScale,
   getPreviewWidth,
   getScale,
   getStaffOrigin,
-} from "./score-preferences";
-import { updateMain } from "./score-renderer";
+} from "../../score-preferences";
+import { updateMain } from "../../score-renderer";
 import {
   changeAccidentalMode,
-  flipIsNoteInputMode,
   getAccidentalMode,
   getBeamMode,
   getElementBBoxes,
@@ -44,19 +43,17 @@ import {
   setMainElements,
   setPointing,
   setTieMode,
-} from "./score-states";
-import { determinePaintElementStyle } from "./style/style";
-import { registerPointerHandlers } from "./ui/pointer-event";
+} from "../../score-states";
+import { determinePaintElementStyle } from "../../style/style";
+import { registerPointerHandlers } from "../pointer-event";
 import {
   BarInputCallback,
   CanvasCallback,
   CaretInputCallback,
   ChangeAccidentalCallback,
-  ChangeBeamCallback,
   ChangeTieCallback,
-  IChangeNoteRestCallback,
   NoteInputCallback,
-} from "./ui/pointer-handler-callbacks/types";
+} from "./types";
 import {
   ArrowHandler,
   BarInputHandler,
@@ -69,52 +66,15 @@ import {
   KeyPressHandler,
   NoteInputHandler,
   TieHandler,
-} from "./ui/pointer-handlers";
-import { BeamModes } from "./ui/types";
+} from "../pointer-handlers";
+import { BeamModes } from "../types";
+import { ChangeNoteRestCallback } from "./change-note-rest";
+import { ChangeBeamCallback } from "./change-beam";
+import { applyBeamForLastEdited } from "../../notation/notation";
 
 export const registerCallbacks = () => {
   const { canvas: previewCanvas, ctx: previewCtx } =
     CanvasManager.getById("previewCanvas");
-  const noteKeyEls = Array.from(document.getElementsByClassName("note"));
-  const changeNoteRestKey =
-    document.getElementsByClassName("changeNoteRest")[0];
-  const changeNoteRestCallback: IChangeNoteRestCallback = {
-    isNoteInputMode() {
-      return getIsNoteInputMode();
-    },
-    change() {
-      noteKeyEls.forEach((el) => {
-        el.className = el.className.replace(
-          this.isNoteInputMode() ? "note" : "rest",
-          this.isNoteInputMode() ? "rest" : "note"
-        );
-      });
-      changeNoteRestKey.className = changeNoteRestKey.className.replace(
-        this.isNoteInputMode() ? "rest" : "note",
-        this.isNoteInputMode() ? "note" : "rest"
-      );
-      flipIsNoteInputMode();
-    },
-  };
-  const changeBeamCallback: ChangeBeamCallback = {
-    getMode: getBeamMode,
-    change(mode: BeamModes) {
-      noteKeyEls.forEach((el) => {
-        el.className = el.className.replace(
-          mode === "nobeam" ? "beamed" : "nobeam",
-          mode === "nobeam" ? "nobeam" : "beamed"
-        );
-      });
-      setBeamMode(mode);
-      const lastEl = getMainElements()[getLastEditedIndex()];
-      if (lastEl) {
-        const left = getMainElements()[getLastEditedIndex() - 1];
-        const right = getMainElements()[getLastEditedIndex() + 1];
-        applyBeamForLastEdited(lastEl, left, right);
-        updateMain();
-      }
-    },
-  };
   const changeAccidentalCallback: ChangeAccidentalCallback = {
     getMode: getAccidentalMode,
     next: changeAccidentalMode,
@@ -384,11 +344,11 @@ export const registerCallbacks = () => {
   );
   registerPointerHandlers(
     ["changeNoteRest"],
-    [new ChangeNoteRestHandler(changeNoteRestCallback)]
+    [new ChangeNoteRestHandler(new ChangeNoteRestCallback())]
   );
   registerPointerHandlers(
     ["changeBeam"],
-    [new ChangeBeamHandler(changeBeamCallback)]
+    [new ChangeBeamHandler(new ChangeBeamCallback())]
   );
   registerPointerHandlers(["grayKey", "whiteKey"], [new KeyPressHandler()]);
   registerPointerHandlers(
@@ -567,31 +527,6 @@ function applyBeam(
         delete left.beam;
       } else if (left?.beam === "continue") {
         left.beam = "end";
-      }
-    }
-  }
-}
-
-function applyBeamForLastEdited(
-  last: MusicalElement,
-  left?: MusicalElement,
-  right?: MusicalElement
-) {
-  if (
-    last.type === "note" &&
-    (last.beam === "begin" || last.beam === "continue")
-  ) {
-    if (
-      !right ||
-      (right?.type === "note" && (!right?.beam || right?.beam === "begin"))
-    ) {
-      if (
-        left?.type === "note" &&
-        (left?.beam === "begin" || left?.beam === "continue")
-      ) {
-        last.beam = "end";
-      } else {
-        delete last.beam;
       }
     }
   }

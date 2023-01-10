@@ -14,7 +14,7 @@ import {
   noteHeadByDuration,
   restPathMap,
   upFlagMap,
-} from "./notation/notation";
+} from "./notation/constants";
 import { pitchToY } from "./style/style";
 import {
   BarStyle,

@@ -22,7 +22,7 @@ import {
   numOfBeamsMap,
   restPathMap,
   upFlagMap,
-} from "../notation/notation";
+} from "../notation/constants";
 import {
   Bar,
   Clef,

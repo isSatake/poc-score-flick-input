@@ -2,18 +2,6 @@ import { Bar, Duration } from "../../notation/types";
 import { AccidentalModes, BeamModes, TieModes } from "../types";
 import { Point } from "../../geometry";
 
-export interface IChangeNoteRestCallback {
-  isNoteInputMode(): boolean;
-
-  change(): void;
-}
-
-export interface ChangeBeamCallback {
-  getMode(): BeamModes;
-
-  change(mode: BeamModes): void;
-}
-
 export interface ChangeAccidentalCallback {
   getMode(): AccidentalModes;
 
