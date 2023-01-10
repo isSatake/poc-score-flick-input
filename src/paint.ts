@@ -6,7 +6,7 @@ import {
   Path,
   repeatDotRadius,
   UNIT,
-} from "./bravura";
+} from "./font/bravura";
 import { BBox } from "./geometry";
 import {
   accidentalPathMap,

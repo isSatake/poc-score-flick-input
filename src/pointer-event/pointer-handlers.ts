@@ -1,16 +1,14 @@
-import { PointerHandler } from "./pointer-event";
+import { IBarInputCallback } from "../callbacks/bar-input";
+import { CanvasCallback } from "../callbacks/canvas";
+import { IChangeAccidentalCallback } from "../callbacks/change-accidental";
+import { ChangeBeamCallback } from "../callbacks/change-beam";
+import { IChangeNoteRestCallback } from "../callbacks/change-note-rest";
+import { IChangeTieCallback } from "../callbacks/change-tie";
+import { IMoveCaretCallback } from "../callbacks/move-caret";
+import { INoteInputCallback } from "../callbacks/note-input";
 import { Point } from "../geometry";
-import {
-  IBarInputCallback,
-  CanvasCallback,
-  IMoveCaretCallback,
-  IChangeAccidentalCallback,
-  ChangeBeamCallback,
-  IChangeNoteRestCallback,
-  IChangeTieCallback,
-  INoteInputCallback,
-} from "./pointer-handler-callbacks/types";
 import { BarTypes, Duration } from "../notation/types";
+import { PointerHandler } from "./pointer-event";
 
 class EmptyPointerHandler implements PointerHandler {
   constructor() {}

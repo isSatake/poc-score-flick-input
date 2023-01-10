@@ -12,7 +12,7 @@ import {
   EXTENSION_LEDGER_LINE,
   repeatDotRadius,
   UNIT,
-} from "../bravura";
+} from "../font/bravura";
 import { BBox, getPathBBox, offsetBBox, Point } from "../geometry";
 import {
   accidentalPathMap,

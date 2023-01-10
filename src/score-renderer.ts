@@ -1,4 +1,4 @@
-import { UNIT } from "./bravura";
+import { UNIT } from "./font/bravura";
 import { offsetBBox } from "./geometry";
 import { paintCaret, paintStaff, paintStyle, resetCanvas } from "./paint";
 import { getScale, getStaffOrigin } from "./score-preferences";

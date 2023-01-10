@@ -24,7 +24,7 @@ import {
   RestPath,
   WIDTH_NOTE_HEAD_BLACK,
   WIDTH_NOTE_HEAD_WHOLE,
-} from "../bravura";
+} from "../font/bravura";
 
 export const upFlagMap = new Map<Duration, FlagUp>([
   [8, bFlag8Up],

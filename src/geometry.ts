@@ -1,4 +1,4 @@
-import { Path } from "./bravura";
+import { Path } from "./font/bravura";
 
 export type Point = { x: number; y: number };
 export type BBox = {

@@ -1,6 +1,6 @@
 import { inputMusicalElement } from "../score-updater";
 import { determinePaintElementStyle } from "../style/style";
-import { bStaffHeight, UNIT } from "../bravura";
+import { bStaffHeight, UNIT } from "../font/bravura";
 import { CanvasManager } from "../canvas";
 import {
   Duration,
