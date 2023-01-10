@@ -1,14 +1,12 @@
 import { UNIT } from "./bravura";
+import { offsetBBox } from "./geometry";
+import { paintCaret, paintStaff, paintStyle, resetCanvas } from "./paint";
+import { getScale, getStaffOrigin } from "./score-preferences";
 import {
   addCaret,
   getCaretPositions,
   getCurrentCaret,
   initCaretPositions,
-} from "./caret-states";
-import { offsetBBox } from "./geometry";
-import { paintCaret, paintStaff, paintStyle, resetCanvas } from "./paint";
-import { getScale, getStaffOrigin } from "./score-preferences";
-import {
   addElementBBoxes,
   getMainElements,
   getPointing,

@@ -3,12 +3,12 @@ import { Point } from "../geometry";
 import {
   BarInputCallback,
   CanvasCallback,
-  CaretInputCallback,
+  IMoveCaretCallback,
   IChangeAccidentalCallback,
   ChangeBeamCallback,
   IChangeNoteRestCallback,
   IChangeTieCallback,
-  NoteInputCallback,
+  INoteInputCallback,
 } from "./pointer-handler-callbacks/types";
 import { BarTypes, Duration } from "../notation/types";
 
@@ -201,7 +201,7 @@ export class NoteInputHandler extends EmptyPointerHandler {
   private targetClassNames: string[] = [];
   private dragDy: number | undefined;
 
-  constructor(private callback: NoteInputCallback) {
+  constructor(private callback: INoteInputCallback) {
     super();
   }
 
@@ -260,7 +260,7 @@ export class NoteInputHandler extends EmptyPointerHandler {
 }
 
 export class ArrowHandler extends EmptyPointerHandler {
-  constructor(private callback: CaretInputCallback) {
+  constructor(private callback: IMoveCaretCallback) {
     super();
   }
 

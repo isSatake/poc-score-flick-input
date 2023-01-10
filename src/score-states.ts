@@ -1,8 +1,12 @@
 import { BBox } from "./geometry";
 import { MusicalElement } from "./notation/types";
-import { PaintElementStyle, PaintElement, Pointing } from "./style/types";
+import {
+  CaretStyle,
+  PaintElement,
+  PaintElementStyle,
+  Pointing,
+} from "./style/types";
 import { BeamModes, kAccidentalModes, TieModes } from "./ui/types";
-export * from "./caret-states";
 
 let mainElements: MusicalElement[] = [
   { type: "note", duration: 4, pitches: [{ pitch: 1 }], tie: "start" },
@@ -70,3 +74,29 @@ export const getPointing = () => pointing;
 export const setPointing = (v?: Pointing) => {
   pointing = v;
 };
+
+let caretIndex = 0;
+export function getCaretIndex() {
+  return caretIndex;
+}
+export function setCaretIndex(v: number) {
+  caretIndex = v;
+}
+export function addCaretIndex(v: number) {
+  caretIndex += v;
+}
+
+let caretPositions: CaretStyle[] = [];
+export function initCaretPositions() {
+  caretPositions = [];
+}
+export function getCaretPositions() {
+  return caretPositions;
+}
+export function addCaret(v: CaretStyle) {
+  caretPositions.push(v);
+}
+export const getCaretByIndex = (i: number) => caretPositions[i];
+export function getCurrentCaret() {
+  return caretPositions[caretIndex];
+}
