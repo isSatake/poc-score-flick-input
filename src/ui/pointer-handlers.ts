@@ -7,7 +7,7 @@ import {
   IChangeAccidentalCallback,
   ChangeBeamCallback,
   IChangeNoteRestCallback,
-  ChangeTieCallback,
+  IChangeTieCallback,
   NoteInputCallback,
 } from "./pointer-handler-callbacks/types";
 import { BarTypes, Duration } from "../notation/types";
@@ -286,7 +286,7 @@ export class CanvasPointerHandler extends EmptyPointerHandler {
 
 export class TieHandler extends EmptyPointerHandler {
   private tieEl = document.querySelector(".changeTie") as HTMLDivElement;
-  constructor(private callback: ChangeTieCallback) {
+  constructor(private callback: IChangeTieCallback) {
     super();
   }
 

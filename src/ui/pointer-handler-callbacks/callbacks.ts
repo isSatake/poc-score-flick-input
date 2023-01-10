@@ -41,7 +41,6 @@ import {
   setLastEditedIndex,
   setMainElements,
   setPointing,
-  setTieMode,
 } from "../../score-states";
 import { determinePaintElementStyle } from "../../style/style";
 import { registerPointerHandlers } from "../pointer-event";
@@ -62,22 +61,17 @@ import { BeamModes } from "../types";
 import { ChangeAccidentalCallback } from "./change-accidental";
 import { ChangeBeamCallback } from "./change-beam";
 import { ChangeNoteRestCallback } from "./change-note-rest";
+import { ChangeTieCallback } from "./change-tie";
 import {
   BarInputCallback,
   CanvasCallback,
   CaretInputCallback,
-  ChangeTieCallback,
   NoteInputCallback,
 } from "./types";
 
 export const registerCallbacks = () => {
   const { canvas: previewCanvas, ctx: previewCtx } =
     CanvasManager.getById("previewCanvas");
-
-  const changeTieCallback: ChangeTieCallback = {
-    getMode: getTieMode,
-    change: setTieMode,
-  };
 
   let copiedElements;
   const noteInputCallback: NoteInputCallback = {
@@ -368,7 +362,10 @@ export const registerCallbacks = () => {
     ["mainCanvas"],
     [new CanvasPointerHandler(canvasCallback)]
   );
-  registerPointerHandlers(["changeTie"], [new TieHandler(changeTieCallback)]);
+  registerPointerHandlers(
+    ["changeTie"],
+    [new TieHandler(new ChangeTieCallback())]
+  );
 };
 const pitchByDistance = (scale: number, dy: number, origin: Pitch): Pitch => {
   const unitY = (UNIT / 2) * scale;

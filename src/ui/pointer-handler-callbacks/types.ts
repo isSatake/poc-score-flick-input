@@ -28,9 +28,3 @@ export interface BarInputCallback {
 export interface CanvasCallback {
   onMove(htmlPoint: Point): void;
 }
-
-export interface ChangeTieCallback {
-  getMode(): TieModes;
-
-  change(next: TieModes): void;
-}
