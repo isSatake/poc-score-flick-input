@@ -6,7 +6,7 @@ import {
   PaintElementStyle,
   Pointing,
 } from "./style/types";
-import { BeamModes, kAccidentalModes, TieModes } from "./ui/types";
+import { BeamModes, kAccidentalModes, TieModes } from "./input-modes";
 
 let mainElements: MusicalElement[] = [
   { type: "note", duration: 4, pitches: [{ pitch: 1 }], tie: "start" },

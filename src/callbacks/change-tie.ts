@@ -1,5 +1,5 @@
 import { getTieMode, setTieMode } from "../score-states";
-import { TieModes } from "../ui/types";
+import { TieModes } from "../input-modes";
 
 export interface IChangeTieCallback {
   getMode(): TieModes;

@@ -6,7 +6,7 @@ import {
   getMainElements,
   getLastEditedIndex,
 } from "../score-states";
-import { BeamModes } from "../ui/types"; // TODO UIには依存したくない
+import { BeamModes } from "../input-modes";
 
 export interface IChangeBeamCallback {
   getMode(): BeamModes;

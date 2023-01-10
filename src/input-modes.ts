@@ -1,4 +1,4 @@
-import { kAccidentals } from "../notation/types";
+import { kAccidentals } from "./notation/types";
 
 export type BeamModes = "beam" | "lock" | "nobeam";
 export type TieModes = "tie" | "lock" | undefined;

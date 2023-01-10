@@ -31,7 +31,7 @@ import {
   setLastEditedIndex,
   setMainElements,
 } from "../score-states";
-import { BeamModes } from "../ui/types"; // TODO UIには依存したくない
+import { BeamModes } from "../input-modes";
 
 // このコールバックはキーハンドラだけじゃなくてMIDIキーとか普通のキーボードとかからも使う想定
 export interface INoteInputCallback {
