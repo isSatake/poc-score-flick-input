@@ -31,6 +31,11 @@ export const updateMain = () => {
       getPointing()
     )
   );
+  updateUIState();
+  setUpdated(true);
+};
+
+const updateUIState = () => {
   initCaretPositions();
   initElementBBoxes();
   let cursor = 0;
@@ -45,7 +50,6 @@ export const updateMain = () => {
       cursor += width;
     }
   }
-  setUpdated(true);
 };
 
 export const renderScore = (ctx: CanvasRenderingContext2D) => {
