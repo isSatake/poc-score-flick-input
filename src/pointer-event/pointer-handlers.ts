@@ -1,16 +1,14 @@
-import { PointerHandler } from "./pointer-event";
+import { IBarInputCallback } from "../callbacks/bar-input";
+import { CanvasCallback } from "../callbacks/canvas";
+import { IChangeAccidentalCallback } from "../callbacks/change-accidental";
+import { ChangeBeamCallback } from "../callbacks/change-beam";
+import { IChangeNoteRestCallback } from "../callbacks/change-note-rest";
+import { IChangeTieCallback } from "../callbacks/change-tie";
+import { IMoveCaretCallback } from "../callbacks/move-caret";
+import { INoteInputCallback } from "../callbacks/note-input";
 import { Point } from "../geometry";
-import {
-  BarInputCallback,
-  CanvasCallback,
-  CaretInputCallback,
-  ChangeAccidentalCallback,
-  ChangeBeamCallback,
-  ChangeNoteRestCallback,
-  ChangeTieCallback,
-  NoteInputCallback,
-} from "./callbacks";
 import { BarTypes, Duration } from "../notation/types";
+import { PointerHandler } from "./pointer-event";
 
 class EmptyPointerHandler implements PointerHandler {
   constructor() {}
@@ -84,7 +82,7 @@ export class GrayPointerHandler extends EmptyPointerHandler {
 export class ChangeNoteRestHandler extends EmptyPointerHandler {
   private changeButton = document.getElementsByClassName("changeNoteRest")[0];
 
-  constructor(private callback: ChangeNoteRestCallback) {
+  constructor(private callback: IChangeNoteRestCallback) {
     super();
   }
 
@@ -143,7 +141,7 @@ export class KeyPressHandler extends EmptyPointerHandler {
 
 export class BarInputHandler extends EmptyPointerHandler {
   private candidateContainer: HTMLDivElement;
-  constructor(private callback: BarInputCallback) {
+  constructor(private callback: IBarInputCallback) {
     super();
     this.candidateContainer = document.querySelector(
       ".bars .candidateContainer"
@@ -168,7 +166,7 @@ export class BarInputHandler extends EmptyPointerHandler {
 
 export class ChangeAccidentalHandler extends EmptyPointerHandler {
   private elMap: Map<"sharp" | "natural" | "flat", HTMLDivElement>;
-  constructor(private callback: ChangeAccidentalCallback) {
+  constructor(private callback: IChangeAccidentalCallback) {
     super();
     this.elMap = new Map([
       ["sharp", document.querySelector(".sharp") as HTMLDivElement],
@@ -201,7 +199,7 @@ export class NoteInputHandler extends EmptyPointerHandler {
   private targetClassNames: string[] = [];
   private dragDy: number | undefined;
 
-  constructor(private callback: NoteInputCallback) {
+  constructor(private callback: INoteInputCallback) {
     super();
   }
 
@@ -260,7 +258,7 @@ export class NoteInputHandler extends EmptyPointerHandler {
 }
 
 export class ArrowHandler extends EmptyPointerHandler {
-  constructor(private callback: CaretInputCallback) {
+  constructor(private callback: IMoveCaretCallback) {
     super();
   }
 
@@ -286,7 +284,7 @@ export class CanvasPointerHandler extends EmptyPointerHandler {
 
 export class TieHandler extends EmptyPointerHandler {
   private tieEl = document.querySelector(".changeTie") as HTMLDivElement;
-  constructor(private callback: ChangeTieCallback) {
+  constructor(private callback: IChangeTieCallback) {
     super();
   }
 

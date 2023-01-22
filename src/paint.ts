@@ -6,14 +6,16 @@ import {
   Path,
   repeatDotRadius,
   UNIT,
-} from "./bravura";
+} from "./font/bravura";
+import { BBox } from "./geometry";
 import {
   accidentalPathMap,
   downFlagMap,
   noteHeadByDuration,
   restPathMap,
   upFlagMap,
-} from "./notation/notation";
+} from "./notation/constants";
+import { pitchToY } from "./style/style";
 import {
   BarStyle,
   BeamStyle,
@@ -22,21 +24,17 @@ import {
   NoteStyle,
   PaintElement,
   PaintElementStyle,
-  pitchToY,
   RestStyle,
   TieStyle,
-} from "./style";
-import { BBox } from "./geometry";
+} from "./style/types";
 
 export const initCanvas = ({
-  dpr,
   leftPx,
   topPx,
   width,
   height,
   _canvas,
 }: {
-  dpr: number;
   leftPx: number;
   topPx: number;
   width: number;
@@ -49,10 +47,10 @@ export const initCanvas = ({
   canvas.style.left = `${leftPx}px`;
   canvas.style.width = `${width}px`;
   // https://developer.mozilla.org/en-US/docs/Web/API/Canvas_API/Tutorial/Optimizing_canvas#scaling_for_high_resolution_displays
-  canvas.width = width * dpr;
-  canvas.height = height * dpr;
+  canvas.width = width * devicePixelRatio;
+  canvas.height = height * devicePixelRatio;
   canvas.style.height = `${height}px`;
-  canvas.getContext("2d")?.scale(dpr, dpr);
+  canvas.getContext("2d")?.scale(devicePixelRatio, devicePixelRatio);
 };
 
 const paintBravuraPath = (
