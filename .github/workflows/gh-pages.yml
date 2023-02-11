@@ -22,7 +22,8 @@ jobs:
           npm run prd
       - name: commit
         run: |
-          git add .
+          git add -f out.js
+          git add -f out.js.map
           git commit -m "commit compiled codes"
       - name: push
         uses: ad-m/github-push-action@v0.6.0
