@@ -1,4 +1,4 @@
-import { Point } from "./geometry";
+import { Point } from "../geometry";
 
 export class Matrix {
   private dommtx: DOMMatrix;

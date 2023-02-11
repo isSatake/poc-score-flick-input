@@ -1,4 +1,4 @@
-import { Path } from "./bravura";
+import { Path } from "./font/bravura";
 
 export type Point = { x: number; y: number };
 export type BBox = {
@@ -38,4 +38,11 @@ export const getPathBBox = (path: Path, unit: number): BBox => {
     bottom: -path.bbox.sw.y * unit,
     right: path.bbox.ne.x * unit,
   };
+};
+
+export const isPointInBBox = (
+  { x, y }: Point,
+  { left, top, right, bottom }: BBox
+): boolean => {
+  return left <= x && x <= right && top <= y && y <= bottom;
 };

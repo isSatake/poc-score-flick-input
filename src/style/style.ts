@@ -1,15 +1,4 @@
 import {
-  Accidental,
-  Bar,
-  Clef,
-  Duration,
-  MusicalElement,
-  Note,
-  Pitch,
-  PitchAcc,
-  Rest,
-} from "./notation/types";
-import {
   bBarlineSeparation,
   bBeamSpacing,
   bBeamThickness,
@@ -21,10 +10,10 @@ import {
   bThickBarlineThickness,
   bThinBarlineThickness,
   EXTENSION_LEDGER_LINE,
-  Path,
   repeatDotRadius,
   UNIT,
-} from "./bravura";
+} from "../font/bravura";
+import { BBox, getPathBBox, offsetBBox, Point } from "../geometry";
 import {
   accidentalPathMap,
   downFlagMap,
@@ -33,83 +22,35 @@ import {
   numOfBeamsMap,
   restPathMap,
   upFlagMap,
-} from "./notation/notation";
-import { addPoint, BBox, getPathBBox, offsetBBox, Point } from "./geometry";
+} from "../notation/constants";
+import {
+  Bar,
+  Clef,
+  Duration,
+  MusicalElement,
+  Note,
+  Pitch,
+  PitchAcc,
+  Rest,
+} from "../notation/types";
+import { kDefaultCaretWidth } from "../score-preferences";
+import {
+  BarStyle,
+  BeamStyle,
+  CaretOption,
+  CaretStyle,
+  ClefStyle,
+  GapStyle,
+  NoteHeadElement,
+  NoteStyle,
+  NoteStyleElement,
+  PaintElement,
+  PaintElementStyle,
+  Pointing,
+  RestStyle,
+  TieStyle,
+} from "./types";
 
-export type CaretStyle = { x: number; y: number; width: number; elIdx: number };
-type OptionalColor = { color?: string };
-// 1音
-export type NoteStyle = {
-  type: "note";
-  note: Note;
-  elements: NoteStyleElement[];
-} & OptionalColor;
-// 1音に含まれる描画パーツ
-export type NoteHeadElement = {
-  type: "head";
-  position: Point;
-  duration: Duration;
-  tie: Point;
-};
-export type NoteStyleElement =
-  | NoteHeadElement
-  | { type: "accidental"; position: Point; accidental: Accidental }
-  | { type: "ledger"; position: Point; width: number }
-  | {
-      type: "flag";
-      position: Point;
-      duration: Duration;
-      direction: "up" | "down";
-    }
-  | {
-      type: "stem";
-      position: Point;
-      width: number;
-      height: number;
-    };
-export type RestStyle = {
-  type: "rest";
-  rest: Rest;
-  position: Point;
-} & OptionalColor;
-export type BarStyle = {
-  type: "bar";
-  bar: Bar;
-  elements: BarStyleElement[];
-} & OptionalColor;
-export type BarStyleElement =
-  | { type: "line"; position: Point; height: number; lineWidth: number }
-  | { type: "dot"; position: Point };
-export type BeamStyle = {
-  type: "beam";
-  nw: Point;
-  ne: Point;
-  sw: Point;
-  se: Point;
-} & OptionalColor;
-export type ClefStyle = {
-  // paintとの分担を考えるとposition持っとくほうがいいかもしれん
-  type: "clef";
-  clef: Clef;
-} & OptionalColor;
-type GapStyle = { type: "gap" } & OptionalColor;
-export type TieStyle = {
-  type: "tie";
-  position: Point;
-  cpLow: Point; // 弧線の曲率が小さい方
-  cpHigh: Point;
-  end: Point;
-} & OptionalColor;
-export type PaintElement =
-  | NoteStyle
-  | RestStyle
-  | BeamStyle
-  | BarStyle
-  | ClefStyle
-  | GapStyle
-  | TieStyle;
-export type Pointing = { index: number; type: PointingType };
-type PointingType = "note" | "rest" | "bar" | "clef";
 const kPointingColor = "#FF0000";
 
 const tiePosition = (noteHeadPos: Point, noteHeadBBox: BBox): Point => {
@@ -1043,19 +984,6 @@ const determineTieStyle = (
   };
 };
 
-type CaretOption = {
-  index: number;
-  defaultWidth?: boolean;
-};
-
-export type PaintElementStyle<T> = {
-  element: T;
-  width: number;
-  bbox: BBox;
-  index?: number;
-  caretOption?: CaretOption;
-};
-
 const gapElementStyle = ({
   width,
   height,
@@ -1207,4 +1135,19 @@ export const determinePaintElementStyle = (
     styles.splice(index, 0, style);
   }
   return styles;
+};
+
+export const determineCaretStyle = (
+  option: CaretOption,
+  elWidth: number,
+  leftOfCaret: number
+): CaretStyle => {
+  const { index: elIdx, defaultWidth } = option;
+  const caretWidth = defaultWidth ? kDefaultCaretWidth : elWidth;
+  return {
+    x: leftOfCaret + (defaultWidth ? elWidth / 2 - caretWidth / 2 : 0),
+    y: 0,
+    width: caretWidth,
+    elIdx,
+  };
 };
