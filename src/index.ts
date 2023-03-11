@@ -9,8 +9,11 @@ import {
   updateMain,
 } from "./score-renderer";
 
-window.onload = () => {
+window.addEventListener("load", () => {
   console.log("start");
+  if ("serviceWorker" in navigator) {
+    window.navigator.serviceWorker.register("./sw.js");
+  }
   const { canvas: mainCanvas, ctx: mainCtx } =
     CanvasManager.getById("mainCanvas");
   const { canvas: previewCanvas } = CanvasManager.getById("previewCanvas");
@@ -31,7 +34,7 @@ window.onload = () => {
   registerCallbacks();
   updateMain();
   scheduleRenderScore(mainCtx);
-};
+});
 
 const scheduleRenderScore = (ctx: CanvasRenderingContext2D) => {
   requestAnimationFrame(() => {
