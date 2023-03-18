@@ -46,11 +46,12 @@ export const initCanvas = ({
   canvas.style.top = `${topPx}px`;
   canvas.style.left = `${leftPx}px`;
   canvas.style.width = `${width}px`;
-  // https://developer.mozilla.org/en-US/docs/Web/API/Canvas_API/Tutorial/Optimizing_canvas#scaling_for_high_resolution_displays
-  canvas.width = width * devicePixelRatio;
-  canvas.height = height * devicePixelRatio;
   canvas.style.height = `${height}px`;
-  canvas.getContext("2d")?.scale(devicePixelRatio, devicePixelRatio);
+  // https://developer.mozilla.org/en-US/docs/Web/API/Canvas_API/Tutorial/Optimizing_canvas#scaling_for_high_resolution_displays
+  // iOS PWAで描画されなくなるので一時的にやめる
+  canvas.width = width; //* devicePixelRatio;
+  canvas.height = height; //* devicePixelRatio;
+  canvas.getContext("2d"); //?.scale(devicePixelRatio, devicePixelRatio);
 };
 
 const paintBravuraPath = (
