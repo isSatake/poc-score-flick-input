@@ -20,20 +20,19 @@ body {
   box-shadow: #ccc 0 20px 70px -10px;
 }
 
-/*#keyboard {*/
-/*    display: flex;*/
-/*    flex-direction: column;*/
-/*    align-items: center;*/
-/*    position: absolute;*/
-/*    background: #d5d8dd;*/
-/*    width: 100%;*/
-/*    height: 38%;*/
-/*    left: 0;*/
-/*    bottom: 0;*/
-/*    padding-bottom: env(safe-area-inset-bottom, 20px);*/
-/*}*/
+.keyboard.mobile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: absolute;
+  background: #d5d8dd;
+  width: 100%;
+  left: 0;
+  bottom: 0;
+  padding-bottom: calc(env(safe-area-inset-bottom) + 124px);
+}
 
-#keyboard {
+.keyboard.desktop {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -48,25 +47,15 @@ body {
   box-shadow: #ccc 0 20px 70px -10px;
 }
 
-/*.keyHeader {*/
-/*    height: 125px;*/
-/*}*/
-
 .keyHeader {
   height: 54px;
 }
 
-/*.keyContainer {*/
-/*    display: grid;*/
-/*    grid-template-columns: repeat(5, 1fr);*/
-/*    grid-template-rows: repeat(4, 1fr);*/
-/*    column-gap: 16px;*/
-/*    row-gap: 16px;*/
-/*    width: 98%;*/
-/*    aspect-ratio: 32/17;*/
-/*}*/
+.mobile .keyHeader {
+  height: 126px;
+}
 
-.keyContainer {
+.desktop > .keyContainer {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
   grid-template-rows: repeat(4, 1fr);
@@ -76,6 +65,16 @@ body {
   height: 224px;
 }
 
+.mobile .keyContainer {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  grid-template-rows: repeat(4, 1fr);
+  column-gap: 16px;
+  row-gap: 16px;
+  width: 98%;
+  aspect-ratio: 1.85;
+}
+
 .keyContainer > div {
   border-radius: 5px;
   box-shadow: #8d9095 0 3px;
@@ -83,6 +82,10 @@ body {
   justify-content: center;
   width: 100%;
   height: 100%;
+}
+
+.mobile > .keyContainer > div {
+  border-radius: 12px;
 }
 
 .candidateContainer {
@@ -451,7 +454,6 @@ body {
 }
 
 .keyboardHandle {
-  visibility: hidden;
   margin: 18px auto 0;
   background: #aaa;
   width: 40px;
@@ -459,8 +461,8 @@ body {
   border-radius: 2px;
 }
 
-.keyboardHandle {
-  visibility: visible;
+.mobile .keyboardHandle {
+  visibility: hidden;
 }
 
 #pointer {
